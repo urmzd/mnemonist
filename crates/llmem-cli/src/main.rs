@@ -16,7 +16,7 @@ struct Cli {
 enum Command {
     /// Initialize a memory directory
     Init {
-        /// Initialize global memory (~/.config/ai-memory/) instead of project
+        /// Initialize global memory (~/.config/llmem/) instead of project
         #[arg(long, short)]
         global: bool,
 

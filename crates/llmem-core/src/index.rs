@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn init_and_save() {
         let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join(".ai-memory");
+        let dir = tmp.path().join(".llmem");
         let mut index = MemoryIndex::init(&dir).unwrap();
         index
             .add(IndexEntry {

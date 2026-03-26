@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A specification and Rust implementation defining a convention for storing AI agent memory as plain markdown files. Two levels: project (`.ai-memory/` at repo root) and global (`~/.config/ai-memory/`).
+A specification and Rust implementation defining a convention for storing AI agent memory as plain markdown files. Two levels: project (`.llmem/` at repo root) and global (`~/.config/llmem/`).
 
 ## Architecture
 

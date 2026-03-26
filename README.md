@@ -13,7 +13,7 @@
 
 ## Features
 
-- Two-level memory: project (`.ai-memory/`) and global (`~/.config/ai-memory/`)
+- Two-level memory: project (`.llmem/`) and global (`~/.config/llmem/`)
 - Plain markdown with YAML frontmatter — human-readable, git-friendly
 - Dynamic loading — index always loaded, individual files read on-demand
 - Typed memories: user, feedback, project, reference
@@ -30,19 +30,19 @@ cargo install llmem-cli          # CLI
 cargo install llmem-server       # RAG server (optional)
 ```
 
-Or use without tooling — just create `.ai-memory/MEMORY.md` manually.
+Or use without tooling — just create `.llmem/MEMORY.md` manually.
 
 ## Quick Start
 
 ### Without tooling
 
 ```bash
-mkdir .ai-memory
-cat > .ai-memory/MEMORY.md << 'EOF'
+mkdir .llmem
+cat > .llmem/MEMORY.md << 'EOF'
 - [Prefer Rust](feedback_prefer_rust.md) — default to Rust for new CLI tools
 EOF
 
-cat > .ai-memory/feedback_prefer_rust.md << 'EOF'
+cat > .llmem/feedback_prefer_rust.md << 'EOF'
 ---
 name: prefer-rust
 description: Default to Rust for new CLI tools
@@ -74,8 +74,8 @@ llmem search "rust"
 
 | Level | Location | Scope |
 |-------|----------|-------|
-| Project | `.ai-memory/` at repo root | Per-repo corrections, decisions |
-| Global | `~/.config/ai-memory/` | Cross-project preferences, expertise |
+| Project | `.llmem/` at repo root | Per-repo corrections, decisions |
+| Global | `~/.config/llmem/` | Cross-project preferences, expertise |
 
 Project memory takes precedence over global when they conflict.
 
@@ -92,7 +92,7 @@ Project memory takes precedence over global when they conflict.
 
 | Command | Description |
 |---------|-------------|
-| `llmem init [--global]` | Create `.ai-memory/MEMORY.md` or global |
+| `llmem init [--global]` | Create `.llmem/MEMORY.md` or global |
 | `llmem add <type> <name> -d <desc>` | Add a memory |
 | `llmem list [--all]` | List memories |
 | `llmem search <query>` | Search by description |

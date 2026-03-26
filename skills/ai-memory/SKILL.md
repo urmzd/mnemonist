@@ -22,15 +22,15 @@ Two levels, both using the same format:
 
 | Level | Location | Scope |
 |-------|----------|-------|
-| Project | `.ai-memory/` at repo root | Per-repo corrections, decisions, context |
-| Global | `~/.config/ai-memory/` | Cross-project user preferences, expertise |
+| Project | `.llmem/` at repo root | Per-repo corrections, decisions, context |
+| Global | `~/.config/llmem/` | Cross-project user preferences, expertise |
 
 Project memory takes precedence over global when they conflict.
 
 ### Directory layout
 
 ```
-.ai-memory/              # or ~/.config/ai-memory/
+.llmem/              # or ~/.config/llmem/
 ├── MEMORY.md            # Index — always loaded at session start
 ├── user_<topic>.md
 ├── feedback_<topic>.md
@@ -92,7 +92,7 @@ Under 200 lines per level. Loaded at every conversation start.
 
 ## Rules
 
-1. **Project root only** — `.ai-memory/` at repo root, `~/.config/ai-memory/` globally
+1. **Project root only** — `.llmem/` at repo root, `~/.config/llmem/` globally
 2. **Observe before saving** — wait for a pattern or explicit instruction
 3. **Save corrections immediately** — "don't do X" is persisted now
 4. **Include why** — a rule without rationale can't handle edge cases

@@ -1,6 +1,6 @@
 # llmem
 
-> An open standard for tool-agnostic, project-scoped AI agent memory. Defines a two-level memory convention — project (`.ai-memory/` at repo root) and global (`~/.config/ai-memory/`) — using typed markdown files with YAML frontmatter. Includes a Rust CLI for managing memory and a RAG HTTP server for semantic search. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
+> An open standard for tool-agnostic, project-scoped AI agent memory. Defines a two-level memory convention — project (`.llmem/` at repo root) and global (`~/.config/llmem/`) — using typed markdown files with YAML frontmatter. Includes a Rust CLI for managing memory and a RAG HTTP server for semantic search. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
 
 ## Docs
 

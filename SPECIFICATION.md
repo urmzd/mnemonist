@@ -4,7 +4,7 @@
 
 ## Abstract
 
-llmem defines a convention for storing AI agent memory as plain markdown files in two locations: project-level (`.ai-memory/` at the repository root) and global-level (`~/.config/ai-memory/`). It is tool-agnostic, human-readable, and git-friendly. No tooling is required — just create files.
+llmem defines a convention for storing AI agent memory as plain markdown files in two locations: project-level (`.llmem/` at the repository root) and global-level (`~/.config/llmem/`). It is tool-agnostic, human-readable, and git-friendly. No tooling is required — just create files.
 
 ## Status
 
@@ -14,8 +14,8 @@ Draft — seeking community feedback.
 
 | Level | Location | Scope |
 |-------|----------|-------|
-| Project | `.ai-memory/` at repo root | Per-repo corrections, decisions, context |
-| Global | `~/.config/ai-memory/` | Cross-project user preferences, expertise |
+| Project | `.llmem/` at repo root | Per-repo corrections, decisions, context |
+| Global | `~/.config/llmem/` | Cross-project user preferences, expertise |
 
 - Both levels use the same directory structure and file format
 - Project memory takes precedence over global when they conflict
@@ -36,8 +36,8 @@ reference_<topic>.md   # Pointers to external resources
 
 - The directory MUST contain a `MEMORY.md` index file
 - Memory files are named `{type}_{topic}.md` where topic is kebab-case
-- The `.ai-memory/` directory SHOULD be committed to version control
-- The `~/.config/ai-memory/` directory is local to the machine
+- The `.llmem/` directory SHOULD be committed to version control
+- The `~/.config/llmem/` directory is local to the machine
 
 ## 3. Index File (MEMORY.md)
 
@@ -61,8 +61,8 @@ One line per memory, as a markdown list item:
 ### Loading
 
 Agents MUST load both index files at conversation start:
-1. `~/.config/ai-memory/MEMORY.md` (global)
-2. `.ai-memory/MEMORY.md` (project, if present)
+1. `~/.config/llmem/MEMORY.md` (global)
+2. `.llmem/MEMORY.md` (project, if present)
 
 ## 4. Memory File Format
 
@@ -193,26 +193,26 @@ When memories at different levels address the same topic:
 Add to `CLAUDE.md`:
 
 ```
-Load .ai-memory/MEMORY.md and ~/.config/ai-memory/MEMORY.md at conversation start.
-Save learned preferences and corrections to .ai-memory/ (project) or ~/.config/ai-memory/ (global).
+Load .llmem/MEMORY.md and ~/.config/llmem/MEMORY.md at conversation start.
+Save learned preferences and corrections to .llmem/ (project) or ~/.config/llmem/ (global).
 ```
 
 Claude Code can read/write files directly.
 
 ### 10.2 OpenAI Codex
 
-Reference `.ai-memory/` in `AGENTS.md` or system instructions. Codex reads project files and follows conventions when instructed.
+Reference `.llmem/` in `AGENTS.md` or system instructions. Codex reads project files and follows conventions when instructed.
 
 ### 10.3 Google Gemini CLI
 
-Include a section in `AGENTS.md` pointing to `.ai-memory/`. Gemini CLI reads project files and can create/update memory.
+Include a section in `AGENTS.md` pointing to `.llmem/`. Gemini CLI reads project files and can create/update memory.
 
 ### 10.4 GitHub Copilot
 
 Add to `.github/copilot-instructions.md`:
 
 ```
-Load .ai-memory/MEMORY.md for project context at conversation start.
+Load .llmem/MEMORY.md for project context at conversation start.
 ```
 
 ### 10.5 Cursor
@@ -220,7 +220,7 @@ Load .ai-memory/MEMORY.md for project context at conversation start.
 Add to `.cursorrules`:
 
 ```
-Load .ai-memory/MEMORY.md at conversation start for project memory context.
+Load .llmem/MEMORY.md at conversation start for project memory context.
 ```
 
 ### 10.6 Generic Integration
@@ -252,7 +252,7 @@ Implementations MAY use:
 
 ## 12. Embedding Store
 
-Embeddings are stored alongside memory files in `.ai-memory/.embeddings.bin`.
+Embeddings are stored alongside memory files in `.llmem/.embeddings.bin`.
 
 **File format**: Binary with header (magic `LMEM` + version + dimension + count) followed by packed entries (filename + content hash + float32 vector).
 
@@ -281,20 +281,20 @@ Hierarchical Navigable Small World graph:
 - **ef_construction**: beam width during build (default 200)
 - **ef_search**: beam width during query (default 50)
 - **Distance**: cosine similarity
-- **Serialization**: `.ai-memory/.index.hnsw`
+- **Serialization**: `.llmem/.index.hnsw`
 
 ### 13.2 IVF-Flat (alternative)
 
 Inverted File Index with flat search within clusters:
 - **n_lists**: number of k-means clusters (default sqrt(n))
 - **n_probe**: clusters to search (default 10)
-- **Serialization**: `.ai-memory/.index.ivf`
+- **Serialization**: `.llmem/.index.ivf`
 
 ## 14. Context Switching
 
 The `llmem ctx switch` command manages active project context:
 
-1. Writes the project root path to `~/.config/ai-memory/.active-ctx`
+1. Writes the project root path to `~/.config/llmem/.active-ctx`
 2. Server reads this file to determine which project embeddings to load
 3. Global embeddings stay resident; only project embeddings are swapped
 
