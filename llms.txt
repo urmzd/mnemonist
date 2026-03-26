@@ -1,0 +1,21 @@
+# llmem
+
+> An open standard for tool-agnostic, project-scoped AI agent memory. Defines a two-level memory convention — project (`.ai-memory/` at repo root) and global (`~/.config/ai-memory/`) — using typed markdown files with YAML frontmatter. Includes a Rust CLI for managing memory and a RAG HTTP server for semantic search. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
+
+## Docs
+
+- [README](https://github.com/urmzd/llmem/blob/main/README.md): Quick start, CLI usage, and memory types
+- [AGENTS.md](https://github.com/urmzd/llmem/blob/main/AGENTS.md): Architecture and development guide
+- [Specification](https://github.com/urmzd/llmem/blob/main/SPECIFICATION.md): Full specification (levels, file format, dynamic loading, integration)
+
+## API / Key Files
+
+- [SPECIFICATION.md](https://github.com/urmzd/llmem/blob/main/SPECIFICATION.md): The formal llmem specification
+- [crates/llmem-core/](https://github.com/urmzd/llmem/blob/main/crates/llmem-core/): Core types and operations
+- [crates/llmem-cli/](https://github.com/urmzd/llmem/blob/main/crates/llmem-cli/): CLI binary
+- [crates/llmem-server/](https://github.com/urmzd/llmem/blob/main/crates/llmem-server/): RAG HTTP server
+- [skills/ai-memory/SKILL.md](https://github.com/urmzd/llmem/blob/main/skills/ai-memory/SKILL.md): Portable agent skill
+
+## Optional
+
+- [CONTRIBUTING](https://github.com/urmzd/llmem/blob/main/CONTRIBUTING.md): How to contribute

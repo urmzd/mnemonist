@@ -1,0 +1,18 @@
+/target
+**/*.rs.bk
+*.pdb
+.env
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*~
+.DS_Store
+.claude/
+.env.*
+
+# Hook sync state (machine-local)
+.githooks/.sr-hooks-hash

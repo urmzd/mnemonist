@@ -1,0 +1,187 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Re-release the current tag (use when a previous release partially failed)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Release
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install sr
+        run: cargo install sr-cli --locked
+
+      - name: Run sr release
+        id: sr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          set +e
+          JSON=$(sr release ${{ inputs.force && '--force' || '' }} | tail -1)
+          RC=${PIPESTATUS[0]}
+          set -e
+          if [ $RC -eq 0 ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=$(echo "$JSON" | jq -r '.version')" >> "$GITHUB_OUTPUT"
+          elif [ $RC -eq 2 ]; then
+            echo "No releasable commits — skipping release"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          else
+            exit $RC
+          fi
+
+    outputs:
+      released: ${{ steps.sr.outputs.released }}
+      tag: v${{ steps.sr.outputs.version }}
+
+  publish:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          publish() {
+            local output
+            output=$(cargo publish -p "$1" --allow-dirty 2>&1) && return 0
+            if echo "$output" | grep -q "already exists"; then
+              echo "$1 already published, skipping"
+              return 0
+            fi
+            echo "$output" >&2
+            return 1
+          }
+          publish llmem-core
+          sleep 30
+          publish llmem-index
+          sleep 30
+          publish llmem-cli
+          sleep 30
+          publish llmem-server
+
+  build:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cross: false
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cross: true
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+            cross: false
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-latest
+            cross: true
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            cross: false
+          - target: aarch64-apple-darwin
+            runner: macos-15
+            cross: false
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            cross: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --locked
+
+      - name: Build
+        run: |
+          BUILD_CMD="cargo"
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            BUILD_CMD="cross"
+          fi
+          $BUILD_CMD build --release --target ${{ matrix.target }} -p llmem-cli
+          $BUILD_CMD build --release --target ${{ matrix.target }} -p llmem-server
+        shell: bash
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          for bin in llmem llmem-server; do
+            if [ -f "target/${{ matrix.target }}/release/${bin}.exe" ]; then
+              cp "target/${{ matrix.target }}/release/${bin}.exe" "${bin}-${{ matrix.target }}.exe"
+              gh release upload "$TAG" "${bin}-${{ matrix.target }}.exe" --clobber
+            elif [ -f "target/${{ matrix.target }}/release/${bin}" ]; then
+              cp "target/${{ matrix.target }}/release/${bin}" "${bin}-${{ matrix.target }}"
+              chmod +x "${bin}-${{ matrix.target }}"
+              gh release upload "$TAG" "${bin}-${{ matrix.target }}" --clobber
+            fi
+          done
+        shell: bash
