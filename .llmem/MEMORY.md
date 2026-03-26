@@ -1,0 +1,1 @@
+- [prefer rust](feedback_prefer-rust.md) — Default to Rust for new CLI tools
