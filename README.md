@@ -106,8 +106,40 @@ Project memory takes precedence over global when they conflict.
 | `llmem code search <query>` | Search indexed code chunks |
 | `llmem ctx switch [<root>]` | Switch active project context |
 | `llmem ctx show` | Show active project context |
+| `llmem config init` | Create default config file |
+| `llmem config show` | Show current configuration |
+| `llmem config get <key>` | Get a config value (dot-notation) |
+| `llmem config set <key> <value>` | Set a config value |
+| `llmem config path` | Print config file path |
 
 All commands output JSON to stdout (`{"ok": true, "data": {...}}`).
+
+### Configuration
+
+Config file: `~/.llmem/config.toml` (created with `llmem config init`)
+
+```toml
+[storage]
+root = "~/.llmem"
+
+[embedding]
+provider = "ollama"
+host = "http://localhost:11434"
+model = "nomic-embed-text"
+
+[recall]
+budget = 2000
+priority = ["feedback", "project", "user", "reference"]
+
+[index]
+max_lines = 200
+
+[code]
+languages = ["rust", "python", "javascript", "go"]
+max_chunk_lines = 100
+```
+
+Use `llmem config set embedding.model all-minilm` to change values. Environment variables (`OLLAMA_HOST`, `OLLAMA_EMBED_MODEL`) override config.
 
 ### RAG Server
 
