@@ -1,0 +1,27 @@
+[project]
+name = "llmem-training"
+version = "0.1.0"
+description = "Distillation training pipeline for llmem embedding models"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = [
+    "torch>=2.0",
+    "transformers>=4.40",
+    "tokenizers>=0.21",
+    "sentence-transformers>=3.0",
+    "datasets>=3.0",
+    "onnx>=1.16",
+    "onnxruntime>=1.18",
+    "numpy>=1.26",
+    "tqdm",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 100
