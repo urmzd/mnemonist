@@ -14,7 +14,7 @@
 - [crates/llmem-core/](https://github.com/urmzd/llmem/blob/main/crates/llmem-core/): Core types and operations
 - [crates/llmem-cli/](https://github.com/urmzd/llmem/blob/main/crates/llmem-cli/): CLI binary
 - [crates/llmem-server/](https://github.com/urmzd/llmem/blob/main/crates/llmem-server/): RAG HTTP server
-- [skills/ai-memory/SKILL.md](https://github.com/urmzd/llmem/blob/main/skills/ai-memory/SKILL.md): Portable agent skill
+- [skills/llmem/SKILL.md](https://github.com/urmzd/llmem/blob/main/skills/llmem/SKILL.md): Portable agent skill
 
 ## Optional
 
