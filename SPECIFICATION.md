@@ -73,6 +73,11 @@ Each memory file uses YAML frontmatter followed by a markdown body:
 name: <kebab-case-identifier>
 description: <one-line summary — used for relevance matching>
 type: <user | feedback | project | reference>
+created_at: <ISO 8601 timestamp>
+source: <memorize | note | learn | consolidation>
+strength: <float, consolidation strength>
+access_count: <int, retrieval count>
+last_accessed: <ISO 8601 timestamp>
 ---
 
 <markdown content>
@@ -86,7 +91,18 @@ type: <user | feedback | project | reference>
 | `description` | string | One-line summary (agents use this for relevance matching) |
 | `type` | enum | One of: `user`, `feedback`, `project`, `reference` |
 
-### 4.2 Body Content
+### 4.2 Optional Cognitive Metadata
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `created_at` | string | — | ISO 8601 timestamp of creation |
+| `last_accessed` | string | — | ISO 8601 timestamp of last retrieval |
+| `access_count` | u32 | 0 | Number of times retrieved (Hebbian reinforcement) |
+| `strength` | f32 | 0.0 | Consolidation strength — increases when memory survives consolidation |
+| `source` | string | — | How the memory was created: `memorize`, `note`, `learn`, `consolidation` |
+| `consolidated_from` | string[] | — | Original filenames if created via consolidation merge |
+
+### 4.3 Body Content
 
 - Keep files small — under 50 lines recommended
 - `feedback` and `project` types SHOULD include `**Why:**` and `**How to apply:**` lines
@@ -290,7 +306,78 @@ Inverted File Index with flat search within clusters:
 - **n_probe**: clusters to search (default 10)
 - **Serialization**: `~/.llmem/{project}/.index.ivf`
 
-## 14. Context Switching
+## 14. Working Memory (Inbox)
+
+The inbox is a capacity-limited staging area modeled after human working memory (Miller's 7±2). Items from `note` (manual capture) and `learn` (code ingestion) land here before consolidation promotes them to long-term memory.
+
+### 14.1 Structure
+
+Stored as `.inbox.json` in the memory directory:
+
+```json
+{
+  "capacity": 7,
+  "items": [
+    {
+      "id": "slugified-id",
+      "content": "the observation",
+      "source": "note",
+      "attention_score": 0.5,
+      "created_at": "2026-03-27T00:00:00Z",
+      "file_source": null
+    }
+  ],
+  "last_updated": "2026-03-27T00:00:00Z"
+}
+```
+
+### 14.2 Behavior
+
+- Items are sorted by `attention_score` descending
+- When at capacity, the lowest-scored item is evicted
+- `note` items receive a default attention score of 0.5
+- `learn` items are scored by code heuristics (visibility, construct type)
+- `consolidate` drains the inbox, promoting items to long-term memory
+
+### 14.3 Attention Scoring for Code
+
+When `learn` ingests code via tree-sitter, chunks are scored:
+
+| Construct | Score |
+|-----------|-------|
+| `struct` / `class` | 0.9 |
+| `impl` / `trait` | 0.85 |
+| `function` | 0.8 |
+| `enum` | 0.75 |
+| Other | 0.5 |
+
+Public items (`pub`, `export`) receive a +0.1 bonus.
+
+## 15. Consolidation
+
+The `consolidate` command runs a sleep-like consolidation cycle that mirrors biological memory consolidation:
+
+### 15.1 Phases
+
+1. **Promote** — inbox items become long-term memories with appropriate type and initial strength
+2. **Decay** — memories not accessed within `consolidation.decay_days` and below `protected_access_count` are pruned; `feedback` type memories get 2x the decay threshold
+3. **Re-embed** — all surviving memories are re-embedded for fresh semantic search
+
+### 15.2 Configuration
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `consolidation.decay_days` | 90 | Days since last access before decay eligible |
+| `consolidation.merge_threshold` | 0.85 | Cosine similarity threshold for merging |
+| `consolidation.protected_access_count` | 5 | Min accesses to protect from decay |
+| `consolidation.max_memories` | 200 | Max memories per level before forced pruning |
+| `inbox.capacity` | 7 | Working memory inbox size |
+
+### 15.3 Hebbian Reinforcement
+
+Each time a memory is retrieved via `remember`, its `access_count` is incremented and `last_accessed` is updated. Frequently accessed memories are protected from decay, mirroring long-term potentiation.
+
+## 16. Context Switching
 
 The `llmem ctx switch` command manages active project context:
 
@@ -302,9 +389,9 @@ The `llmem ctx switch` command manages active project context:
 
 - On context switch: project ANN index is hot-swapped, global stays resident
 - Content hashes prevent unnecessary re-embedding
-- The `llmem embed` command rebuilds the embedding store and ANN index
+- Embeddings are auto-synced on `memorize` and `consolidate`
 
-## 15. RAG Server
+## 17. RAG Server
 
 An optional HTTP server (`llmem-server`) provides search over memory:
 
@@ -318,12 +405,25 @@ An optional HTTP server (`llmem-server`) provides search over memory:
 
 The convention works without the server. The server is an optional accelerator.
 
-## 16. Versioning
+## 18. TurboQuant (Vector Quantization)
+
+Optional vector quantization compresses embedding storage from 32-bit floats to 1-4 bits per coordinate:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `quantization.enabled` | false | Enable quantized storage |
+| `quantization.bits` | 2 | Bit-width per coordinate (1-4) |
+| `quantization.algorithm` | "mse" | Quantization algorithm: `mse` or `prod` |
+| `quantization.temporal_weight` | 0.2 | Temporal re-ranking weight (0 = pure cosine, 1 = pure temporal) |
+
+See `crates/llmem-quant/` for implementation details and arXiv:2504.19874 for the paper.
+
+## 19. Versioning
 
 This specification follows semantic versioning. The current version is **0.1.0**.
 
 Changes to the specification are tracked in the repository's commit history.
 
-## 17. License
+## 20. License
 
 This specification is released under the Apache License 2.0.
