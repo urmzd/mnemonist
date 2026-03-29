@@ -23,3 +23,9 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+tower = "0.5"
+tempfile = { workspace = true }
+http-body-util = "0.1"
+http = "1"

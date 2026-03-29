@@ -841,7 +841,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llmem-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -850,12 +850,13 @@ dependencies = [
  "llmem-index",
  "serde",
  "serde_json",
+ "tempfile",
  "toml",
 ]
 
 [[package]]
 name = "llmem-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs",
  "serde",
@@ -869,7 +870,7 @@ dependencies = [
 
 [[package]]
 name = "llmem-index"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ignore",
  "llmem-core",
@@ -886,7 +887,7 @@ dependencies = [
 
 [[package]]
 name = "llmem-quant"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rand",
  "rand_distr",
@@ -897,15 +898,19 @@ dependencies = [
 
 [[package]]
 name = "llmem-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
+ "http",
+ "http-body-util",
  "llmem-core",
  "llmem-index",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "tower",
 ]
 
 [[package]]
