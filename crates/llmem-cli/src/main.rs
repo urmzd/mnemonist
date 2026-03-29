@@ -694,6 +694,7 @@ fn run(cli: Cli) -> Result<()> {
                     let days_since_access = fm
                         .last_accessed
                         .as_ref()
+                        .or(fm.created_at.as_ref())
                         .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
                         .map(|dt| (now - dt.to_utc()).num_days().max(0) as u64)
                         .unwrap_or(u64::MAX);
