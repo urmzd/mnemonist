@@ -13,7 +13,10 @@ use std::sync::{Arc, RwLock};
 struct AppState {
     project_index: RwLock<Option<HnswIndex>>,
     global_index: RwLock<Option<HnswIndex>>,
+    /// The original project root path (for display in /health).
     project_root: RwLock<Option<PathBuf>>,
+    /// Resolved project memory directory (config-derived from project_root).
+    project_mem_dir: RwLock<Option<PathBuf>>,
 }
 
 #[derive(Deserialize)]
@@ -107,8 +110,8 @@ async fn search(
     let include_project = params.level != "global";
     let include_global = params.level != "project";
 
-    if include_project && let Some(root) = state.project_root.read().ok().and_then(|r| r.clone()) {
-        let dir = project_dir(&root);
+    if include_project && let Some(dir) = state.project_mem_dir.read().ok().and_then(|d| d.clone())
+    {
         results.extend(search_level(&dir, "project"));
     }
 
@@ -128,11 +131,16 @@ async fn reload(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
             && let Ok(ctx) = std::fs::read_to_string(&ctx_file)
         {
             let root = PathBuf::from(ctx.trim());
+            let mem_dir = project_dir(&root);
+
             if let Ok(mut pr) = state.project_root.write() {
-                *pr = Some(root.clone());
+                *pr = Some(root);
+            }
+            if let Ok(mut pd) = state.project_mem_dir.write() {
+                *pd = Some(mem_dir.clone());
             }
 
-            let hnsw_path = project_dir(&root).join(".index.hnsw");
+            let hnsw_path = mem_dir.join(".index.hnsw");
             if hnsw_path.exists()
                 && let Ok(idx) = HnswIndex::load_from(&hnsw_path)
                 && let Ok(mut pi) = state.project_index.write()
@@ -158,6 +166,7 @@ fn build_router(state: Arc<AppState>) -> Router {
 async fn main() -> Result<()> {
     // Load initial context
     let mut project_root = None;
+    let mut project_mem_dir = None;
     let mut project_hnsw = None;
     let mut global_hnsw = None;
 
@@ -168,11 +177,13 @@ async fn main() -> Result<()> {
             && let Ok(ctx) = std::fs::read_to_string(&ctx_file)
         {
             let root = PathBuf::from(ctx.trim());
-            let hnsw_path = project_dir(&root).join(".index.hnsw");
+            let mem_dir = project_dir(&root);
+            let hnsw_path = mem_dir.join(".index.hnsw");
             if hnsw_path.exists() {
                 project_hnsw = HnswIndex::load_from(&hnsw_path).ok();
             }
             project_root = Some(root);
+            project_mem_dir = Some(mem_dir);
         }
     }
 
@@ -188,6 +199,7 @@ async fn main() -> Result<()> {
         project_index: RwLock::new(project_hnsw),
         global_index: RwLock::new(global_hnsw),
         project_root: RwLock::new(project_root),
+        project_mem_dir: RwLock::new(project_mem_dir),
     });
 
     let app = build_router(state);
@@ -214,6 +226,7 @@ mod tests {
             project_index: RwLock::new(None),
             global_index: RwLock::new(None),
             project_root: RwLock::new(None),
+            project_mem_dir: RwLock::new(None),
         })
     }
 
@@ -222,6 +235,16 @@ mod tests {
             project_index: RwLock::new(None),
             global_index: RwLock::new(None),
             project_root: RwLock::new(Some(root)),
+            project_mem_dir: RwLock::new(None),
+        })
+    }
+
+    fn test_state_with_mem_dir(root: PathBuf, mem_dir: PathBuf) -> Arc<AppState> {
+        Arc::new(AppState {
+            project_index: RwLock::new(None),
+            global_index: RwLock::new(None),
+            project_root: RwLock::new(Some(root)),
+            project_mem_dir: RwLock::new(Some(mem_dir)),
         })
     }
 
@@ -267,26 +290,17 @@ mod tests {
     async fn search_finds_matching_memories() {
         let tmp = tempfile::tempdir().unwrap();
         let project_root = tmp.path().join("myproject");
-        std::fs::create_dir_all(&project_root).unwrap();
-
-        // Set HOME so llmem_core resolves dirs under our temp
-        let home = tmp.path().join("home");
-        std::fs::create_dir_all(&home).unwrap();
-        unsafe { std::env::set_var("HOME", &home) };
-
-        let mem_dir = project_dir(&project_root);
+        let mem_dir = tmp.path().join("mem");
         std::fs::create_dir_all(&mem_dir).unwrap();
 
-        // Create a MEMORY.md with entries
-        let memory_md = mem_dir.join("MEMORY.md");
         std::fs::write(
-            &memory_md,
+            mem_dir.join("MEMORY.md"),
             "- [prefer rust](feedback_prefer-rust.md) — use rust for CLI tools\n\
              - [write tests](feedback_write-tests.md) — always write tests\n",
         )
         .unwrap();
 
-        let state = test_state_with_root(project_root);
+        let state = test_state_with_mem_dir(project_root, mem_dir);
         let app = build_router(state);
 
         let json = response_json(app, "/search?q=rust").await;
@@ -301,16 +315,9 @@ mod tests {
     async fn search_respects_top_k() {
         let tmp = tempfile::tempdir().unwrap();
         let project_root = tmp.path().join("proj");
-        std::fs::create_dir_all(&project_root).unwrap();
-
-        let home = tmp.path().join("home");
-        std::fs::create_dir_all(&home).unwrap();
-        unsafe { std::env::set_var("HOME", &home) };
-
-        let mem_dir = project_dir(&project_root);
+        let mem_dir = tmp.path().join("mem");
         std::fs::create_dir_all(&mem_dir).unwrap();
 
-        // Both entries contain "test"
         std::fs::write(
             mem_dir.join("MEMORY.md"),
             "- [test one](feedback_test-one.md) — first test memory\n\
@@ -318,7 +325,7 @@ mod tests {
         )
         .unwrap();
 
-        let state = test_state_with_root(project_root);
+        let state = test_state_with_mem_dir(project_root, mem_dir);
         let app = build_router(state);
 
         let json = response_json(app, "/search?q=test&top_k=1").await;
