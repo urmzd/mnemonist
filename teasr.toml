@@ -1,0 +1,49 @@
+[output]
+dir = "./showcase"
+
+[[output.formats]]
+output_type = "png"
+
+[[output.formats]]
+output_type = "gif"
+
+[font]
+family = "Iosevka Nerd Font Mono"
+
+[[scenes]]
+type = "terminal"
+name = "llmem-demo"
+theme = "dracula"
+cols = 100
+rows = 35
+
+[scenes.intro]
+text = "llmem\nAI-native memory for agents"
+duration = 2000
+center = true
+
+[[scenes.interactions]]
+type = "type"
+text = "llmem memorize \"Rust's borrow checker prevents data races at compile time\""
+speed = 40
+
+[[scenes.interactions]]
+type = "key"
+key = "enter"
+
+[[scenes.interactions]]
+type = "wait"
+duration = 3000
+
+[[scenes.interactions]]
+type = "type"
+text = "llmem remember \"how does Rust prevent data races?\""
+speed = 40
+
+[[scenes.interactions]]
+type = "key"
+key = "enter"
+
+[[scenes.interactions]]
+type = "wait"
+duration = 5000

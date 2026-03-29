@@ -18,7 +18,19 @@ permissions:
   contents: write
 
 jobs:
+  embed-src:
+    name: Embed-src
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: urmzd/embed-src@v3
+        with:
+          commit-message: "chore: sync embedded files [skip ci]"
+
   ci:
+    needs: embed-src
     if: github.actor != 'sr-releaser[bot]'
     uses: ./.github/workflows/ci.yml
 
