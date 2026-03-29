@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.3.0 (2026-03-29)
+
+### Features
+
+- **validate**: add comprehensive E2E validation script ([8f27e2c](https://github.com/urmzd/llmem/commit/8f27e2c24012f7ece8ea4e8d08e23bd771ef05a6))
+
+### Bug Fixes
+
+- **test**: redact embedded field in memorize snapshot ([076c74e](https://github.com/urmzd/llmem/commit/076c74e0ba1f351e90916b779b069ef5403fefc9))
+- **cli**: fallback to created_at when last_accessed is not set ([98e1efc](https://github.com/urmzd/llmem/commit/98e1efc5cb180cece7fca6f52692c9aba93de45b))
+
+### Documentation
+
+- add benchmark results to README via embed-src ([bd9d6b1](https://github.com/urmzd/llmem/commit/bd9d6b1051e68a473a3414709c9fc2ee1475e709))
+- add testing guide to README and CONTRIBUTING ([a5127f2](https://github.com/urmzd/llmem/commit/a5127f261fb12e7a79fc481448aac03ad7d47f81))
+
+### Refactoring
+
+- rename llmem-cli package to llmem for simpler cargo install ([f9be434](https://github.com/urmzd/llmem/commit/f9be434d26a06a2bb6c4ec2cc21f18584c741b68))
+- **server**: cache resolved project memory directory in app state ([9783d32](https://github.com/urmzd/llmem/commit/9783d326a7225d74e72854b339193576ec799181))
+
+### Miscellaneous
+
+- add criterion benchmarks and insta snapshot tests ([d08e712](https://github.com/urmzd/llmem/commit/d08e712c6779878f5812c7a390d3efc759b8ac6e))
+- **cli**: add comprehensive integration tests ([22b1248](https://github.com/urmzd/llmem/commit/22b124859e98168611b001416334bb2b088c0917))
+- **server**: extract router builder and add comprehensive tests ([e60cc66](https://github.com/urmzd/llmem/commit/e60cc66b3418aaae3ffaa087309bc857c2c96638))
+- **deps**: add testing dependencies to server and CLI ([53bb556](https://github.com/urmzd/llmem/commit/53bb556d453053951cc3b7dca4d12d4ba2571e07))
+
+[Full Changelog](https://github.com/urmzd/llmem/compare/v0.2.0...v0.3.0)
+
+
 ## 0.2.0 (2026-03-27)
 
 ### Features
