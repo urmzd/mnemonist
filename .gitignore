@@ -16,3 +16,6 @@
 
 # Hook sync state (machine-local)
 .githooks/.sr-hooks-hash
+
+# Embedding model cache
+.fastembed_cache/
