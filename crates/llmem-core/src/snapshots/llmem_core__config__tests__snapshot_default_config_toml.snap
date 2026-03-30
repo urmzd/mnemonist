@@ -43,6 +43,10 @@ decay_days = 90
 merge_threshold = 0.8500000238418579
 protected_access_count = 5
 max_memories = 200
+max_memory_tokens = 120
 
 [inbox]
 capacity = 7
+
+[output]
+quiet = false

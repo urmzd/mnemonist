@@ -17,6 +17,7 @@ pub struct Config {
     pub quantization: QuantizationConfig,
     pub consolidation: ConsolidationConfig,
     pub inbox: InboxConfig,
+    pub output: OutputConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +101,8 @@ pub struct ConsolidationConfig {
     pub protected_access_count: u32,
     /// Maximum memories per level before pruning is forced.
     pub max_memories: usize,
+    /// Max tokens per memory body. Memories are cues, not copies.
+    pub max_memory_tokens: usize,
 }
 
 /// Configuration for the working memory inbox.
@@ -110,6 +113,14 @@ pub struct InboxConfig {
     pub capacity: usize,
 }
 
+/// Configuration for CLI output behaviour.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OutputConfig {
+    /// Suppress elapsed-time reporting on stderr.
+    pub quiet: bool,
+}
+
 impl Default for ConsolidationConfig {
     fn default() -> Self {
         Self {
@@ -117,6 +128,7 @@ impl Default for ConsolidationConfig {
             merge_threshold: 0.85,
             protected_access_count: 5,
             max_memories: 200,
+            max_memory_tokens: 120,
         }
     }
 }
