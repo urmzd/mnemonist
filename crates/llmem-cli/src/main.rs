@@ -6,8 +6,46 @@ use llmem_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::io::{self, Read as _};
+use std::io::{self, IsTerminal, Read as _};
 use std::path::PathBuf;
+
+// ── TUI ────────────────────────────────────────────────────────────────────
+
+fn is_tty() -> bool {
+    io::stderr().is_terminal()
+}
+
+mod tui {
+    pub const BOLD: &str = "\x1b[1m";
+    pub const DIM: &str = "\x1b[2m";
+    pub const RESET: &str = "\x1b[0m";
+    pub const GREEN: &str = "\x1b[32m";
+    pub const YELLOW: &str = "\x1b[33m";
+    pub const CYAN: &str = "\x1b[36m";
+    pub const MAGENTA: &str = "\x1b[35m";
+    #[allow(dead_code)]
+    pub const RED: &str = "\x1b[31m";
+    pub const BAR: &str = "\x1b[38;5;75m";
+
+    /// Render a horizontal bar of width `filled` out of `total`.
+    pub fn bar(filled: usize, total: usize, width: usize) -> String {
+        let f = if total > 0 {
+            (filled * width) / total
+        } else {
+            0
+        }
+        .max(if filled > 0 { 1 } else { 0 })
+        .min(width);
+        let e = width - f;
+        format!("{BAR}{}{DIM}{}{RESET}", "█".repeat(f), "░".repeat(e),)
+    }
+
+    /// Format a metric with color based on whether it meets target.
+    pub fn metric(name: &str, value: f32, target: &str, good: bool) -> String {
+        let color = if good { GREEN } else { YELLOW };
+        format!("  {DIM}{name:<20}{RESET} {color}{BOLD}{value:.4}{RESET}  {DIM}{target}{RESET}")
+    }
+}
 
 #[derive(Parser)]
 #[command(
@@ -17,6 +55,10 @@ use std::path::PathBuf;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    /// Suppress elapsed-time output on stderr
+    #[arg(long, short = 'q', global = true)]
+    quiet: bool,
 
     /// Force JSON output (default when stdout is not a TTY)
     #[arg(long, global = true)]
@@ -239,6 +281,37 @@ macro_rules! info {
     };
 }
 
+// -- Elapsed-time reporting --
+
+struct CommandTimer {
+    start: std::time::Instant,
+    #[allow(dead_code)]
+    label: String,
+}
+
+impl CommandTimer {
+    fn start(label: impl Into<String>) -> Self {
+        Self {
+            start: std::time::Instant::now(),
+            label: label.into(),
+        }
+    }
+}
+
+impl Drop for CommandTimer {
+    fn drop(&mut self) {
+        if is_tty() {
+            let elapsed = self.start.elapsed().as_secs_f64();
+            eprintln!(
+                "  {DIM}{:.2}s{RESET}",
+                elapsed,
+                DIM = tui::DIM,
+                RESET = tui::RESET,
+            );
+        }
+    }
+}
+
 // -- Stdin JSON types --
 
 #[derive(Deserialize)]
@@ -312,7 +385,28 @@ fn now_iso() -> String {
 fn main() {
     let cli = Cli::parse();
 
+    let quiet = cli.quiet || Config::load().output.quiet;
+
+    let cmd_label = match &cli.command {
+        Command::Init { .. } => "init",
+        Command::Memorize { .. } => "memorize",
+        Command::Note { .. } => "note",
+        Command::Remember { .. } => "remember",
+        Command::Learn { .. } => "learn",
+        Command::Consolidate { .. } => "consolidate",
+        Command::Reflect { .. } => "reflect",
+        Command::Forget { .. } => "forget",
+        Command::Config { .. } => "config",
+    };
+
+    let _timer = if quiet {
+        None
+    } else {
+        Some(CommandTimer::start(cmd_label))
+    };
+
     if let Err(e) = run(cli) {
+        drop(_timer);
         output_err(&format!("{e:#}"));
     }
 }
@@ -401,7 +495,18 @@ fn run(cli: Cli) -> Result<()> {
             // Notify daemon to reload indices
             daemon_notify_reload();
 
-            info!("{action} {filename}");
+            if is_tty() {
+                use tui::*;
+                let ac = if action == "created" { GREEN } else { YELLOW };
+                let ec = if embed_result.is_ok() {
+                    format!("{GREEN}embedded{RESET}")
+                } else {
+                    format!("{DIM}no embed{RESET}")
+                };
+                eprintln!("  {ac}{action}{RESET} {BOLD}{filename}{RESET}  {ec}");
+            } else {
+                info!("{action} {filename}");
+            }
             output_ok(json!({
                 "file": filename,
                 "action": action,
@@ -534,7 +639,105 @@ fn run(cli: Cli) -> Result<()> {
                             description: mem.frontmatter.description.clone(),
                             body: mem.body.clone(),
                         });
+
+                        // Edge expansion: follow refs to code chunks and related memories
+                        let recall_config = Config::load();
+                        if recall_config.recall.expand_refs && !mem.frontmatter.refs.is_empty() {
+                            let max_exp = recall_config.recall.max_ref_expansions;
+                            for ref_id in mem.frontmatter.refs.iter().take(max_exp) {
+                                if total_chars >= budget {
+                                    break;
+                                }
+                                if ref_id.ends_with(".md") {
+                                    // Memory-to-memory edge
+                                    let ref_path = dir.join(ref_id);
+                                    if let Ok(ref_mem) = MemoryFile::read(&ref_path) {
+                                        total_chars += ref_mem.body.len();
+                                        memories.push(MemoryOut {
+                                            file: ref_id.clone(),
+                                            memory_type: ref_mem
+                                                .frontmatter
+                                                .memory_type
+                                                .to_string(),
+                                            name: ref_mem.frontmatter.name.clone(),
+                                            description: format!("via {}", entry.file),
+                                            body: ref_mem.body.clone(),
+                                        });
+                                    }
+                                } else {
+                                    // Code chunk edge (file:start:end)
+                                    let ref_parts: Vec<&str> = ref_id.rsplitn(3, ':').collect();
+                                    if ref_parts.len() == 3
+                                        && let (Ok(s), Ok(e)) = (
+                                            ref_parts[1].parse::<usize>(),
+                                            ref_parts[0].parse::<usize>(),
+                                        )
+                                    {
+                                        let src = root.join(ref_parts[2]);
+                                        if let Ok(content) = std::fs::read_to_string(&src) {
+                                            let lines: Vec<&str> = content.lines().collect();
+                                            let start = s.saturating_sub(1).min(lines.len());
+                                            let end = e.min(lines.len());
+                                            let full = lines[start..end].join("\n");
+                                            let max_c =
+                                                recall_config.consolidation.max_memory_tokens * 4;
+                                            let body = if full.len() > max_c {
+                                                format!("{}...", &full[..max_c])
+                                            } else {
+                                                full
+                                            };
+                                            total_chars += body.len();
+                                            memories.push(MemoryOut {
+                                                file: ref_id.clone(),
+                                                memory_type: "ref".to_string(),
+                                                name: entry.title.clone(),
+                                                description: format!("via {}", entry.file),
+                                                body,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+
+                // TUI on stderr (human), JSON on stdout (pipe)
+                if is_tty() {
+                    use tui::*;
+                    eprintln!();
+                    eprintln!("  {BOLD}{CYAN}llmem remember{RESET}  {DIM}\"{q}\"{RESET}");
+                    eprintln!("  {DIM}────────────────────────────────────────{RESET}");
+                    for (i, m) in memories.iter().enumerate() {
+                        let tc = match m.memory_type.as_str() {
+                            "feedback" => GREEN,
+                            "user" => CYAN,
+                            "project" => YELLOW,
+                            "reference" | "ref" => MAGENTA,
+                            "code" => BAR,
+                            _ => RESET,
+                        };
+                        let preview: String = m
+                            .body
+                            .chars()
+                            .take(72)
+                            .collect::<String>()
+                            .replace('\n', " ");
+                        eprintln!(
+                            "  {DIM}{:>2}.{RESET} {tc}{:<10}{RESET} {BOLD}{}{RESET}",
+                            i + 1,
+                            m.memory_type,
+                            m.file
+                        );
+                        eprintln!("      {DIM}{preview}{RESET}");
+                    }
+                    eprintln!();
+                    eprintln!(
+                        "  {DIM}~{} tokens across {} results{RESET}",
+                        total_chars / 4,
+                        memories.len()
+                    );
+                    eprintln!();
                 }
 
                 output_ok(json!({
@@ -694,13 +897,53 @@ fn run(cli: Cli) -> Result<()> {
             inbox.last_updated = Some(now.clone());
             inbox.save(&mem_dir)?;
 
-            info!(
-                "learned {} chunks from {} files, {} embedded, {} in inbox",
-                chunk_count,
-                file_count,
-                embedded_count,
-                inbox.len()
-            );
+            if is_tty() {
+                use tui::*;
+                eprintln!();
+                eprintln!("  {BOLD}{CYAN}llmem learn{RESET}");
+                eprintln!("  {DIM}────────────────────────────────────────{RESET}");
+                eprintln!("  {DIM}files{RESET}     {BOLD}{file_count}{RESET}");
+                eprintln!("  {DIM}chunks{RESET}    {BOLD}{chunk_count}{RESET}");
+                eprintln!(
+                    "  {DIM}embedded{RESET}  {BOLD}{embedded_count}{RESET}  {}",
+                    bar(embedded_count, chunk_count, 20)
+                );
+                eprintln!(
+                    "  {DIM}inbox{RESET}     {BOLD}{}{RESET}/{}",
+                    inbox.len(),
+                    cap
+                );
+                if let Some(eval) = eval_json.as_object() {
+                    let aniso = eval
+                        .get("anisotropy")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as f32;
+                    let range = eval
+                        .get("similarity_range")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as f32;
+                    let sample = eval
+                        .get("sample_size")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    eprintln!();
+                    eprintln!("  {DIM}eval (n={sample}){RESET}");
+                    eprintln!("{}", metric("anisotropy", aniso, "< 0.3", aniso < 0.3));
+                    eprintln!(
+                        "{}",
+                        metric("similarity range", range, "> 0.3", range > 0.3)
+                    );
+                }
+                eprintln!();
+            } else {
+                info!(
+                    "learned {} chunks from {} files, {} embedded, {} in inbox",
+                    chunk_count,
+                    file_count,
+                    embedded_count,
+                    inbox.len()
+                );
+            }
             output_ok(json!({
                 "chunks": chunk_count,
                 "files": file_count,
@@ -752,6 +995,16 @@ fn run(cli: Cli) -> Result<()> {
                     })
                     .unwrap_or_default();
 
+                // Memory body is a cue, not a copy — truncate to max_memory_tokens.
+                // Full content is reachable via refs edge to the code chunk.
+                let max_chars = config.consolidation.max_memory_tokens * 4;
+                let body = if item.content.len() > max_chars {
+                    let truncated: String = item.content.chars().take(max_chars).collect();
+                    format!("{truncated}...")
+                } else {
+                    item.content.clone()
+                };
+
                 let mem = MemoryFile {
                     frontmatter: Frontmatter {
                         name: name.clone(),
@@ -763,7 +1016,7 @@ fn run(cli: Cli) -> Result<()> {
                         refs,
                         ..Default::default()
                     },
-                    body: item.content.clone(),
+                    body,
                 };
 
                 let filename = mem.filename();
@@ -781,6 +1034,51 @@ fn run(cli: Cli) -> Result<()> {
                     };
                     index.upsert(entry);
                     mem.write(&dir.join(&filename))?;
+                }
+            }
+
+            // Phase 1.5: Associative linking — connect similar memories
+            if !dry_run {
+                let store_path = dir.join(".embeddings.bin");
+                if store_path.exists()
+                    && let Ok(store) = EmbeddingStore::load(&store_path)
+                {
+                    let threshold = config.consolidation.merge_threshold;
+                    let entries = &store.entries;
+                    // Collect pairs that exceed similarity threshold
+                    let mut links: Vec<(String, String)> = Vec::new();
+                    for i in 0..entries.len() {
+                        for j in (i + 1)..entries.len() {
+                            let sim =
+                                cosine_similarity(&entries[i].embedding, &entries[j].embedding);
+                            if sim >= threshold {
+                                links.push((entries[i].file.clone(), entries[j].file.clone()));
+                            }
+                        }
+                    }
+                    // Apply bidirectional refs
+                    for (a, b) in &links {
+                        let path_a = dir.join(a);
+                        if let Ok(mut mem_a) = MemoryFile::read(&path_a)
+                            && !mem_a.frontmatter.refs.contains(b)
+                        {
+                            mem_a.frontmatter.refs.push(b.clone());
+                            let _ = mem_a.write(&path_a);
+                        }
+                        let path_b = dir.join(b);
+                        if let Ok(mut mem_b) = MemoryFile::read(&path_b)
+                            && !mem_b.frontmatter.refs.contains(a)
+                        {
+                            mem_b.frontmatter.refs.push(a.clone());
+                            let _ = mem_b.write(&path_b);
+                        }
+                    }
+                    if !links.is_empty() {
+                        actions.push(json!({
+                            "action": "associate",
+                            "links": links.len(),
+                        }));
+                    }
                 }
             }
 
@@ -861,12 +1159,52 @@ fn run(cli: Cli) -> Result<()> {
                 daemon_notify_reload();
             }
 
-            info!(
-                "consolidated: {} promoted, {} decayed{}",
-                promoted,
-                decayed,
-                if dry_run { " (dry run)" } else { "" }
-            );
+            if is_tty() {
+                use tui::*;
+                let links = actions
+                    .iter()
+                    .find(|a| a.get("action").and_then(|v| v.as_str()) == Some("associate"))
+                    .and_then(|a| a.get("links").and_then(|v| v.as_u64()))
+                    .unwrap_or(0);
+                let indexed = actions
+                    .iter()
+                    .find(|a| a.get("action").and_then(|v| v.as_str()) == Some("index"))
+                    .and_then(|a| a.get("indexed").and_then(|v| v.as_u64()))
+                    .unwrap_or(0);
+                eprintln!();
+                eprintln!(
+                    "  {BOLD}{CYAN}llmem consolidate{RESET}{}",
+                    if dry_run {
+                        format!("  {DIM}(dry run){RESET}")
+                    } else {
+                        String::new()
+                    }
+                );
+                eprintln!("  {DIM}────────────────────────────────────────{RESET}");
+                eprintln!("  {DIM}promoted{RESET}    {GREEN}{BOLD}{promoted}{RESET}");
+                eprintln!(
+                    "  {DIM}decayed{RESET}     {}{BOLD}{decayed}{RESET}",
+                    if decayed > 0 { YELLOW } else { DIM }
+                );
+                if links > 0 {
+                    eprintln!(
+                        "  {DIM}associated{RESET}  {MAGENTA}{BOLD}{links}{RESET} {DIM}links{RESET}"
+                    );
+                }
+                if indexed > 0 {
+                    eprintln!(
+                        "  {DIM}indexed{RESET}     {BOLD}{indexed}{RESET} {DIM}memories{RESET}"
+                    );
+                }
+                eprintln!();
+            } else {
+                info!(
+                    "consolidated: {} promoted, {} decayed{}",
+                    promoted,
+                    decayed,
+                    if dry_run { " (dry run)" } else { "" }
+                );
+            }
             output_ok(json!({
                 "promoted": promoted,
                 "decayed": decayed,
@@ -1067,10 +1405,11 @@ fn semantic_search(
         Err(_) => return Vec::new(),
     };
 
-    let mut matched = Vec::new();
+    let mut memory_hits = Vec::new();
+    let mut code_hits = Vec::new();
 
     for dir in dirs {
-        // Try memory HNSW index (layered graph: memory layer)
+        // Memory layer HNSW
         let mem_hnsw_path = dir.join(".memory-index.hnsw");
         if mem_hnsw_path.exists()
             && let Ok(hnsw) = llmem_index::hnsw::HnswIndex::load_from(&mem_hnsw_path)
@@ -1079,25 +1418,24 @@ fn semantic_search(
         {
             for hit in hits {
                 if let Some(entry) = mem_index.entries.iter().find(|e| e.file == hit.id) {
-                    matched.push((dir.clone(), entry.clone()));
+                    memory_hits.push((dir.clone(), entry.clone()));
                 }
             }
         }
 
-        // Try code HNSW index
+        // Code layer HNSW
         let code_hnsw_path = dir.join(".code-index.hnsw");
         if code_hnsw_path.exists()
             && let Ok(hnsw) = llmem_index::hnsw::HnswIndex::load_from(&code_hnsw_path)
             && let Ok(hits) = llmem_index::AnnIndex::search(&hnsw, &query_embedding, 10)
         {
-            // Resolve hit IDs (format: "file:start:end") to IndexEntry
             for hit in hits {
                 let parts: Vec<&str> = hit.id.rsplitn(3, ':').collect();
                 if parts.len() == 3 {
                     let file = parts[2].to_string();
                     let start = parts[1];
                     let end = parts[0];
-                    matched.push((
+                    code_hits.push((
                         dir.clone(),
                         IndexEntry {
                             title: file.clone(),
@@ -1113,7 +1451,7 @@ fn semantic_search(
         }
 
         // Fallback: brute-force cosine on .embeddings.bin (when no HNSW exists yet)
-        if matched.is_empty() && !mem_hnsw_path.exists() {
+        if memory_hits.is_empty() && !mem_hnsw_path.exists() {
             let store_path = dir.join(".embeddings.bin");
             if store_path.exists()
                 && let Ok(store) = EmbeddingStore::load(&store_path)
@@ -1131,7 +1469,7 @@ fn semantic_search(
                 if let Ok(mem_index) = MemoryIndex::load(dir) {
                     for (file, _score) in scores.iter().take(10) {
                         if let Some(entry) = mem_index.entries.iter().find(|e| e.file == *file) {
-                            matched.push((dir.clone(), entry.clone()));
+                            memory_hits.push((dir.clone(), entry.clone()));
                         }
                     }
                 }
@@ -1139,6 +1477,23 @@ fn semantic_search(
         }
     }
 
+    // Interleave memory and code hits so both layers contribute
+    let mut matched = Vec::new();
+    let mut mi = memory_hits.into_iter();
+    let mut ci = code_hits.into_iter();
+    loop {
+        let m = mi.next();
+        let c = ci.next();
+        if m.is_none() && c.is_none() {
+            break;
+        }
+        if let Some(hit) = m {
+            matched.push(hit);
+        }
+        if let Some(hit) = c {
+            matched.push(hit);
+        }
+    }
     matched
 }
 
