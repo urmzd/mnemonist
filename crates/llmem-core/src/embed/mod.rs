@@ -1,4 +1,4 @@
-pub mod ollama;
+pub mod fast;
 
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{Read as _, Write as _};
 use std::path::Path;
 
-pub use ollama::OllamaEmbedder;
+pub use fast::FastEmbedder;
 
 use crate::Error;
 

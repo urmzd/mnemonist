@@ -8,7 +8,7 @@ pub mod memory;
 
 pub use backend::{FileBackend, MemoryBackend, SemanticHit};
 pub use config::Config;
-pub use embed::{Embedder, EmbeddingEntry, EmbeddingStore, OllamaEmbedder};
+pub use embed::{Embedder, EmbeddingEntry, EmbeddingStore, FastEmbedder};
 pub use error::Error;
 pub use inbox::{FileSource, Inbox, InboxItem};
 pub use index::{IndexEntry, MemoryIndex};

@@ -29,15 +29,10 @@ pub struct StorageConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct EmbeddingConfig {
-    /// Embedding provider: "ollama", "onnx-code", "onnx-memory", or "none".
+    /// Embedding provider: "fastembed" or "none".
     pub provider: String,
-    /// Ollama host URL.
-    pub host: String,
-    /// Embedding model name.
+    /// Embedding model name (fastembed model identifier).
     pub model: String,
-    /// Path to ONNX model file (for onnx-code / onnx-memory providers).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model_path: Option<String>,
 }
 
 /// Configuration for TurboQuant vector quantization.
@@ -61,6 +56,20 @@ pub struct RecallConfig {
     pub budget: usize,
     /// Type priority order for recall (highest first).
     pub priority: Vec<String>,
+    /// Follow inter-layer refs edges during recall.
+    #[serde(default = "default_true")]
+    pub expand_refs: bool,
+    /// Max code chunks to include via ref expansion per memory hit.
+    #[serde(default = "default_max_ref_expansions")]
+    pub max_ref_expansions: usize,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_max_ref_expansions() -> usize {
+    3
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,10 +139,8 @@ impl Default for StorageConfig {
 impl Default for EmbeddingConfig {
     fn default() -> Self {
         Self {
-            provider: "ollama".to_string(),
-            host: "http://localhost:11434".to_string(),
-            model: "nomic-embed-text".to_string(),
-            model_path: None,
+            provider: "fastembed".to_string(),
+            model: "all-MiniLM-L6-v2".to_string(),
         }
     }
 }
@@ -159,6 +166,8 @@ impl Default for RecallConfig {
                 "user".to_string(),
                 "reference".to_string(),
             ],
+            expand_refs: true,
+            max_ref_expansions: 3,
         }
     }
 }
@@ -345,7 +354,7 @@ mod tests {
         let config = Config::default();
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: Config = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.embedding.model, "nomic-embed-text");
+        assert_eq!(parsed.embedding.model, "all-MiniLM-L6-v2");
         assert_eq!(parsed.index.max_lines, 200);
         assert_eq!(parsed.recall.budget, 2000);
     }
@@ -355,7 +364,7 @@ mod tests {
         let config = Config::default();
         assert_eq!(
             config.get("embedding.model"),
-            Some("nomic-embed-text".to_string())
+            Some("all-MiniLM-L6-v2".to_string())
         );
         assert_eq!(config.get("index.max_lines"), Some("200".to_string()));
         assert_eq!(config.get("nonexistent.key"), None);

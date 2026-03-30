@@ -80,6 +80,11 @@ pub struct Frontmatter {
     /// How this memory was created: "note", "memorize", "learn", "consolidation".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+
+    /// Inter-layer edges: references to code chunk IDs ("file:start:end")
+    /// or other memory filenames. Connects this memory to adjacent graph layers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refs: Vec<String>,
 }
 
 fn is_zero_u32(v: &u32) -> bool {
@@ -208,6 +213,7 @@ Use open standards.
                 strength: 1.5,
                 consolidated_from: None,
                 source: Some("memorize".to_string()),
+                refs: Vec::new(),
             },
             body: "Always prefer Rust for CLI tools.\n\n**Why:** Performance and safety.\n\n**How to apply:** Default to Rust for new CLIs.".to_string(),
         };
