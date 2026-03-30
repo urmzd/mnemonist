@@ -53,4 +53,43 @@
 | Pack | 161 ns | 539 ns | 264 ns |
 | Unpack | 90 ns | 270 ns | 241 ns |
 
-> Measured on Apple Silicon (M-series) with `cargo bench`. Run `cargo bench` to reproduce.
+### Embedding Store
+
+| Operation | 128d x 100 | 384d x 100 | 384d x 500 |
+|---|---|---|---|
+| `upsert` | TBD | TBD | TBD |
+| `get` | TBD | TBD | TBD |
+| `remove` | TBD | TBD | TBD |
+| `save` | TBD | TBD | TBD |
+| `load` | TBD | TBD | TBD |
+
+### Inbox
+
+| Operation | cap=7 | cap=50 |
+|---|---|---|
+| `push_to_capacity` | TBD | TBD |
+| `push_with_eviction` | TBD | TBD |
+| `save` | TBD | TBD |
+| `load` | TBD | TBD |
+| `drain` | TBD | TBD |
+
+### Memory Index
+
+| Operation | 10 entries | 100 entries |
+|---|---|---|
+| `parse_line` | TBD | — |
+| `to_line` | TBD | — |
+| `search` | TBD | TBD |
+| `upsert_new` | TBD | TBD |
+| `upsert_existing` | TBD | TBD |
+
+### Eval Functions
+
+| Function | 32d x 50 | 128d x 50 | 384d x 20 |
+|---|---|---|---|
+| `anisotropy` | TBD | TBD | TBD |
+| `similarity_range` | TBD | TBD | TBD |
+| `mean_center` | TBD | TBD | TBD |
+| `discrimination_gap` | TBD | — | — |
+
+> Measured on Apple Silicon (M-series) with `cargo bench`. Run `just bench` to reproduce.
