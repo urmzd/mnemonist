@@ -22,4 +22,9 @@ fastembed = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+criterion = { workspace = true }
 insta = { workspace = true }
+
+[[bench]]
+name = "core_benchmarks"
+harness = false

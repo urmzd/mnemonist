@@ -1366,6 +1366,7 @@ dependencies = [
 name = "llmem-core"
 version = "0.3.0"
 dependencies = [
+ "criterion",
  "dirs",
  "fastembed",
  "insta",
