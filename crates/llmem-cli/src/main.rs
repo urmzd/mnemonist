@@ -583,9 +583,18 @@ fn run(cli: Cli) -> Result<()> {
                     matched = text_search(&q, &dirs);
                 }
 
-                matched.sort_by_key(|(_, e)| type_priority_from_filename(&e.file));
+                // Temporal re-ranking: blend cosine similarity with temporal score
+                let lambda = Config::load().quantization.temporal_weight as f64;
+                let now_utc = chrono::Utc::now();
+                matched.sort_by(|a, b| {
+                    let score_a = temporal_blend(&a.0, &a.1, a.2, lambda, &now_utc);
+                    let score_b = temporal_blend(&b.0, &b.1, b.2, lambda, &now_utc);
+                    score_b
+                        .partial_cmp(&score_a)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
 
-                for (dir, entry) in &matched {
+                for (dir, entry, _score) in &matched {
                     if total_chars >= budget {
                         break;
                     }
@@ -995,14 +1004,16 @@ fn run(cli: Cli) -> Result<()> {
                     })
                     .unwrap_or_default();
 
-                // Memory body is a cue, not a copy — truncate to max_memory_tokens.
-                // Full content is reachable via refs edge to the code chunk.
+                // Memory body is a cue, not a copy.
+                // Code: extract signatures. Notes: truncate. Full content via refs.
                 let max_chars = config.consolidation.max_memory_tokens * 4;
-                let body = if item.content.len() > max_chars {
+                let body = if item.content.len() <= max_chars {
+                    item.content.clone()
+                } else if item.source == "learn" || item.file_source.is_some() {
+                    extract_code_cue(&item.content, max_chars)
+                } else {
                     let truncated: String = item.content.chars().take(max_chars).collect();
                     format!("{truncated}...")
-                } else {
-                    item.content.clone()
                 };
 
                 let mem = MemoryFile {
@@ -1045,17 +1056,40 @@ fn run(cli: Cli) -> Result<()> {
                 {
                     let threshold = config.consolidation.merge_threshold;
                     let entries = &store.entries;
-                    // Collect pairs that exceed similarity threshold
+
+                    // Build temp HNSW for O(n log n) neighbor search
+                    let mut temp_hnsw =
+                        llmem_index::hnsw::HnswIndex::with_defaults(store.dimension);
+                    for entry in entries {
+                        let _ = llmem_index::AnnIndex::insert(
+                            &mut temp_hnsw,
+                            &entry.file,
+                            &entry.embedding,
+                        );
+                    }
+
+                    // Per-entry neighbor search instead of O(n²) pairwise
+                    let k = 10;
                     let mut links: Vec<(String, String)> = Vec::new();
-                    for i in 0..entries.len() {
-                        for j in (i + 1)..entries.len() {
-                            let sim =
-                                cosine_similarity(&entries[i].embedding, &entries[j].embedding);
-                            if sim >= threshold {
-                                links.push((entries[i].file.clone(), entries[j].file.clone()));
+                    for entry in entries {
+                        if let Ok(hits) =
+                            llmem_index::AnnIndex::search(&temp_hnsw, &entry.embedding, k + 1)
+                        {
+                            for hit in hits {
+                                if hit.id != entry.file && hit.score >= threshold {
+                                    // Canonical ordering to deduplicate (a,b) == (b,a)
+                                    let pair = if entry.file < hit.id {
+                                        (entry.file.clone(), hit.id.clone())
+                                    } else {
+                                        (hit.id.clone(), entry.file.clone())
+                                    };
+                                    links.push(pair);
+                                }
                             }
                         }
                     }
+                    links.sort();
+                    links.dedup();
                     // Apply bidirectional refs
                     for (a, b) in &links {
                         let path_a = dir.join(a);
@@ -1364,6 +1398,7 @@ fn run(cli: Cli) -> Result<()> {
 // -- Helper functions --
 
 /// Map memory type prefix in filename to priority (lower = higher priority).
+#[allow(dead_code)]
 fn type_priority_from_filename(filename: &str) -> u8 {
     if filename.starts_with("feedback_") {
         0
@@ -1377,12 +1412,12 @@ fn type_priority_from_filename(filename: &str) -> u8 {
 }
 
 /// Text-based search across directories (fallback when no embeddings).
-fn text_search(query: &str, dirs: &[PathBuf]) -> Vec<(PathBuf, IndexEntry)> {
+fn text_search(query: &str, dirs: &[PathBuf]) -> Vec<(PathBuf, IndexEntry, f32)> {
     let mut matched = Vec::new();
     for dir in dirs {
         if let Ok(index) = MemoryIndex::load(dir) {
             for entry in index.search(query) {
-                matched.push((dir.clone(), entry.clone()));
+                matched.push((dir.clone(), entry.clone(), 0.5));
             }
         }
     }
@@ -1390,11 +1425,12 @@ fn text_search(query: &str, dirs: &[PathBuf]) -> Vec<(PathBuf, IndexEntry)> {
 }
 
 /// Semantic search using HNSW index + embeddings.
+/// Returns (dir, entry, cosine_score) tuples.
 fn semantic_search(
     query: &str,
     dirs: &[PathBuf],
     _root: &std::path::Path,
-) -> Vec<(PathBuf, IndexEntry)> {
+) -> Vec<(PathBuf, IndexEntry, f32)> {
     let embedder = match llmem_core::FastEmbedder::default_model() {
         Ok(e) => e,
         Err(_) => return Vec::new(),
@@ -1405,8 +1441,8 @@ fn semantic_search(
         Err(_) => return Vec::new(),
     };
 
-    let mut memory_hits = Vec::new();
-    let mut code_hits = Vec::new();
+    let mut memory_hits: Vec<(PathBuf, IndexEntry, f32)> = Vec::new();
+    let mut code_hits: Vec<(PathBuf, IndexEntry, f32)> = Vec::new();
 
     for dir in dirs {
         // Memory layer HNSW
@@ -1418,7 +1454,7 @@ fn semantic_search(
         {
             for hit in hits {
                 if let Some(entry) = mem_index.entries.iter().find(|e| e.file == hit.id) {
-                    memory_hits.push((dir.clone(), entry.clone()));
+                    memory_hits.push((dir.clone(), entry.clone(), hit.score));
                 }
             }
         }
@@ -1445,6 +1481,7 @@ fn semantic_search(
                                 start, end, hit.score
                             ),
                         },
+                        hit.score,
                     ));
                 }
             }
@@ -1467,9 +1504,48 @@ fn semantic_search(
                 scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
                 if let Ok(mem_index) = MemoryIndex::load(dir) {
-                    for (file, _score) in scores.iter().take(10) {
+                    for (file, score) in scores.iter().take(10) {
                         if let Some(entry) = mem_index.entries.iter().find(|e| e.file == *file) {
-                            memory_hits.push((dir.clone(), entry.clone()));
+                            memory_hits.push((dir.clone(), entry.clone(), *score));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Hierarchical: seed code search with top memory hit's embedding
+    if let Some((top_dir, top_entry, _)) = memory_hits.first() {
+        let store_path = top_dir.join(".embeddings.bin");
+        if let Ok(store) = EmbeddingStore::load(&store_path)
+            && let Some(emb) = store.get(&top_entry.file)
+        {
+            let seen: std::collections::HashSet<String> =
+                code_hits.iter().map(|(_, e, _)| e.file.clone()).collect();
+            for dir in dirs {
+                let code_hnsw_path = dir.join(".code-index.hnsw");
+                if code_hnsw_path.exists()
+                    && let Ok(hnsw) = llmem_index::hnsw::HnswIndex::load_from(&code_hnsw_path)
+                    && let Ok(hits) = llmem_index::AnnIndex::search(&hnsw, &emb.embedding, 5)
+                {
+                    for hit in hits {
+                        let parts: Vec<&str> = hit.id.rsplitn(3, ':').collect();
+                        if parts.len() == 3 {
+                            let file = format!("{}:{}:{}", parts[2], parts[1], parts[0]);
+                            if !seen.contains(&file) {
+                                code_hits.push((
+                                    dir.clone(),
+                                    IndexEntry {
+                                        title: parts[2].to_string(),
+                                        file,
+                                        summary: format!(
+                                            "via {} (score: {:.3})",
+                                            top_entry.file, hit.score
+                                        ),
+                                    },
+                                    hit.score,
+                                ));
+                            }
                         }
                     }
                 }
@@ -1508,6 +1584,106 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         0.0
     } else {
         dot / (norm_a * norm_b)
+    }
+}
+
+/// Compute blended score: (1-λ)*cosine + λ*temporal for temporal re-ranking.
+fn temporal_blend(
+    dir: &std::path::Path,
+    entry: &IndexEntry,
+    cosine_score: f32,
+    lambda: f64,
+    now: &chrono::DateTime<chrono::Utc>,
+) -> f64 {
+    // Code chunks: no temporal data, use cosine only
+    if entry.file.rsplitn(3, ':').count() == 3
+        && entry
+            .file
+            .rsplitn(3, ':')
+            .all(|p| p.parse::<usize>().is_ok() || p.contains('/'))
+    {
+        return cosine_score as f64;
+    }
+
+    let path = dir.join(&entry.file);
+    let temporal = if let Ok(mem) = MemoryFile::read(&path) {
+        let fm = &mem.frontmatter;
+        let parse_dt = |s: &Option<String>| -> Option<chrono::DateTime<chrono::Utc>> {
+            s.as_ref()?
+                .parse::<chrono::DateTime<chrono::FixedOffset>>()
+                .ok()
+                .map(|dt| dt.to_utc())
+        };
+        let created = parse_dt(&fm.created_at);
+        let accessed = parse_dt(&fm.last_accessed).or(created);
+        match (created, accessed) {
+            (Some(c), Some(a)) => {
+                let age_days = (*now - c).num_seconds() as f64 / 86400.0;
+                let recency_days = (*now - a).num_seconds() as f64 / 86400.0;
+                llmem_core::temporal::temporal_score(
+                    recency_days,
+                    age_days,
+                    fm.access_count,
+                    fm.memory_type,
+                )
+            }
+            _ => 0.5,
+        }
+    } else {
+        0.5
+    };
+
+    llmem_core::temporal::blend(cosine_score as f64, temporal, lambda)
+}
+
+/// Extract a compressed cue from code content.
+/// Prioritizes signatures and public items over raw truncation.
+fn extract_code_cue(content: &str, max_chars: usize) -> String {
+    const SIG_PREFIXES: &[&str] = &[
+        "pub fn ",
+        "pub async fn ",
+        "pub struct ",
+        "pub enum ",
+        "pub trait ",
+        "pub type ",
+        "pub const ",
+        "pub static ",
+        "fn ",
+        "async fn ",
+        "struct ",
+        "enum ",
+        "trait ",
+        "impl ",
+        "type ",
+        "const ",
+        "class ",
+        "def ",
+        "async def ",
+        "func ",
+        "function ",
+        "export ",
+    ];
+
+    let mut lines = Vec::new();
+    let mut used = 0;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if SIG_PREFIXES.iter().any(|p| trimmed.starts_with(p)) {
+            if used + line.len() + 1 > max_chars {
+                break;
+            }
+            lines.push(line);
+            used += line.len() + 1;
+        }
+    }
+    if !lines.is_empty() {
+        return format!("{}...", lines.join("\n"));
+    }
+    // Fallback: first max_chars characters
+    if content.len() > max_chars {
+        format!("{}...", content.chars().take(max_chars).collect::<String>())
+    } else {
+        content.to_string()
     }
 }
 
