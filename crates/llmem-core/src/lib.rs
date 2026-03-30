@@ -5,6 +5,7 @@ mod error;
 pub mod inbox;
 pub mod index;
 pub mod memory;
+pub mod temporal;
 
 pub use backend::{FileBackend, MemoryBackend, SemanticHit};
 pub use config::Config;
