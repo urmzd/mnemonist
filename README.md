@@ -11,6 +11,10 @@
   </p>
 </p>
 
+<p align="center">
+  <a href="https://crates.io/crates/llmem"><img src="https://img.shields.io/crates/v/llmem" alt="crates.io"></a>
+</p>
+
 ## Features
 
 - **Cognitive CLI** — commands named after memory processes: `memorize`, `remember`, `note`, `learn`, `consolidate`, `reflect`, `forget`
