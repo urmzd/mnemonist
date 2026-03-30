@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use llmem_core::{
     Config, Embedder, EmbeddingStore, Frontmatter, Inbox, InboxItem, IndexEntry, MemoryFile,
-    MemoryIndex, MemoryType, global_dir, project_dir,
+    MemoryIndex, MemoryType, global_dir, llmem_root, project_dir,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -161,29 +161,11 @@ enum Command {
         root: PathBuf,
     },
 
-    /// Context management — switch between mental contexts
-    Ctx {
-        #[command(subcommand)]
-        action: CtxAction,
-    },
-
     /// Manage llmem configuration
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
-}
-
-#[derive(Subcommand)]
-enum CtxAction {
-    /// Switch active project context
-    Switch {
-        /// Project root to switch to (defaults to current directory)
-        #[arg(default_value = ".")]
-        root: PathBuf,
-    },
-    /// Show the currently active context
-    Show,
 }
 
 #[derive(Subcommand)]
@@ -269,6 +251,9 @@ struct MemorizeInput {
     body: String,
     #[serde(default = "default_level")]
     level: String,
+    /// Inter-layer edges: code chunk IDs or memory filenames.
+    #[serde(default)]
+    refs: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -355,7 +340,7 @@ fn run(cli: Cli) -> Result<()> {
             stdin,
             root,
         } => {
-            let (mt, n, desc, body, is_global) = if stdin {
+            let (mt, n, desc, body, is_global, refs) = if stdin {
                 let mut buf = String::new();
                 io::stdin()
                     .read_to_string(&mut buf)
@@ -367,12 +352,18 @@ fn run(cli: Cli) -> Result<()> {
                     .parse()
                     .map_err(|e: String| anyhow::anyhow!(e))?;
                 let is_global = input.level == "global";
-                (mt, input.name, input.description, input.body, is_global)
+                (
+                    mt,
+                    input.name,
+                    input.description,
+                    input.body,
+                    is_global,
+                    input.refs,
+                )
             } else {
                 let mt = memory_type.unwrap_or(MemoryType::Feedback);
                 let n = name.unwrap_or_else(|| slugify(&point, 4));
-                // Point text serves as both description and body
-                (mt, n, point.clone(), point, global)
+                (mt, n, point.clone(), point, global, Vec::new())
             };
 
             let dir = resolve_dir(is_global, &root)?;
@@ -386,6 +377,7 @@ fn run(cli: Cli) -> Result<()> {
                     created_at: Some(now_iso()),
                     source: Some("memorize".to_string()),
                     strength: 1.0,
+                    refs,
                     ..Default::default()
                 },
                 body,
@@ -402,8 +394,12 @@ fn run(cli: Cli) -> Result<()> {
             mem.write(&dir.join(&filename))?;
             index.save()?;
 
-            // Auto-embed if Ollama is available
+            // Embed and rebuild memory HNSW
             let embed_result = try_embed_single(&dir, &filename);
+            let _ = build_memory_hnsw(&dir);
+
+            // Notify daemon to reload indices
+            daemon_notify_reload();
 
             info!("{action} {filename}");
             output_ok(json!({
@@ -438,6 +434,9 @@ fn run(cli: Cli) -> Result<()> {
             inbox.last_updated = Some(now_iso());
             inbox.save(&dir)?;
 
+            // Notify daemon to reload
+            daemon_notify_reload();
+
             info!("noted ({}/{})", inbox.len(), inbox.capacity);
             output_ok(json!({
                 "inbox_size": inbox.len(),
@@ -465,51 +464,84 @@ fn run(cli: Cli) -> Result<()> {
                 ask
             };
 
-            let dirs = level_dirs(&level, &root)?;
-            let mut memories: Vec<MemoryOut> = Vec::new();
-            let mut total_chars = 0usize;
+            // Try daemon first (indices warm in memory)
+            if let Some(resp) = daemon_remember(&q, &level, budget, &root) {
+                println!("{}", serde_json::to_string(&resp).unwrap());
+            } else {
+                // Fall back to local file-based search
+                let dirs = level_dirs(&level, &root)?;
+                let mut memories: Vec<MemoryOut> = Vec::new();
+                let mut total_chars = 0usize;
 
-            // Try semantic search first (HNSW), fall back to text search
-            let mut matched = semantic_search(&q, &dirs, &root);
-            if matched.is_empty() {
-                matched = text_search(&q, &dirs);
-            }
-
-            // Sort by type priority: feedback > project > user > reference
-            matched.sort_by_key(|(_, e)| type_priority_from_filename(&e.file));
-
-            // Load memory files up to budget, updating access metadata
-            for (dir, entry) in &matched {
-                if total_chars >= budget {
-                    break;
+                let mut matched = semantic_search(&q, &dirs, &root);
+                if matched.is_empty() {
+                    matched = text_search(&q, &dirs);
                 }
-                let path = dir.join(&entry.file);
-                if let Ok(mut mem) = MemoryFile::read(&path) {
-                    let body_chars = mem.body.len();
-                    if total_chars + body_chars > budget && !memories.is_empty() {
+
+                matched.sort_by_key(|(_, e)| type_priority_from_filename(&e.file));
+
+                for (dir, entry) in &matched {
+                    if total_chars >= budget {
                         break;
                     }
-                    total_chars += body_chars;
 
-                    // Hebbian reinforcement: increment access count
-                    mem.frontmatter.access_count += 1;
-                    mem.frontmatter.last_accessed = Some(now_iso());
-                    let _ = mem.write(&path);
+                    // Code chunk entries have file format "path:start:end"
+                    let parts: Vec<&str> = entry.file.rsplitn(3, ':').collect();
+                    if parts.len() == 3 {
+                        if let (Ok(start), Ok(end)) =
+                            (parts[1].parse::<usize>(), parts[0].parse::<usize>())
+                        {
+                            let source_path = root.join(parts[2]);
+                            if let Ok(content) = std::fs::read_to_string(&source_path) {
+                                let lines: Vec<&str> = content.lines().collect();
+                                let s = start.saturating_sub(1).min(lines.len());
+                                let e = end.min(lines.len());
+                                let body = lines[s..e].join("\n");
+                                let body_chars = body.len();
+                                if total_chars + body_chars > budget && !memories.is_empty() {
+                                    break;
+                                }
+                                total_chars += body_chars;
+                                memories.push(MemoryOut {
+                                    file: entry.file.clone(),
+                                    memory_type: "code".to_string(),
+                                    name: entry.title.clone(),
+                                    description: entry.summary.clone(),
+                                    body,
+                                });
+                            }
+                        }
+                        continue;
+                    }
 
-                    memories.push(MemoryOut {
-                        file: entry.file.clone(),
-                        memory_type: mem.frontmatter.memory_type.to_string(),
-                        name: mem.frontmatter.name.clone(),
-                        description: mem.frontmatter.description.clone(),
-                        body: mem.body.clone(),
-                    });
+                    // Memory file entries
+                    let path = dir.join(&entry.file);
+                    if let Ok(mut mem) = MemoryFile::read(&path) {
+                        let body_chars = mem.body.len();
+                        if total_chars + body_chars > budget && !memories.is_empty() {
+                            break;
+                        }
+                        total_chars += body_chars;
+
+                        mem.frontmatter.access_count += 1;
+                        mem.frontmatter.last_accessed = Some(now_iso());
+                        let _ = mem.write(&path);
+
+                        memories.push(MemoryOut {
+                            file: entry.file.clone(),
+                            memory_type: mem.frontmatter.memory_type.to_string(),
+                            name: mem.frontmatter.name.clone(),
+                            description: mem.frontmatter.description.clone(),
+                            body: mem.body.clone(),
+                        });
+                    }
                 }
-            }
 
-            output_ok(json!({
-                "memories": memories,
-                "token_estimate": total_chars / 4,
-            }));
+                output_ok(json!({
+                    "memories": memories,
+                    "token_estimate": total_chars / 4,
+                }));
+            }
         }
 
         // -- learn: ingest a codebase as sensory experience --
@@ -565,7 +597,58 @@ fn run(cli: Cli) -> Result<()> {
             });
             std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest_doc)?)?;
 
-            // Phase 2: attention scoring — promote top chunks to inbox
+            // Phase 2: embed chunks and build HNSW index
+            let mut embedded_count = 0usize;
+            let mut eval_json = json!(null);
+            match llmem_core::FastEmbedder::default_model() {
+                Ok(embedder) => {
+                    let dim = embedder.dimension()?;
+                    let mut hnsw = llmem_index::hnsw::HnswIndex::with_defaults(dim);
+                    match code_index.build_ann(&embedder, &mut hnsw) {
+                        Ok(n) => {
+                            embedded_count = n;
+                            let hnsw_path = mem_dir.join(".code-index.hnsw");
+                            if let Err(e) = llmem_index::AnnIndex::save(&hnsw, &hnsw_path) {
+                                eprintln!("warning: failed to save code HNSW index: {e}");
+                            }
+
+                            // Eval: sample up to 100 chunks for quality metrics
+                            let sample_size = chunk_count.min(100);
+                            let step = if sample_size > 0 {
+                                chunk_count / sample_size
+                            } else {
+                                1
+                            }
+                            .max(1);
+                            let sample_texts: Vec<&str> = code_index
+                                .chunks()
+                                .iter()
+                                .step_by(step)
+                                .take(sample_size)
+                                .map(|c| c.content.as_str())
+                                .collect();
+
+                            if let Ok(sample_embeddings) = embedder.embed_batch(&sample_texts) {
+                                let aniso = llmem_index::eval::anisotropy(&sample_embeddings);
+                                let range = llmem_index::eval::similarity_range(&sample_embeddings);
+                                eval_json = json!({
+                                    "sample_size": sample_embeddings.len(),
+                                    "anisotropy": (aniso * 10000.0).round() / 10000.0,
+                                    "similarity_range": (range * 10000.0).round() / 10000.0,
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("warning: embedding failed: {e}");
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("warning: could not load embedding model: {e}");
+                }
+            }
+
+            // Phase 3: attention scoring — promote top chunks to inbox
             let mut inbox = Inbox::load(&mem_dir, cap)?;
             inbox.capacity = cap;
 
@@ -612,16 +695,19 @@ fn run(cli: Cli) -> Result<()> {
             inbox.save(&mem_dir)?;
 
             info!(
-                "learned {} chunks from {} files, {} in inbox",
+                "learned {} chunks from {} files, {} embedded, {} in inbox",
                 chunk_count,
                 file_count,
+                embedded_count,
                 inbox.len()
             );
             output_ok(json!({
                 "chunks": chunk_count,
                 "files": file_count,
+                "embedded": embedded_count,
                 "inbox_size": inbox.len(),
                 "indexed_at": now,
+                "eval": eval_json,
             }));
         }
 
@@ -652,6 +738,20 @@ fn run(cli: Cli) -> Result<()> {
                     MemoryType::Feedback
                 };
 
+                // Preserve file_source as inter-layer edge refs
+                let refs = item
+                    .file_source
+                    .as_ref()
+                    .map(|fs| {
+                        vec![format!(
+                            "{}:{}:{}",
+                            fs.file,
+                            fs.start_line.unwrap_or(0),
+                            fs.end_line.unwrap_or(0)
+                        )]
+                    })
+                    .unwrap_or_default();
+
                 let mem = MemoryFile {
                     frontmatter: Frontmatter {
                         name: name.clone(),
@@ -660,6 +760,7 @@ fn run(cli: Cli) -> Result<()> {
                         created_at: Some(item.created_at.clone()),
                         source: Some(item.source.clone()),
                         strength: item.attention_score,
+                        refs,
                         ..Default::default()
                     },
                     body: item.content.clone(),
@@ -736,7 +837,7 @@ fn run(cli: Cli) -> Result<()> {
                 inbox.save(&dir)?;
                 index.save()?;
 
-                // Re-embed all memories
+                // Re-embed all memories and rebuild memory HNSW
                 let embed_result = try_embed_all(&dir);
                 if let Ok((synced, total)) = embed_result {
                     actions.push(json!({
@@ -745,10 +846,21 @@ fn run(cli: Cli) -> Result<()> {
                         "total": total,
                     }));
                 }
+                if let Ok(n) = build_memory_hnsw(&dir) {
+                    actions.push(json!({
+                        "action": "index",
+                        "indexed": n,
+                    }));
+                }
             }
 
             let promoted = inbox_items.len();
             let decayed = to_remove.len();
+
+            if !dry_run {
+                daemon_notify_reload();
+            }
+
             info!(
                 "consolidated: {} promoted, {} decayed{}",
                 promoted,
@@ -865,38 +977,6 @@ fn run(cli: Cli) -> Result<()> {
             }
         }
 
-        // -- ctx: context switching --
-        Command::Ctx { action } => match action {
-            CtxAction::Switch { root } => {
-                let root =
-                    std::fs::canonicalize(&root).context("could not resolve project root")?;
-                let llmem_root =
-                    llmem_core::llmem_root().context("could not determine home directory")?;
-                std::fs::create_dir_all(&llmem_root)?;
-                let ctx_file = llmem_root.join(".active-ctx");
-                std::fs::write(&ctx_file, root.display().to_string())?;
-                info!("switched context to {}", root.display());
-                output_ok(json!({
-                    "context": root.display().to_string(),
-                }));
-            }
-            CtxAction::Show => {
-                let llmem_root =
-                    llmem_core::llmem_root().context("could not determine home directory")?;
-                let ctx_file = llmem_root.join(".active-ctx");
-                if ctx_file.exists() {
-                    let ctx = std::fs::read_to_string(&ctx_file)?;
-                    output_ok(json!({
-                        "context": ctx.trim(),
-                    }));
-                } else {
-                    output_ok(json!({
-                        "context": null,
-                    }));
-                }
-            }
-        },
-
         // -- config: manage configuration --
         Command::Config { action } => match action {
             ConfigAction::Show => {
@@ -977,7 +1057,10 @@ fn semantic_search(
     dirs: &[PathBuf],
     _root: &std::path::Path,
 ) -> Vec<(PathBuf, IndexEntry)> {
-    let embedder = llmem_core::OllamaEmbedder::from_env();
+    let embedder = match llmem_core::FastEmbedder::default_model() {
+        Ok(e) => e,
+        Err(_) => return Vec::new(),
+    };
 
     let query_embedding = match embedder.embed(query) {
         Ok(v) => v,
@@ -987,10 +1070,10 @@ fn semantic_search(
     let mut matched = Vec::new();
 
     for dir in dirs {
-        // Try loading HNSW index
-        let index_path = dir.join(".index.hnsw");
-        if index_path.exists()
-            && let Ok(hnsw) = llmem_index::hnsw::HnswIndex::load_from(&index_path)
+        // Try memory HNSW index (layered graph: memory layer)
+        let mem_hnsw_path = dir.join(".memory-index.hnsw");
+        if mem_hnsw_path.exists()
+            && let Ok(hnsw) = llmem_index::hnsw::HnswIndex::load_from(&mem_hnsw_path)
             && let Ok(hits) = llmem_index::AnnIndex::search(&hnsw, &query_embedding, 10)
             && let Ok(mem_index) = MemoryIndex::load(dir)
         {
@@ -1001,8 +1084,36 @@ fn semantic_search(
             }
         }
 
-        // Also try brute-force cosine on embedding store
-        if matched.is_empty() {
+        // Try code HNSW index
+        let code_hnsw_path = dir.join(".code-index.hnsw");
+        if code_hnsw_path.exists()
+            && let Ok(hnsw) = llmem_index::hnsw::HnswIndex::load_from(&code_hnsw_path)
+            && let Ok(hits) = llmem_index::AnnIndex::search(&hnsw, &query_embedding, 10)
+        {
+            // Resolve hit IDs (format: "file:start:end") to IndexEntry
+            for hit in hits {
+                let parts: Vec<&str> = hit.id.rsplitn(3, ':').collect();
+                if parts.len() == 3 {
+                    let file = parts[2].to_string();
+                    let start = parts[1];
+                    let end = parts[0];
+                    matched.push((
+                        dir.clone(),
+                        IndexEntry {
+                            title: file.clone(),
+                            file: format!("{}:{}:{}", file, start, end),
+                            summary: format!(
+                                "code chunk L{}-L{} (score: {:.3})",
+                                start, end, hit.score
+                            ),
+                        },
+                    ));
+                }
+            }
+        }
+
+        // Fallback: brute-force cosine on .embeddings.bin (when no HNSW exists yet)
+        if matched.is_empty() && !mem_hnsw_path.exists() {
             let store_path = dir.join(".embeddings.bin");
             if store_path.exists()
                 && let Ok(store) = EmbeddingStore::load(&store_path)
@@ -1047,7 +1158,7 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 
 /// Try to embed a single file into the embedding store.
 fn try_embed_single(dir: &std::path::Path, filename: &str) -> Result<()> {
-    let embedder = llmem_core::OllamaEmbedder::from_env();
+    let embedder = llmem_core::FastEmbedder::default_model()?;
     let store_path = dir.join(".embeddings.bin");
 
     let mut store = if store_path.exists() {
@@ -1071,9 +1182,31 @@ fn try_embed_single(dir: &std::path::Path, filename: &str) -> Result<()> {
     Ok(())
 }
 
+/// Build (or rebuild) the memory-layer HNSW index from all .md files in a directory.
+/// Uses the existing .embeddings.bin as the source of vectors.
+fn build_memory_hnsw(dir: &std::path::Path) -> Result<usize> {
+    let store_path = dir.join(".embeddings.bin");
+    if !store_path.exists() {
+        return Ok(0);
+    }
+    let store = EmbeddingStore::load(&store_path)?;
+    if store.entries.is_empty() {
+        return Ok(0);
+    }
+
+    let mut hnsw = llmem_index::hnsw::HnswIndex::with_defaults(store.dimension);
+    for entry in &store.entries {
+        llmem_index::AnnIndex::insert(&mut hnsw, &entry.file, &entry.embedding)?;
+    }
+
+    let hnsw_path = dir.join(".memory-index.hnsw");
+    llmem_index::AnnIndex::save(&hnsw, &hnsw_path)?;
+    Ok(store.entries.len())
+}
+
 /// Try to re-embed all memories in a directory. Returns (synced, total).
 fn try_embed_all(dir: &std::path::Path) -> Result<(usize, usize)> {
-    let embedder = llmem_core::OllamaEmbedder::from_env();
+    let embedder = llmem_core::FastEmbedder::default_model()?;
     let store_path = dir.join(".embeddings.bin");
 
     let mut store = if store_path.exists() {
@@ -1087,4 +1220,121 @@ fn try_embed_all(dir: &std::path::Path) -> Result<(usize, usize)> {
     store.save(&store_path)?;
 
     Ok((synced, total))
+}
+
+// -- Daemon client (Unix socket) --
+
+/// Socket path for the llmem daemon.
+fn daemon_socket_path() -> Option<PathBuf> {
+    llmem_root().map(|r| r.join("llmem.sock"))
+}
+
+/// Send a request to the daemon over Unix socket. Returns the parsed JSON
+/// response, or None if the daemon is not running.
+fn daemon_request(path: &str) -> Option<Value> {
+    use std::io::{BufRead, Write as _};
+    use std::os::unix::net::UnixStream;
+
+    let sock = daemon_socket_path()?;
+    let mut stream = UnixStream::connect(&sock).ok()?;
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .ok()?;
+
+    // Send HTTP/1.1 request
+    let req = format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+    stream.write_all(req.as_bytes()).ok()?;
+
+    // Read response
+    let mut reader = std::io::BufReader::new(stream);
+
+    // Skip HTTP status line
+    let mut status_line = String::new();
+    reader.read_line(&mut status_line).ok()?;
+    if !status_line.contains("200") {
+        return None;
+    }
+
+    // Skip headers until empty line
+    loop {
+        let mut line = String::new();
+        reader.read_line(&mut line).ok()?;
+        if line.trim().is_empty() {
+            break;
+        }
+    }
+
+    // Read body (may be chunked or content-length based, but with Connection: close
+    // we can just read to EOF for simplicity)
+    let mut body = String::new();
+    reader.read_to_string(&mut body).ok()?;
+
+    // Handle chunked transfer encoding (axum default for HTTP/1.1)
+    let body = decode_chunked(&body).unwrap_or(body);
+
+    serde_json::from_str(&body).ok()
+}
+
+/// Decode chunked transfer encoding.
+fn decode_chunked(input: &str) -> Option<String> {
+    let mut result = String::new();
+    let mut remaining = input;
+
+    loop {
+        let remaining_trimmed = remaining.trim_start();
+        let newline_pos = remaining_trimmed.find("\r\n")?;
+        let size_str = &remaining_trimmed[..newline_pos];
+        let size = usize::from_str_radix(size_str.trim(), 16).ok()?;
+        if size == 0 {
+            break;
+        }
+        let data_start = remaining_trimmed.get((newline_pos + 2)..)?;
+        if data_start.len() < size {
+            return None;
+        }
+        result.push_str(&data_start[..size]);
+        remaining = &data_start[(size)..];
+        // Skip trailing \r\n after chunk data
+        if remaining.starts_with("\r\n") {
+            remaining = &remaining[2..];
+        }
+    }
+
+    Some(result)
+}
+
+/// Try to remember via the daemon. Returns the full JSON response if successful.
+fn daemon_remember(
+    query: &str,
+    level: &str,
+    budget: usize,
+    root: &std::path::Path,
+) -> Option<Value> {
+    let root_str = root.display();
+    let encoded_q = urlencoded(query);
+    let path = format!("/remember?q={encoded_q}&level={level}&budget={budget}&root={root_str}");
+    daemon_request(&path)
+}
+
+/// Fire-and-forget reload signal to the daemon.
+fn daemon_notify_reload() {
+    let _ = daemon_request("/reload");
+}
+
+/// Minimal URL encoding for query parameters.
+fn urlencoded(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char);
+            }
+            b' ' => out.push('+'),
+            _ => {
+                out.push('%');
+                out.push_str(&format!("{b:02X}"));
+            }
+        }
+    }
+    out
 }
