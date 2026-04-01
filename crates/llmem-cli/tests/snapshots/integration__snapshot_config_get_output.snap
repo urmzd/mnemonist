@@ -5,7 +5,7 @@ expression: json
 {
   "data": {
     "key": "embedding.model",
-    "value": "nomic-embed-text"
+    "value": "all-MiniLM-L6-v2"
   },
   "ok": true
 }

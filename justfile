@@ -33,6 +33,14 @@ check-fmt:
 record:
     teasr showme
 
+# Run all benchmarks
+bench:
+    cargo bench --workspace
+
+# Run validation tests
+validate:
+    cargo test --workspace --test validation
+
 # Quality gate: format + lint + test
 check: check-fmt lint test
 

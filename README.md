@@ -23,12 +23,14 @@
 - **Memory metadata** — strength, access count, last accessed, source tracking; Hebbian reinforcement on retrieval
 - **Plain markdown** with YAML frontmatter — human-readable, git-friendly
 - **Typed memories** — user, feedback, project, reference
-- **Semantic search** — Ollama embedder (`nomic-embed-text`) with HNSW/IVF-Flat ANN indices; auto-embeds on `memorize`
-- **Code ingestion** — `learn` uses tree-sitter chunking (Rust, Python, JS/TS, Go) with attention-scored promotion to inbox
+- **Local embedding** — `fastembed` crate with `all-MiniLM-L6-v2` (384-dim, ~22 MB, ONNX Runtime); no external server needed; model downloads to `~/.cache/fastembed/` on first use
+- **Layered graph** — three HNSW layers: code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
+- **Code ingestion** — `learn` embeds all chunks into `.code-index.hnsw`; tree-sitter for Rust/Python/JS/TS/Go, plain-text fallback for shell scripts, markdown, TOML, etc.
+- **Cross-layer recall** — `remember` searches memory and code indices in parallel; follows `refs` edges to surface referenced code chunks with source lines
 - **Consolidation** — `consolidate` promotes inbox items, decays stale memories, and re-embeds
+- **Embedding quality metrics** — `learn` reports anisotropy and similarity_range after indexing
 - **TurboQuant** — optional vector quantization (1-4 bit) for compact embedding storage
 - **JSON-first** — stdout for structured JSON, stderr for UX; pipe-friendly
-- **Context switching** — `llmem ctx switch` swaps project memory while keeping global resident
 - Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool
 
 ## Install
@@ -85,7 +87,7 @@ llmem init                                          # project memory
 llmem init --global                                 # global memory
 llmem memorize "prefer Rust for CLI tools" -t feedback
 llmem note "look into async runtime choices"        # quick capture to inbox
-llmem learn .                                       # ingest codebase into inbox
+llmem learn .                                       # embed codebase into .code-index.hnsw
 llmem consolidate                                   # promote inbox → long-term memory
 llmem remember "rust"                               # semantic + text search
 llmem reflect --all                                 # review all memories + inbox
@@ -118,13 +120,11 @@ Project memory takes precedence over global when they conflict.
 | `llmem init [--global]` | Create `~/.llmem/{project}/MEMORY.md` or global |
 | `llmem memorize "<point>" [-t type] [-n name]` | Deliberately encode a point into long-term memory (auto-embeds) |
 | `llmem note "<point>"` | Jot a quick note into working memory inbox |
-| `llmem remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — semantic search with text fallback |
-| `llmem learn [path] [--attend glob] [--capacity N]` | Ingest a codebase via tree-sitter; top chunks promoted to inbox |
-| `llmem consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed |
+| `llmem remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel, follows refs |
+| `llmem learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; embeds all chunks into `.code-index.hnsw`, reports quality metrics |
+| `llmem consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw` |
 | `llmem reflect [--all] [--global]` | Introspect — review memories and inbox contents |
 | `llmem forget <file>` | Deliberately forget a memory |
-| `llmem ctx switch [<root>]` | Switch active project context |
-| `llmem ctx show` | Show active project context |
 | `llmem config init` | Create default config file |
 | `llmem config show` | Show current configuration |
 | `llmem config get <key>` | Get a config value (dot-notation) |
@@ -163,6 +163,7 @@ Each memory file tracks cognitive metadata in its frontmatter:
 | `created_at` | When the memory was first created |
 | `source` | How it was created: `memorize`, `note`, `learn`, `consolidation` |
 | `consolidated_from` | Original files if created via merge |
+| `refs` | Inter-layer edges — code chunk IDs or memory filenames this memory links to |
 
 ### Configuration
 
@@ -173,13 +174,14 @@ Config file: `~/.llmem/config.toml` (created with `llmem config init`)
 root = "~/.llmem"
 
 [embedding]
-provider = "ollama"
-host = "http://localhost:11434"
-model = "nomic-embed-text"
+provider = "fastembed"
+model = "all-MiniLM-L6-v2"
 
 [recall]
 budget = 2000
 priority = ["feedback", "project", "user", "reference"]
+expand_refs = true
+max_ref_expansions = 3
 
 [index]
 max_lines = 200
@@ -204,7 +206,7 @@ algorithm = "mse"
 temporal_weight = 0.2
 ```
 
-Use `llmem config set embedding.model all-minilm` to change values. Environment variables (`OLLAMA_HOST`, `OLLAMA_EMBED_MODEL`) override config.
+Use `llmem config set embedding.model all-MiniLM-L6-v2` to change values.
 
 ### RAG Server
 
@@ -275,7 +277,46 @@ See the full [Specification](SPECIFICATION.md) for details on file format, dynam
 | Pack | 161 ns | 539 ns | 264 ns |
 | Unpack | 90 ns | 270 ns | 241 ns |
 
-> Measured on Apple Silicon (M-series) with `cargo bench`. Run `cargo bench` to reproduce.
+### Embedding Store
+
+| Operation | 128d x 100 | 384d x 100 | 384d x 500 |
+|---|---|---|---|
+| `upsert` | TBD | TBD | TBD |
+| `get` | TBD | TBD | TBD |
+| `remove` | TBD | TBD | TBD |
+| `save` | TBD | TBD | TBD |
+| `load` | TBD | TBD | TBD |
+
+### Inbox
+
+| Operation | cap=7 | cap=50 |
+|---|---|---|
+| `push_to_capacity` | TBD | TBD |
+| `push_with_eviction` | TBD | TBD |
+| `save` | TBD | TBD |
+| `load` | TBD | TBD |
+| `drain` | TBD | TBD |
+
+### Memory Index
+
+| Operation | 10 entries | 100 entries |
+|---|---|---|
+| `parse_line` | TBD | — |
+| `to_line` | TBD | — |
+| `search` | TBD | TBD |
+| `upsert_new` | TBD | TBD |
+| `upsert_existing` | TBD | TBD |
+
+### Eval Functions
+
+| Function | 32d x 50 | 128d x 50 | 384d x 20 |
+|---|---|---|---|
+| `anisotropy` | TBD | TBD | TBD |
+| `similarity_range` | TBD | TBD | TBD |
+| `mean_center` | TBD | TBD | TBD |
+| `discrimination_gap` | TBD | — | — |
+
+> Measured on Apple Silicon (M-series) with `cargo bench`. Run `just bench` to reproduce.
 <!-- /embed-src -->
 
 ## Testing

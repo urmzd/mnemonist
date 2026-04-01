@@ -377,17 +377,10 @@ The `consolidate` command runs a sleep-like consolidation cycle that mirrors bio
 
 Each time a memory is retrieved via `remember`, its `access_count` is incremented and `last_accessed` is updated. Frequently accessed memories are protected from decay, mirroring long-term potentiation.
 
-## 16. Context Switching
+## 16. Project Resolution
 
-The `llmem ctx switch` command manages active project context:
+The CLI resolves the project root from `--root` (default: current working directory). Global memories are always available as the base layer. Project memories layer on top when a project root is set.
 
-1. Writes the project root path to `~/.llmem/.active-ctx`
-2. Server reads this file to determine which project embeddings to load
-3. Global embeddings stay resident; only project embeddings are swapped
-
-### Behavior
-
-- On context switch: project ANN index is hot-swapped, global stays resident
 - Content hashes prevent unnecessary re-embedding
 - Embeddings are auto-synced on `memorize` and `consolidate`
 
@@ -396,11 +389,11 @@ The `llmem ctx switch` command manages active project context:
 An optional HTTP server (`llmem-server`) provides search over memory:
 
 - Loads ANN indices on start (both levels)
-- Reads `.active-ctx` for current project context
+- Accepts `--root` CLI arg at startup to set the project context
 - API:
   - `GET /health` — status, counts, active context
   - `GET /search?q=<query>&level=project|global|both&top_k=10` — search
-  - `GET /reload` — hot-reload after context switch
+  - `GET /reload` — hot-reload indices; optional `?root=<path>` to switch project
 - Response: JSON array of `{ title, file, summary, level, score }`
 
 The convention works without the server. The server is an optional accelerator.

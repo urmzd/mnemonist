@@ -13,17 +13,14 @@ cargo install llmem-cli
 | Command | Description |
 |---------|-------------|
 | `llmem init [--global]` | Initialize memory directory |
-| `llmem add <type> <name> -d <desc>` | Add a memory |
-| `llmem learn [--stdin]` | Upsert a memory (JSON stdin or args) |
-| `llmem recall --query <q>` | Retrieve relevant memories (pre-hook) |
-| `llmem list [--all]` | List memories |
-| `llmem search <query>` | Search by description |
-| `llmem remove <file>` | Remove a memory |
-| `llmem embed [--global]` | Sync embeddings via Ollama |
-| `llmem code index` | Index source code with tree-sitter |
-| `llmem code search <query>` | Search indexed code chunks |
+| `llmem memorize "<point>" [-t type] [-n name]` | Encode a point into long-term memory (auto-embeds) |
+| `llmem note "<point>"` | Jot a quick note into working memory inbox |
+| `llmem remember "<ask>" [--budget N] [--level both]` | Recall by cue — searches memory and code indices, follows refs |
+| `llmem learn [path]` | Embed all code chunks into `.code-index.hnsw`; reports quality metrics |
+| `llmem consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed |
+| `llmem reflect [--all] [--global]` | Review memories and inbox contents |
+| `llmem forget <file>` | Forget a memory |
 | `llmem config show\|get\|set\|init\|path` | Manage configuration |
-| `llmem ctx switch\|show` | Manage project context |
 
 All commands output JSON to stdout (`{"ok": true, "data": {...}}`).
 
@@ -31,6 +28,8 @@ All commands output JSON to stdout (`{"ok": true, "data": {...}}`).
 
 - Project memory: `~/.llmem/{project}/`
 - Global memory: `~/.llmem/global/`
+- Code index: `.code-index.hnsw` (project root)
+- Memory index: `.memory-index.hnsw` (project root)
 - Config: `~/.llmem/config.toml`
 
 ## License

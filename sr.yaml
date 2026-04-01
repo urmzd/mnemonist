@@ -1,52 +1,66 @@
-branches: [main]
-tag_prefix: "v"
-floating_tags: true
+# sr configuration — merged with new defaults
+# Run 'sr init --force' for a fully-commented template.
 
+branches:
+- main
+tag_prefix: v
+commit_pattern: ^(?P<type>\w+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s+(?P<description>.+)
+breaking_section: Breaking Changes
+misc_section: Miscellaneous
 types:
-  - name: feat
-    bump: minor
-    section: Features
-  - name: fix
-    bump: patch
-    section: Bug Fixes
-  - name: perf
-    bump: patch
-    section: Performance
-  - name: docs
-    section: Documentation
-  - name: refactor
-    bump: patch
-    section: Refactoring
-  - name: revert
-    section: Reverts
-  - name: chore
-  - name: ci
-  - name: test
-  - name: build
-  - name: style
-
-version_files:
-  - Cargo.toml
-
+- name: feat
+  bump: minor
+  section: Features
+- name: fix
+  bump: patch
+  section: Bug Fixes
+- name: perf
+  bump: patch
+  section: Performance
+- name: docs
+  section: Documentation
+- name: refactor
+  bump: patch
+  section: Refactoring
+- name: revert
+  section: Reverts
+- name: chore
+- name: ci
+- name: test
+- name: build
+- name: style
 changelog:
   file: CHANGELOG.md
-
+  template: null
+version_files:
+- Cargo.toml
+version_files_strict: false
+artifacts: []
+floating_tags: true
+build_command: null
+stage_files: []
+prerelease: null
+pre_release_command: null
+post_release_command: null
+sign_tags: false
+draft: false
+release_name_template: null
 hooks:
   commit-msg:
-    - sr hook commit-msg
+  - sr hook commit-msg
   pre-commit:
-    - step: format
-      patterns:
-        - "*.rs"
-      rules:
-        - "rustfmt --check --edition 2024 {files}"
-    - step: lint
-      patterns:
-        - "*.rs"
-      rules:
-        - "cargo clippy --workspace -- -D warnings"
-    - step: test
-      patterns:
-        - "*.rs"
-      rules:
-        - "cargo test --workspace"
+  - step: format
+    patterns:
+    - '*.rs'
+    rules:
+    - rustfmt --check --edition 2024 {files}
+  - step: lint
+    patterns:
+    - '*.rs'
+    rules:
+    - cargo clippy --workspace -- -D warnings
+  - step: test
+    patterns:
+    - '*.rs'
+    rules:
+    - cargo test --workspace

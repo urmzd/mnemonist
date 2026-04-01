@@ -1,6 +1,7 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use llmem_index::AnnIndex;
 use llmem_index::distance::{cosine_similarity, dot_product, l2_distance_squared, normalize};
+use llmem_index::eval::{anisotropy, discrimination_gap, mean_center, similarity_range};
 use llmem_index::hnsw::HnswIndex;
 use llmem_index::ivf::{IvfConfig, IvfFlatIndex};
 
@@ -148,5 +149,47 @@ fn bench_ivf(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_distance_functions, bench_hnsw, bench_ivf);
+fn bench_eval(c: &mut Criterion) {
+    let mut group = c.benchmark_group("eval");
+
+    for &(dim, count) in &[(32, 50), (128, 50), (384, 20)] {
+        let label = format!("{dim}d_x{count}");
+        let vectors: Vec<Vec<f32>> = (0..count).map(|i| make_vector(dim, i as f32)).collect();
+
+        group.bench_with_input(BenchmarkId::new("anisotropy", &label), &dim, |bench, _| {
+            bench.iter(|| anisotropy(&vectors));
+        });
+
+        group.bench_with_input(
+            BenchmarkId::new("similarity_range", &label),
+            &dim,
+            |bench, _| {
+                bench.iter(|| similarity_range(&vectors));
+            },
+        );
+
+        group.bench_with_input(BenchmarkId::new("mean_center", &label), &dim, |bench, _| {
+            bench.iter(|| mean_center(&vectors));
+        });
+    }
+
+    // discrimination_gap with groups
+    let dim = 32;
+    let vectors: Vec<Vec<f32>> = (0..50).map(|i| make_vector(dim, i as f32)).collect();
+    let groups: Vec<usize> = (0..50).map(|i| i / 10).collect(); // 5 groups of 10
+
+    group.bench_function("discrimination_gap/32d_x50", |bench| {
+        bench.iter(|| discrimination_gap(&vectors, &groups));
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_distance_functions,
+    bench_hnsw,
+    bench_ivf,
+    bench_eval
+);
 criterion_main!(benches);

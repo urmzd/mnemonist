@@ -316,30 +316,6 @@ fn forget_nonexistent_fails() {
 }
 
 #[test]
-fn ctx_switch_and_show() {
-    let tmp = tempfile::tempdir().unwrap();
-    let home = tmp.path().join("home");
-    std::fs::create_dir_all(&home).unwrap();
-    let project = tmp.path().join("proj");
-    std::fs::create_dir_all(&project).unwrap();
-
-    // Show before switch — should be null
-    let (json, code) = run(&home, &["ctx", "show"]);
-    assert_eq!(code, 0);
-    assert!(json["data"]["context"].is_null());
-
-    // Switch
-    let (json, code) = run(&home, &["ctx", "switch", project.to_str().unwrap()]);
-    assert_eq!(code, 0);
-    assert!(json["data"]["context"].as_str().unwrap().contains("proj"));
-
-    // Show after switch
-    let (json, code) = run(&home, &["ctx", "show"]);
-    assert_eq!(code, 0);
-    assert!(json["data"]["context"].as_str().unwrap().contains("proj"));
-}
-
-#[test]
 fn config_init_and_get() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -353,7 +329,7 @@ fn config_init_and_get() {
     // Get a known key
     let (json, code) = run(&home, &["config", "get", "embedding.model"]);
     assert_eq!(code, 0);
-    assert_eq!(json["data"]["value"], "nomic-embed-text");
+    assert_eq!(json["data"]["value"], "all-MiniLM-L6-v2");
 }
 
 #[test]

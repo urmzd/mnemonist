@@ -115,9 +115,7 @@ impl CodeIndex {
                 continue;
             };
 
-            let Some(language) = language_for_ext(ext) else {
-                continue;
-            };
+            let language = language_for_ext(ext);
 
             let content = match fs::read_to_string(path) {
                 Ok(c) => c,
@@ -130,7 +128,10 @@ impl CodeIndex {
                 .to_string_lossy()
                 .to_string();
 
-            let file_chunks = extract_chunks(&content, &rel_path, language)?;
+            let file_chunks = match language {
+                Some(lang) => extract_chunks(&content, &rel_path, lang)?,
+                None => extract_plain_chunks(&content, &rel_path),
+            };
             for chunk in file_chunks {
                 let id = chunk.id();
                 let idx = self.chunks.len();
@@ -291,6 +292,32 @@ fn collect_chunks(
     for child in node.children(&mut cursor) {
         collect_chunks(child, source, file, lines, chunks);
     }
+}
+
+/// Extract chunks from a plain-text file using line-based chunking.
+/// Used as a fallback for file types without tree-sitter grammar support.
+fn extract_plain_chunks(source: &str, file: &str) -> Vec<CodeChunk> {
+    let lines: Vec<&str> = source.lines().collect();
+    if lines.len() < MIN_CHUNK_LINES {
+        return Vec::new();
+    }
+    let mut chunks = Vec::new();
+    for start in (0..lines.len()).step_by(MAX_CHUNK_LINES) {
+        let end = (start + MAX_CHUNK_LINES).min(lines.len());
+        let content = lines[start..end].join("\n");
+        if content.trim().is_empty() {
+            continue;
+        }
+        chunks.push(CodeChunk {
+            file: file.to_string(),
+            start_line: start + 1,
+            end_line: end,
+            content,
+            kind: "block".to_string(),
+            name: None,
+        });
+    }
+    chunks
 }
 
 /// Map file extension to tree-sitter language.

@@ -18,8 +18,13 @@ serde_json = { workspace = true }
 toml = { workspace = true }
 thiserror = { workspace = true }
 dirs = { workspace = true }
-ureq = { version = "3", features = ["json"] }
+fastembed = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+criterion = { workspace = true }
 insta = { workspace = true }
+
+[[bench]]
+name = "core_benchmarks"
+harness = false

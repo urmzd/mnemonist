@@ -1,5 +1,6 @@
 pub mod code;
 pub mod distance;
+pub mod eval;
 pub mod hnsw;
 pub mod ivf;
 
