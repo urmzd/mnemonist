@@ -51,7 +51,7 @@ tree-sitter-typescript = "0.23"
 tree-sitter-go = "0.23"
 
 # Embedding
-fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-native-tls", "hf-hub-native-tls"] }
+fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls"] }
 
 # Testing
 tempfile = "3"
