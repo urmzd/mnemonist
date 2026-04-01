@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 (2026-04-01)
+
+### Bug Fixes
+
+- **build**: switch fastembed from native-tls to rustls-tls ([5a8978a](https://github.com/urmzd/llmem/commit/5a8978a205f83b45a5cab6d14d077f8d05827645))
+
+[Full Changelog](https://github.com/urmzd/llmem/compare/v0.4.0...v0.4.1)
+
+
 ## 0.4.0 (2026-04-01)
 
 ### Features
