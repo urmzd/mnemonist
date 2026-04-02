@@ -36,14 +36,16 @@
 ## Install
 
 ```bash
-# One-liner (auto-detects OS and arch)
 curl -fsSL https://raw.githubusercontent.com/urmzd/llmem/main/install.sh | bash
-
-# Install the RAG server instead
-curl -fsSL https://raw.githubusercontent.com/urmzd/llmem/main/install.sh | bash -s -- --binary llmem-server
-
-# Options: --tag v0.1.0, --dir ~/.local/bin, --musl (Linux)
 ```
+
+Install the RAG server instead:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/urmzd/llmem/main/install.sh | bash -s -- --binary llmem-server
+```
+
+> Options: `--tag v0.1.0`, `--dir ~/.local/bin`, `--musl` (Linux)
 
 Or install via Cargo:
 
