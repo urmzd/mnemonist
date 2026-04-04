@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.4 (2026-04-04)
+
+### Documentation
+
+- **spec**: update llmem specification to v0.2.0 (#6) ([46dcad7](https://github.com/urmzd/mnemonist/commit/46dcad73fb4ad895a10ab79a2b210e77ce9a2a9d))
+
+### Refactoring
+
+- **index**: replace tree-sitter with pluggable ChunkingStrategy (#7) ([1a8e562](https://github.com/urmzd/mnemonist/commit/1a8e56279fc04bf45aa0bb26c6af739438817178))
+
+### Miscellaneous
+
+- rename project from llmem to mnemonist ([6eb9d11](https://github.com/urmzd/mnemonist/commit/6eb9d119aec3628fdef0d6f846d68a3bac5b2e5b))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.4.3...v0.4.4)
+
+
 ## 0.4.3 (2026-04-04)
 
 ### Bug Fixes
