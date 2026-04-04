@@ -1,0 +1,36 @@
+[package]
+name = "mnemonist-server"
+version = "0.4.3"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+description = "RAG HTTP server for mnemonist — semantic search over AI agent memory"
+readme = "README.md"
+keywords = ["ai", "memory", "rag", "server"]
+categories = ["web-programming::http-server", "development-tools"]
+
+[[bin]]
+name = "mnemonist-server"
+path = "src/main.rs"
+
+[dependencies]
+mnemonist-core = { workspace = true }
+mnemonist-index = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+clap = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+tower = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+http-body-util = "0.1"
+http = "1"
+insta = { workspace = true }

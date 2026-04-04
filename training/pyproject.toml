@@ -1,7 +1,7 @@
 [project]
-name = "llmem-training"
+name = "mnemonist-training"
 version = "0.1.0"
-description = "Distillation training pipeline for llmem embedding models"
+description = "Distillation training pipeline for mnemonist embedding models"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [

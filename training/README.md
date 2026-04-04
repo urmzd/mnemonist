@@ -1,12 +1,12 @@
 # training/
 
-Distillation training pipeline for llmem's two custom embedding models.
+Distillation training pipeline for mnemonist's two custom embedding models.
 
 ## Models
 
 1. **Code Embedding Model** — 6-layer transformer, 384-dim output, ~22M params. Specialized for source code retrieval across Rust, Python, JS/TS, Go.
 
-2. **Memory Embedding Model** — Same base architecture + temporal projection head. Specialized for llmem memory files with temporal awareness (recency, access frequency, memory type).
+2. **Memory Embedding Model** — Same base architecture + temporal projection head. Specialized for mnemonist memory files with temporal awareness (recency, access frequency, memory type).
 
 ## Pipeline
 
@@ -14,7 +14,7 @@ Distillation training pipeline for llmem's two custom embedding models.
 1. Generate data    →  training/prompts/ + src/datagen/generate.py
 2. Train models     →  scripts/train_code_model.py, scripts/train_memory_model.py
 3. Export to ONNX   →  src/export/onnx_export.py
-4. Deploy           →  dataset/models/*.onnx → used by crates/llmem-embed/
+4. Deploy           →  dataset/models/*.onnx → used by crates/mnemonist-embed/
 ```
 
 ## Quick Start
@@ -40,5 +40,5 @@ python -m src.export.onnx_export --checkpoint checkpoints/memory_latest.pt --out
 ## Reference
 
 - TurboQuant paper: `../dataset/turboquant.pdf`
-- Quantization implementation: `../crates/llmem-quant/`
-- ONNX inference in Rust: `../crates/llmem-embed/` (future)
+- Quantization implementation: `../crates/mnemonist-quant/`
+- ONNX inference in Rust: `../crates/mnemonist-embed/` (future)

@@ -12,19 +12,19 @@ family = "Iosevka Nerd Font Mono"
 
 [[scenes]]
 type = "terminal"
-name = "llmem-demo"
+name = "mnemonist-demo"
 theme = "dracula"
 cols = 100
 rows = 35
 
 [scenes.intro]
-text = "llmem\nAI-native memory for agents"
+text = "mnemonist\nAI-native memory for agents"
 duration = 2000
 center = true
 
 [[scenes.interactions]]
 type = "type"
-text = "llmem memorize \"Rust's borrow checker prevents data races at compile time\""
+text = "mnemonist memorize \"Rust's borrow checker prevents data races at compile time\""
 speed = 40
 
 [[scenes.interactions]]
@@ -37,7 +37,7 @@ duration = 3000
 
 [[scenes.interactions]]
 type = "type"
-text = "llmem remember \"how does Rust prevent data races?\""
+text = "mnemonist remember \"how does Rust prevent data races?\""
 speed = 40
 
 [[scenes.interactions]]

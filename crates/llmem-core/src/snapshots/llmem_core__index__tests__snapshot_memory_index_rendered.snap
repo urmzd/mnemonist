@@ -1,7 +1,0 @@
----
-source: crates/llmem-core/src/index.rs
-expression: rendered
----
-- [Prefer Rust](feedback_prefer-rust.md) — use Rust for CLI tools
-- [API Docs](reference_api-docs.md) — REST API at api.example.com/docs
-- [Auth Rewrite](project_auth-rewrite.md) — legal compliance requires new auth middleware

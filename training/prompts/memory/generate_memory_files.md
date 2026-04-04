@@ -1,10 +1,10 @@
 # Synthetic Memory File Generation
 
-Generate realistic llmem memory files for training a memory-specialized embedding model.
+Generate realistic mnemonist memory files for training a memory-specialized embedding model.
 
 ## Instructions
 
-Generate {batch_size} memory files. Each file should be a complete memory document with YAML frontmatter and markdown body, following the llmem specification.
+Generate {batch_size} memory files. Each file should be a complete memory document with YAML frontmatter and markdown body, following the mnemonist specification.
 
 ## Memory Types
 

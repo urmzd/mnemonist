@@ -1,0 +1,30 @@
+---
+source: crates/mnemonist-core/src/inbox.rs
+expression: inbox
+---
+{
+  "capacity": 7,
+  "items": [
+    {
+      "id": "prefer-rust",
+      "content": "Always use Rust for CLI tools",
+      "source": "note",
+      "attention_score": 0.9,
+      "created_at": "2026-03-29T10:00:00Z"
+    },
+    {
+      "id": "api-handler",
+      "content": "fn handle_request() in src/server.rs",
+      "source": "learn",
+      "attention_score": 0.6,
+      "created_at": "2026-03-29T11:00:00Z",
+      "file_source": {
+        "file": "src/server.rs",
+        "start_line": 42,
+        "end_line": 80,
+        "kind": "function"
+      }
+    }
+  ],
+  "last_updated": "2026-03-29T11:00:00Z"
+}

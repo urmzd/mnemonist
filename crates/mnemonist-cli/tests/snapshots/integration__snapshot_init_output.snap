@@ -1,0 +1,11 @@
+---
+source: crates/mnemonist-cli/tests/integration.rs
+expression: redact_cli_json(json)
+---
+{
+  "data": {
+    "level": "project",
+    "path": "[path]"
+  },
+  "ok": true
+}

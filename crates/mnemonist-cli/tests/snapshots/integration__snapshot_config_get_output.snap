@@ -1,0 +1,11 @@
+---
+source: crates/mnemonist-cli/tests/integration.rs
+expression: json
+---
+{
+  "data": {
+    "key": "embedding.model",
+    "value": "all-MiniLM-L6-v2"
+  },
+  "ok": true
+}

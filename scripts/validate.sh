@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-# ── llmem full system validation ─────────────────────────────────────────────
+# ── mnemonist full system validation ─────────────────────────────────────────────
 # Runs every command against a clean, isolated environment and reports
 # pass/fail with timing for each operation.
 
-LLMEM="${LLMEM_BIN:-$(dirname "$0")/../target/release/llmem}"
-SERVER="${LLMEM_SERVER_BIN:-$(dirname "$0")/../target/release/llmem-server}"
+MNEMONIST="${MNEMONIST_BIN:-$(dirname "$0")/../target/release/mnemonist}"
+SERVER="${MNEMONIST_SERVER_BIN:-$(dirname "$0")/../target/release/mnemonist-server}"
 
 # ── Theme ────────────────────────────────────────────────────────────────────
 BOLD="\033[1m"
@@ -104,144 +104,144 @@ REPO_ROOT="$(cd "$(dirname "$0")/.."; pwd)"
 SERVER_PID=""
 
 echo ""
-echo -e "${BOLD}${CYAN}  llmem${RESET}${BOLD} system validation${RESET}"
+echo -e "${BOLD}${CYAN}  mnemonist${RESET}${BOLD} system validation${RESET}"
 echo -e "${DIM}  ────────────────────────────────────────${RESET}"
 echo ""
 
 # ── 1. Init ──────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  init${RESET}"
 
-run "init project" "$LLMEM" init --root "$PROJECT"
+run "init project" "$MNEMONIST" init --root "$PROJECT"
 eq "d['data']['level']" '"project"' "init: level is project"
 eq "d['ok']" 'true' "init: ok is true"
 
-run "init global" "$LLMEM" init --global
+run "init global" "$MNEMONIST" init --global
 eq "d['data']['level']" '"global"' "init global: level is global"
 
 # ── 2. Config ────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  config${RESET}"
 
-run "config init" "$LLMEM" config init
+run "config init" "$MNEMONIST" config init
 eq "d['data']['action']" '"created"' "config init: action is created"
 
-run "config get" "$LLMEM" config get embedding.model
+run "config get" "$MNEMONIST" config get embedding.model
 eq "d['data']['value']" '"nomic-embed-text"' "config get: default model"
 
-run "config set" "$LLMEM" config set embedding.model "test-embed"
+run "config set" "$MNEMONIST" config set embedding.model "test-embed"
 eq "d['data']['value']" '"test-embed"' "config set: value updated"
 
-run "config get verify" "$LLMEM" config get embedding.model
+run "config get verify" "$MNEMONIST" config get embedding.model
 eq "d['data']['value']" '"test-embed"' "config set: persisted"
 
 # Restore for embedding to work
-"$LLMEM" config set embedding.model "nomic-embed-text" >/dev/null 2>/dev/null
+"$MNEMONIST" config set embedding.model "nomic-embed-text" >/dev/null 2>/dev/null
 
-run "config show" "$LLMEM" config show
+run "config show" "$MNEMONIST" config show
 ok "len(d['data']['config']) > 100" "config show: non-empty"
 
-run "config path" "$LLMEM" config path
+run "config path" "$MNEMONIST" config path
 ok "'config.toml' in d['data']['path']" "config path: ends in config.toml"
 
 # ── 3. Memorize ──────────────────────────────────────────────────────────────
 echo -e "${WHITE}  memorize${RESET}"
 
-run "memorize feedback" "$LLMEM" memorize "always write tests" --root "$PROJECT"
+run "memorize feedback" "$MNEMONIST" memorize "always write tests" --root "$PROJECT"
 eq "d['data']['action']" '"created"' "memorize: action is created"
 ok "d['data']['file'].startswith('feedback_')" "memorize: file prefix"
 
-run "memorize user" "$LLMEM" memorize "prefers rust" -t user --name "lang-pref" --root "$PROJECT"
+run "memorize user" "$MNEMONIST" memorize "prefers rust" -t user --name "lang-pref" --root "$PROJECT"
 eq "d['data']['file']" '"user_lang-pref.md"' "memorize user: correct filename"
 
-run "memorize project" "$LLMEM" memorize "merge freeze march 5" -t project --name "freeze" --root "$PROJECT"
+run "memorize project" "$MNEMONIST" memorize "merge freeze march 5" -t project --name "freeze" --root "$PROJECT"
 eq "d['data']['file']" '"project_freeze.md"' "memorize project: correct filename"
 
-run "memorize reference" "$LLMEM" memorize "see Linear INGEST board" -t reference --name "linear-board" --root "$PROJECT"
+run "memorize reference" "$MNEMONIST" memorize "see Linear INGEST board" -t reference --name "linear-board" --root "$PROJECT"
 eq "d['data']['file']" '"reference_linear-board.md"' "memorize reference: correct filename"
 
 # Upsert same name
-run "memorize upsert" "$LLMEM" memorize "prefers rust and go" -t user --name "lang-pref" --root "$PROJECT"
+run "memorize upsert" "$MNEMONIST" memorize "prefers rust and go" -t user --name "lang-pref" --root "$PROJECT"
 eq "d['data']['action']" '"updated"' "memorize upsert: action is updated"
 
 # Stdin
-run "memorize stdin" sh -c "echo '{\"type\":\"feedback\",\"name\":\"stdin-mem\",\"description\":\"from stdin\",\"body\":\"body content\",\"level\":\"project\"}' | '$LLMEM' memorize ignored --stdin --root '$PROJECT'"
+run "memorize stdin" sh -c "echo '{\"type\":\"feedback\",\"name\":\"stdin-mem\",\"description\":\"from stdin\",\"body\":\"body content\",\"level\":\"project\"}' | '$MNEMONIST' memorize ignored --stdin --root '$PROJECT'"
 eq "d['data']['file']" '"feedback_stdin-mem.md"' "memorize stdin: correct file"
 
 # ── 4. Note ──────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  note${RESET}"
 
-run "note 1" "$LLMEM" note "check logging" --root "$PROJECT"
+run "note 1" "$MNEMONIST" note "check logging" --root "$PROJECT"
 eq "d['data']['inbox_size']" '1' "note: inbox_size is 1"
 
-run "note 2" "$LLMEM" note "review auth middleware" --root "$PROJECT"
+run "note 2" "$MNEMONIST" note "review auth middleware" --root "$PROJECT"
 eq "d['data']['inbox_size']" '2' "note: inbox_size is 2"
 
 # Fill inbox beyond capacity
 for i in $(seq 3 10); do
-  "$LLMEM" note "note number $i" --root "$PROJECT" >/dev/null 2>/dev/null
+  "$MNEMONIST" note "note number $i" --root "$PROJECT" >/dev/null 2>/dev/null
 done
-run "note capacity" "$LLMEM" reflect --root "$PROJECT"
+run "note capacity" "$MNEMONIST" reflect --root "$PROJECT"
 ok "d['data']['inbox']['size'] <= 7" "note: respects capacity (<=7)"
 
 # ── 5. Remember ──────────────────────────────────────────────────────────────
 echo -e "${WHITE}  remember${RESET}"
 
-run "remember rust" "$LLMEM" remember "rust" --level project --root "$PROJECT"
+run "remember rust" "$MNEMONIST" remember "rust" --level project --root "$PROJECT"
 ok "len(d['data']['memories']) >= 1" "remember: finds rust memories"
 ok "d['data']['token_estimate'] >= 0" "remember: has token estimate"
 
-run "remember obscure" "$LLMEM" remember "xyzzy999" --level project --root "$PROJECT"
+run "remember obscure" "$MNEMONIST" remember "xyzzy999" --level project --root "$PROJECT"
 ok "'memories' in d['data']" "remember: returns memories array"
 
 # ── 6. Reflect ───────────────────────────────────────────────────────────────
 echo -e "${WHITE}  reflect${RESET}"
 
-run "reflect" "$LLMEM" reflect --root "$PROJECT"
+run "reflect" "$MNEMONIST" reflect --root "$PROJECT"
 ok "len(d['data']['memories']) == 5" "reflect: 5 memories"
 ok "d['data']['inbox']['size'] > 0" "reflect: inbox non-empty"
 
 # ── 7. Learn ─────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  learn${RESET}"
 
-run "learn codebase" "$LLMEM" learn "$REPO_ROOT" --root "$PROJECT"
+run "learn codebase" "$MNEMONIST" learn "$REPO_ROOT" --root "$PROJECT"
 ok "d['data']['chunks'] > 0" "learn: extracted chunks"
 ok "d['data']['files'] > 0" "learn: found files"
 
 # ── 8. Consolidate ───────────────────────────────────────────────────────────
 echo -e "${WHITE}  consolidate${RESET}"
 
-run "consolidate dry-run" "$LLMEM" consolidate --dry-run --root "$PROJECT"
+run "consolidate dry-run" "$MNEMONIST" consolidate --dry-run --root "$PROJECT"
 eq "d['data']['dry_run']" 'true' "consolidate dry-run: flag set"
 ok "d['data']['promoted'] > 0" "consolidate dry-run: would promote"
 
-run "consolidate" "$LLMEM" consolidate --root "$PROJECT"
+run "consolidate" "$MNEMONIST" consolidate --root "$PROJECT"
 eq "d['data']['dry_run']" 'false' "consolidate: not dry run"
 ok "d['data']['promoted'] > 0" "consolidate: promoted items"
 eq "d['data']['decayed']" '0' "consolidate: no immediate decay (bug fix)"
 
 # Verify inbox drained
-run "post-consolidate reflect" "$LLMEM" reflect --root "$PROJECT"
+run "post-consolidate reflect" "$MNEMONIST" reflect --root "$PROJECT"
 eq "d['data']['inbox']['size']" '0' "consolidate: inbox drained"
 ok "len(d['data']['memories']) > 5" "consolidate: memories grew"
 
 # ── 9. Forget ────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  forget${RESET}"
 
-run "forget" "$LLMEM" forget feedback_stdin-mem.md --root "$PROJECT"
+run "forget" "$MNEMONIST" forget feedback_stdin-mem.md --root "$PROJECT"
 eq "d['data']['action']" '"forgotten"' "forget: action is forgotten"
 
-run_fail "forget nonexistent" "$LLMEM" forget nonexistent.md --root "$PROJECT"
+run_fail "forget nonexistent" "$MNEMONIST" forget nonexistent.md --root "$PROJECT"
 eq "d['ok']" 'false' "forget nonexistent: ok is false"
 
 # ── 10. Context ──────────────────────────────────────────────────────────────
 echo -e "${WHITE}  context${RESET}"
 
-run "ctx show (empty)" "$LLMEM" ctx show
+run "ctx show (empty)" "$MNEMONIST" ctx show
 ok "d['data']['context'] is None" "ctx show: null before switch"
 
-run "ctx switch" "$LLMEM" ctx switch "$PROJECT"
+run "ctx switch" "$MNEMONIST" ctx switch "$PROJECT"
 ok "'myproject' in d['data']['context']" "ctx switch: set to project"
 
-run "ctx show (after)" "$LLMEM" ctx show
+run "ctx show (after)" "$MNEMONIST" ctx show
 ok "d['data']['context'] is not None" "ctx show: non-null after switch"
 
 # ── 11. Server ───────────────────────────────────────────────────────────────

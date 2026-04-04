@@ -11,7 +11,7 @@ build:
 
 # Install the CLI binary
 install:
-    cargo install --path crates/llmem-cli
+    cargo install --path crates/mnemonist-cli
 
 # Run all tests
 test:
@@ -43,8 +43,8 @@ validate:
 
 # Run eval suite
 eval:
-    cargo test -p llmem-evals
-    cargo bench -p llmem-evals
+    cargo test -p mnemonist-evals
+    cargo bench -p mnemonist-evals
 
 # Quality gate: format + lint + test
 check: check-fmt lint test

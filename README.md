@@ -1,24 +1,24 @@
 <p align="center">
-  <h1 align="center">llmem</h1>
+  <h1 align="center">mnemonist</h1>
   <p align="center">
     An open ecosystem for tool-agnostic AI agent memory.
     <br /><br />
     <a href="#quick-start">Quick Start</a>
     &middot;
-    <a href="https://github.com/urmzd/llmem/issues">Report Bug</a>
+    <a href="https://github.com/urmzd/mnemonist/issues">Report Bug</a>
     &middot;
     <a href="SPECIFICATION.md">Specification</a>
   </p>
 </p>
 
 <p align="center">
-  <a href="https://crates.io/crates/llmem"><img src="https://img.shields.io/crates/v/llmem" alt="crates.io"></a>
+  <a href="https://crates.io/crates/mnemonist"><img src="https://img.shields.io/crates/v/mnemonist" alt="crates.io"></a>
 </p>
 
 ## Features
 
 - **Cognitive CLI** — commands named after memory processes: `memorize`, `remember`, `note`, `learn`, `consolidate`, `reflect`, `forget`
-- **Two-level memory** — project (`~/.llmem/{project}/`) and global (`~/.llmem/global/`)
+- **Two-level memory** — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`)
 - **Working memory inbox** — capacity-limited staging area (default 7 items) with attention scoring; items promoted to long-term memory via `consolidate`
 - **Memory metadata** — strength, access count, last accessed, source tracking; Hebbian reinforcement on retrieval
 - **Plain markdown** with YAML frontmatter — human-readable, git-friendly
@@ -36,13 +36,13 @@
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/urmzd/llmem/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | bash
 ```
 
 Install the RAG server instead:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/urmzd/llmem/main/install.sh | bash -s -- --binary llmem-server
+curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | bash -s -- --binary mnemonist-server
 ```
 
 > Options: `--tag v0.1.0`, `--dir ~/.local/bin`, `--musl` (Linux)
@@ -50,23 +50,23 @@ curl -fsSL https://raw.githubusercontent.com/urmzd/llmem/main/install.sh | bash 
 Or install via Cargo:
 
 ```bash
-cargo install llmem-cli          # CLI
-cargo install llmem-server       # RAG server (optional)
+cargo install mnemonist-cli          # CLI
+cargo install mnemonist-server       # RAG server (optional)
 ```
 
-Or use without tooling — just create `~/.llmem/{project}/MEMORY.md` manually.
+Or use without tooling — just create `~/.mnemonist/{project}/MEMORY.md` manually.
 
 ## Quick Start
 
 ### Without tooling
 
 ```bash
-mkdir -p ~/.llmem/my-project
-cat > ~/.llmem/my-project/MEMORY.md << 'EOF'
+mkdir -p ~/.mnemonist/my-project
+cat > ~/.mnemonist/my-project/MEMORY.md << 'EOF'
 - [Prefer Rust](feedback_prefer_rust.md) — default to Rust for new CLI tools
 EOF
 
-cat > ~/.llmem/my-project/feedback_prefer_rust.md << 'EOF'
+cat > ~/.mnemonist/my-project/feedback_prefer_rust.md << 'EOF'
 ---
 name: prefer-rust
 description: Default to Rust for new CLI tools
@@ -84,15 +84,15 @@ EOF
 ### With the CLI
 
 ```bash
-cargo install llmem-cli
-llmem init                                          # project memory
-llmem init --global                                 # global memory
-llmem memorize "prefer Rust for CLI tools" -t feedback
-llmem note "look into async runtime choices"        # quick capture to inbox
-llmem learn .                                       # embed codebase into .code-index.hnsw
-llmem consolidate                                   # promote inbox → long-term memory
-llmem remember "rust"                               # semantic + text search
-llmem reflect --all                                 # review all memories + inbox
+cargo install mnemonist-cli
+mnemonist init                                          # project memory
+mnemonist init --global                                 # global memory
+mnemonist memorize "prefer Rust for CLI tools" -t feedback
+mnemonist note "look into async runtime choices"        # quick capture to inbox
+mnemonist learn .                                       # embed codebase into .code-index.hnsw
+mnemonist consolidate                                   # promote inbox → long-term memory
+mnemonist remember "rust"                               # semantic + text search
+mnemonist reflect --all                                 # review all memories + inbox
 ```
 
 ## Usage
@@ -101,8 +101,8 @@ llmem reflect --all                                 # review all memories + inbo
 
 | Level | Location | Scope |
 |-------|----------|-------|
-| Project | `~/.llmem/{project}/` | Per-repo corrections, decisions |
-| Global | `~/.llmem/global/` | Cross-project preferences, expertise |
+| Project | `~/.mnemonist/{project}/` | Per-repo corrections, decisions |
+| Global | `~/.mnemonist/global/` | Cross-project preferences, expertise |
 
 Project memory takes precedence over global when they conflict.
 
@@ -119,19 +119,19 @@ Project memory takes precedence over global when they conflict.
 
 | Command | Description |
 |---------|-------------|
-| `llmem init [--global]` | Create `~/.llmem/{project}/MEMORY.md` or global |
-| `llmem memorize "<point>" [-t type] [-n name]` | Deliberately encode a point into long-term memory (auto-embeds) |
-| `llmem note "<point>"` | Jot a quick note into working memory inbox |
-| `llmem remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel, follows refs |
-| `llmem learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; embeds all chunks into `.code-index.hnsw`, reports quality metrics |
-| `llmem consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw` |
-| `llmem reflect [--all] [--global]` | Introspect — review memories and inbox contents |
-| `llmem forget <file>` | Deliberately forget a memory |
-| `llmem config init` | Create default config file |
-| `llmem config show` | Show current configuration |
-| `llmem config get <key>` | Get a config value (dot-notation) |
-| `llmem config set <key> <value>` | Set a config value |
-| `llmem config path` | Print config file path |
+| `mnemonist init [--global]` | Create `~/.mnemonist/{project}/MEMORY.md` or global |
+| `mnemonist memorize "<point>" [-t type] [-n name]` | Deliberately encode a point into long-term memory (auto-embeds) |
+| `mnemonist note "<point>"` | Jot a quick note into working memory inbox |
+| `mnemonist remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel, follows refs |
+| `mnemonist learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; embeds all chunks into `.code-index.hnsw`, reports quality metrics |
+| `mnemonist consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw` |
+| `mnemonist reflect [--all] [--global]` | Introspect — review memories and inbox contents |
+| `mnemonist forget <file>` | Deliberately forget a memory |
+| `mnemonist config init` | Create default config file |
+| `mnemonist config show` | Show current configuration |
+| `mnemonist config get <key>` | Get a config value (dot-notation) |
+| `mnemonist config set <key> <value>` | Set a config value |
+| `mnemonist config path` | Print config file path |
 
 All commands output JSON to stdout (`{"ok": true, "data": {...}}`).
 
@@ -145,7 +145,7 @@ The inbox is a capacity-limited staging area modeled after human working memory 
 
 ### Consolidation
 
-`llmem consolidate` runs a sleep-like consolidation cycle:
+`mnemonist consolidate` runs a sleep-like consolidation cycle:
 
 1. **Promote** — inbox items become long-term memories with type and strength
 2. **Decay** — memories not accessed within `consolidation.decay_days` (default 90) and below `protected_access_count` (default 5) are pruned
@@ -169,11 +169,11 @@ Each memory file tracks cognitive metadata in its frontmatter:
 
 ### Configuration
 
-Config file: `~/.llmem/config.toml` (created with `llmem config init`)
+Config file: `~/.mnemonist/config.toml` (created with `mnemonist config init`)
 
 ```toml
 [storage]
-root = "~/.llmem"
+root = "~/.mnemonist"
 
 [embedding]
 provider = "fastembed"
@@ -208,13 +208,13 @@ algorithm = "mse"
 temporal_weight = 0.2
 ```
 
-Use `llmem config set embedding.model all-MiniLM-L6-v2` to change values.
+Use `mnemonist config set embedding.model all-MiniLM-L6-v2` to change values.
 
 ### RAG Server
 
 ```bash
-cargo install llmem-server
-llmem-server  # listens on 127.0.0.1:3179
+cargo install mnemonist-server
+mnemonist-server  # listens on 127.0.0.1:3179
 curl "http://localhost:3179/search?q=rust&level=both"
 curl "http://localhost:3179/reload"  # hot-reload after context switch
 ```

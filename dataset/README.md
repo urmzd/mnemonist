@@ -1,10 +1,10 @@
 # dataset/
 
-Training data and model artifacts for llmem's custom embedding models.
+Training data and model artifacts for mnemonist's custom embedding models.
 
 ## Reference
 
-- `turboquant.pdf` — [TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate](https://arxiv.org/abs/2504.19874) (Zandieh et al., 2025). Implements the quantization backend in `crates/llmem-quant/`.
+- `turboquant.pdf` — [TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate](https://arxiv.org/abs/2504.19874) (Zandieh et al., 2025). Implements the quantization backend in `crates/mnemonist-quant/`.
 
 ## Structure
 
@@ -36,7 +36,7 @@ Specialized for source code retrieval. Trained on:
 
 ### 2. Memory Embedding Model
 
-Specialized for llmem memory files with temporal awareness. Trained on:
+Specialized for mnemonist memory files with temporal awareness. Trained on:
 - Synthetic memory files (all 4 types: user, feedback, project, reference)
 - (query, relevant_memories, irrelevant_memories) retrieval triples
 - Temporal scenarios with timestamps and access patterns
@@ -47,4 +47,4 @@ Training data is generated via LLM prompts (see `training/prompts/`). This gives
 
 ## Quantization
 
-Both models' output embeddings are compressed with TurboQuant (implemented in `crates/llmem-quant/`) for efficient storage. At 384 dimensions and 2-bit quantization, each embedding is just 96 bytes (16x reduction from f32).
+Both models' output embeddings are compressed with TurboQuant (implemented in `crates/mnemonist-quant/`) for efficient storage. At 384 dimensions and 2-bit quantization, each embedding is just 96 bytes (16x reduction from f32).

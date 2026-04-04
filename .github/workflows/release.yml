@@ -96,13 +96,13 @@ jobs:
             echo "$output" >&2
             return 1
           }
-          publish llmem-core
+          publish mnemonist-core
           sleep 30
-          publish llmem-index
+          publish mnemonist-index
           sleep 30
-          publish llmem
+          publish mnemonist
           sleep 30
-          publish llmem-server
+          publish mnemonist-server
 
   build:
     needs: release
@@ -152,8 +152,8 @@ jobs:
           if [ "${{ matrix.cross }}" = "true" ]; then
             BUILD_CMD="cross"
           fi
-          $BUILD_CMD build --release --target ${{ matrix.target }} -p llmem
-          $BUILD_CMD build --release --target ${{ matrix.target }} -p llmem-server
+          $BUILD_CMD build --release --target ${{ matrix.target }} -p mnemonist
+          $BUILD_CMD build --release --target ${{ matrix.target }} -p mnemonist-server
         shell: bash
 
       - name: Upload to release
@@ -161,7 +161,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.release.outputs.tag }}"
-          for bin in llmem llmem-server; do
+          for bin in mnemonist mnemonist-server; do
             if [ -f "target/${{ matrix.target }}/release/${bin}.exe" ]; then
               cp "target/${{ matrix.target }}/release/${bin}.exe" "${bin}-${{ matrix.target }}.exe"
               gh release upload "$TAG" "${bin}-${{ matrix.target }}.exe" --clobber

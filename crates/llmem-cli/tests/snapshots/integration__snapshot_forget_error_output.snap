@@ -1,8 +1,0 @@
----
-source: crates/llmem-cli/tests/integration.rs
-expression: json
----
-{
-  "error": "not found: nonexistent.md",
-  "ok": false
-}

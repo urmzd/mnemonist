@@ -1,0 +1,11 @@
+---
+source: crates/mnemonist-server/src/main.rs
+expression: json
+---
+{
+  "active_context": null,
+  "global_memories": 0,
+  "project_memories": 0,
+  "status": "ok",
+  "version": "[version]"
+}

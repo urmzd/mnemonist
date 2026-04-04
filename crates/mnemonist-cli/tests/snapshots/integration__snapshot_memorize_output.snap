@@ -1,0 +1,12 @@
+---
+source: crates/mnemonist-cli/tests/integration.rs
+expression: json
+---
+{
+  "data": {
+    "action": "created",
+    "embedded": "[env-dependent]",
+    "file": "feedback_write-tests.md"
+  },
+  "ok": true
+}

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="urmzd/llmem"
+REPO="urmzd/mnemonist"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
-BINARY="${BINARY:-llmem}"
+BINARY="${BINARY:-mnemonist}"
 
 usage() {
   cat <<EOF
-Install llmem binaries from GitHub releases.
+Install mnemonist binaries from GitHub releases.
 
 Usage: install.sh [OPTIONS]
 
 Options:
-  --binary <name>    Binary to install: llmem (default) or llmem-server
+  --binary <name>    Binary to install: mnemonist (default) or mnemonist-server
   --tag <tag>        Install a specific version (e.g. v0.1.0). Default: latest
   --target <triple>  Override target triple detection
   --dir <path>       Install directory (default: /usr/local/bin)
@@ -21,7 +21,7 @@ Options:
 
 Examples:
   curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | bash
-  curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | bash -s -- --binary llmem-server
+  curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | bash -s -- --binary mnemonist-server
   curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | bash -s -- --musl --tag v0.1.0
 EOF
   exit 0

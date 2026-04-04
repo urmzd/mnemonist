@@ -1,0 +1,13 @@
+---
+source: crates/mnemonist-server/src/main.rs
+expression: json
+---
+[
+  {
+    "file": "feedback_write-tests.md",
+    "level": "project",
+    "score": 1.0,
+    "summary": "always write tests",
+    "title": "write tests"
+  }
+]

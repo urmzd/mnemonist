@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to **llmem**.
+Thanks for your interest in contributing to **mnemonist**.
 
 ## Prerequisites
 
@@ -10,8 +10,8 @@ Thanks for your interest in contributing to **llmem**.
 ## Getting Started
 
 ```bash
-git clone https://github.com/urmzd/llmem.git
-cd llmem
+git clone https://github.com/urmzd/mnemonist.git
+cd mnemonist
 cargo build
 cargo test
 ```
@@ -43,15 +43,15 @@ cargo test --workspace
 just test
 ```
 
-Tests are colocated with their source in `#[cfg(test)]` modules, except for the CLI which uses a dedicated file at `crates/llmem-cli/tests/integration.rs`.
+Tests are colocated with their source in `#[cfg(test)]` modules, except for the CLI which uses a dedicated file at `crates/mnemonist-cli/tests/integration.rs`.
 
 | Crate | Tests | What is covered |
 |-------|-------|-----------------|
-| `llmem-core` | 21 | Config TOML roundtrip and dot-notation get/set; embedding store binary format and hash-based change detection; inbox capacity eviction and JSON persistence; MEMORY.md index parsing, search, and save; memory file frontmatter parsing and markdown roundtrip; `FileBackend` store/get/remove/list |
-| `llmem-index` | 16 | HNSW insert, remove, save/load, and recall ≥ 90% on 200 vectors; IVF-Flat insert, remove, save/load, and recall ≥ 85% on 200 vectors; cosine similarity, dot product, L2 distance, and normalization; tree-sitter Rust chunking and language-extension mapping |
-| `llmem-quant` | 39 | Lloyd-Max codebook structure and scalar quantize/dequantize at 1–4 bits; bit-packing roundtrip for 1–4 bits including non-byte-aligned counts; `TurboQuantMse` roundtrip MSE, norm preservation, zero vector, and empirical MSE against theoretical bound; `TurboQuantProd` unbiased inner-product property and fast estimate; QJL determinism and unbiased inner-product property; rotation orthogonality, forward/inverse roundtrip, and norm preservation; compressed embedding store save/load for MSE and Prod variants |
-| `llmem-server` | 6 | HTTP handler tests using `tower::ServiceExt::oneshot` (no network): `/health` status and version fields; `/search` empty state, text matching, `top_k` truncation, and level filtering; `/reload` response |
-| `llmem-cli` | 15 | End-to-end CLI tests that spawn the binary as a subprocess: `init`, `memorize` (with type, name, and stdin JSON), `note` (inbox capacity enforcement), `remember` (match and no-match), `reflect`, `consolidate` (dry-run and real), `forget` (success and nonexistent), `ctx switch`/`show`, `config init`/`get`/`set` |
+| `mnemonist-core` | 21 | Config TOML roundtrip and dot-notation get/set; embedding store binary format and hash-based change detection; inbox capacity eviction and JSON persistence; MEMORY.md index parsing, search, and save; memory file frontmatter parsing and markdown roundtrip; `FileBackend` store/get/remove/list |
+| `mnemonist-index` | 16 | HNSW insert, remove, save/load, and recall ≥ 90% on 200 vectors; IVF-Flat insert, remove, save/load, and recall ≥ 85% on 200 vectors; cosine similarity, dot product, L2 distance, and normalization; tree-sitter Rust chunking and language-extension mapping |
+| `mnemonist-quant` | 39 | Lloyd-Max codebook structure and scalar quantize/dequantize at 1–4 bits; bit-packing roundtrip for 1–4 bits including non-byte-aligned counts; `TurboQuantMse` roundtrip MSE, norm preservation, zero vector, and empirical MSE against theoretical bound; `TurboQuantProd` unbiased inner-product property and fast estimate; QJL determinism and unbiased inner-product property; rotation orthogonality, forward/inverse roundtrip, and norm preservation; compressed embedding store save/load for MSE and Prod variants |
+| `mnemonist-server` | 6 | HTTP handler tests using `tower::ServiceExt::oneshot` (no network): `/health` status and version fields; `/search` empty state, text matching, `top_k` truncation, and level filtering; `/reload` response |
+| `mnemonist-cli` | 15 | End-to-end CLI tests that spawn the binary as a subprocess: `init`, `memorize` (with type, name, and stdin JSON), `note` (inbox capacity enforcement), `remember` (match and no-match), `reflect`, `consolidate` (dry-run and real), `forget` (success and nonexistent), `ctx switch`/`show`, `config init`/`get`/`set` |
 
 ### End-to-end validation
 

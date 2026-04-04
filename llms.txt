@@ -1,23 +1,23 @@
-# llmem
+# mnemonist
 
-> An open standard for tool-agnostic AI agent memory with a cognitive CLI. Defines a two-level memory convention — project (`~/.llmem/{project}/`) and global (`~/.llmem/global/`) — using typed markdown files with YAML frontmatter. CLI commands mirror memory processes: memorize, remember, note, learn, consolidate, reflect, forget. Features working memory inbox, attention scoring, Hebbian reinforcement, consolidation cycles, semantic search (HNSW/IVF-Flat), and TurboQuant vector quantization. Includes a RAG HTTP server. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
+> An open standard for tool-agnostic AI agent memory with a cognitive CLI. Defines a two-level memory convention — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`) — using typed markdown files with YAML frontmatter. CLI commands mirror memory processes: memorize, remember, note, learn, consolidate, reflect, forget. Features working memory inbox, attention scoring, Hebbian reinforcement, consolidation cycles, semantic search (HNSW/IVF-Flat), and TurboQuant vector quantization. Includes a RAG HTTP server. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
 
 ## Docs
 
-- [README](https://github.com/urmzd/llmem/blob/main/README.md): Quick start, cognitive CLI usage, and memory types
-- [AGENTS.md](https://github.com/urmzd/llmem/blob/main/AGENTS.md): Architecture and development guide
-- [Specification](https://github.com/urmzd/llmem/blob/main/SPECIFICATION.md): Full specification (levels, file format, dynamic loading, integration)
+- [README](https://github.com/urmzd/mnemonist/blob/main/README.md): Quick start, cognitive CLI usage, and memory types
+- [AGENTS.md](https://github.com/urmzd/mnemonist/blob/main/AGENTS.md): Architecture and development guide
+- [Specification](https://github.com/urmzd/mnemonist/blob/main/SPECIFICATION.md): Full specification (levels, file format, dynamic loading, integration)
 
 ## API / Key Files
 
-- [SPECIFICATION.md](https://github.com/urmzd/llmem/blob/main/SPECIFICATION.md): The formal llmem specification
-- [crates/llmem-core/](https://github.com/urmzd/llmem/blob/main/crates/llmem-core/): Core types, inbox, config, embeddings
-- [crates/llmem-cli/](https://github.com/urmzd/llmem/blob/main/crates/llmem-cli/): Cognitive CLI binary
-- [crates/llmem-index/](https://github.com/urmzd/llmem/blob/main/crates/llmem-index/): ANN indices and tree-sitter code indexing
-- [crates/llmem-quant/](https://github.com/urmzd/llmem/blob/main/crates/llmem-quant/): TurboQuant vector quantization
-- [crates/llmem-server/](https://github.com/urmzd/llmem/blob/main/crates/llmem-server/): RAG HTTP server
-- [skills/llmem/SKILL.md](https://github.com/urmzd/llmem/blob/main/skills/llmem/SKILL.md): Portable agent skill
+- [SPECIFICATION.md](https://github.com/urmzd/mnemonist/blob/main/SPECIFICATION.md): The formal mnemonist specification
+- [crates/mnemonist-core/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-core/): Core types, inbox, config, embeddings
+- [crates/mnemonist-cli/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-cli/): Cognitive CLI binary
+- [crates/mnemonist-index/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-index/): ANN indices and tree-sitter code indexing
+- [crates/mnemonist-quant/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-quant/): TurboQuant vector quantization
+- [crates/mnemonist-server/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-server/): RAG HTTP server
+- [skills/mnemonist/SKILL.md](https://github.com/urmzd/mnemonist/blob/main/skills/mnemonist/SKILL.md): Portable agent skill
 
 ## Optional
 
-- [CONTRIBUTING](https://github.com/urmzd/llmem/blob/main/CONTRIBUTING.md): How to contribute
+- [CONTRIBUTING](https://github.com/urmzd/mnemonist/blob/main/CONTRIBUTING.md): How to contribute

@@ -1,5 +1,0 @@
----
-source: crates/llmem-core/src/index.rs
-expression: entry.to_line()
----
-- [Rust Expertise](user_rust-expertise.md) — deep Rust knowledge, 10+ years experience

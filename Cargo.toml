@@ -6,16 +6,16 @@ resolver = "2"
 version = "0.4.3"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/urmzd/llmem"
+repository = "https://github.com/urmzd/mnemonist"
 authors = ["urmzd"]
-homepage = "https://github.com/urmzd/llmem"
+homepage = "https://github.com/urmzd/mnemonist"
 
 [workspace.dependencies]
 # Internal crates
-llmem-core = { path = "crates/llmem-core", version = "0.4.3" }
-llmem-index = { path = "crates/llmem-index", version = "0.4.3" }
-llmem-quant = { path = "crates/llmem-quant", version = "0.4.3" }
-llmem-evals = { path = "crates/llmem-evals", version = "0.4.3" }
+mnemonist-core = { path = "crates/mnemonist-core", version = "0.4.3" }
+mnemonist-index = { path = "crates/mnemonist-index", version = "0.4.3" }
+mnemonist-quant = { path = "crates/mnemonist-quant", version = "0.4.3" }
+mnemonist-evals = { path = "crates/mnemonist-evals", version = "0.4.3" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

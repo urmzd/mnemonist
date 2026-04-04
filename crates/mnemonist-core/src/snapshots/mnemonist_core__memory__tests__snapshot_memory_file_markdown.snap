@@ -1,0 +1,20 @@
+---
+source: crates/mnemonist-core/src/memory.rs
+expression: mem.to_markdown()
+---
+---
+name: prefer-rust
+description: Use Rust for CLI tools
+type: feedback
+created_at: 2026-03-01T00:00:00Z
+last_accessed: 2026-03-29T12:00:00Z
+access_count: 5
+strength: 1.5
+source: memorize
+---
+
+Always prefer Rust for CLI tools.
+
+**Why:** Performance and safety.
+
+**How to apply:** Default to Rust for new CLIs.
