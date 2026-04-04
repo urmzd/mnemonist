@@ -1,4 +1,4 @@
-use crate::distance::{cosine_similarity, normalize};
+use llmem_core::distance::{cosine_similarity, normalize};
 
 /// Embedding quality metrics for evaluating how well embeddings
 /// distribute across the vector space.

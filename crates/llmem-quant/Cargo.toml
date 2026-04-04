@@ -14,8 +14,8 @@ categories = ["algorithms", "compression"]
 [dependencies]
 serde = { workspace = true }
 thiserror = { workspace = true }
-rand = "0.9"
-rand_distr = "0.5"
+rand = { workspace = true }
+rand_distr = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

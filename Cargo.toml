@@ -15,6 +15,7 @@ homepage = "https://github.com/urmzd/llmem"
 llmem-core = { path = "crates/llmem-core", version = "0.4.2" }
 llmem-index = { path = "crates/llmem-index", version = "0.4.2" }
 llmem-quant = { path = "crates/llmem-quant", version = "0.4.2" }
+llmem-evals = { path = "crates/llmem-evals", version = "0.4.2" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -52,6 +53,10 @@ tree-sitter-go = "0.23"
 
 # Embedding
 fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls"] }
+
+# Random
+rand = "0.9"
+rand_distr = "0.5"
 
 # Testing
 tempfile = "3"
