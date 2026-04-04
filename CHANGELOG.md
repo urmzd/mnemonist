@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.3 (2026-04-04)
+
+### Bug Fixes
+
+- **cli**: canonicalize root path + add llmem-evals crate (#5) ([35d3d15](https://github.com/urmzd/llmem/commit/35d3d156e4cde47ba18efa437dedcff27f156254))
+
+### Documentation
+
+- **readme**: separate install commands into individual code blocks ([9993759](https://github.com/urmzd/llmem/commit/99937594cbb699fb9b64d15baf877c8f788dbfe8))
+
+[Full Changelog](https://github.com/urmzd/llmem/compare/v0.4.2...v0.4.3)
+
+
 ## 0.4.2 (2026-04-02)
 
 ### Bug Fixes
