@@ -1,70 +1,96 @@
 # llmem Specification
 
-> Version 0.1.0
+> Version 0.2.0
 
 ## Abstract
 
-llmem defines a convention for storing AI agent memory as plain markdown files in two locations: project-level (`~/.llmem/{project}/`) and global-level (`~/.llmem/global/`). It is tool-agnostic, human-readable, and git-friendly. No tooling is required — just create files.
+llmem is a biologically-inspired memory system for AI agents. It stores memories as plain markdown files across two levels (project and global), indexes them with embeddings and approximate nearest neighbor search, and retrieves them through a multi-layer pipeline that blends semantic similarity with temporal relevance. The architecture mirrors human memory: a capacity-limited working memory (inbox), consolidation cycles that promote, associate, and decay memories, and Hebbian reinforcement that strengthens frequently-accessed memories.
 
 ## Status
 
 Draft — seeking community feedback.
 
-## 1. Memory Levels
+## 1. Architecture Overview
+
+```
+                        ┌─────────────────────────────────────────────────┐
+                        │                   Agent / CLI                    │
+                        └──────┬──────────────┬──────────────┬────────────┘
+                               │              │              │
+                          memorize        note/learn     remember
+                               │              │              │
+                   ┌───────────▼──┐    ┌──────▼──────┐  ┌───▼────────────┐
+                   │  Long-term   │    │   Inbox     │  │   Retrieval    │
+                   │  Memory      │◄───│  (Working   │  │   Pipeline     │
+                   │  (.md files) │    │   Memory)   │  │                │
+                   └──────┬───────┘    └─────────────┘  └───┬────────────┘
+                          │         consolidate              │
+                   ┌──────▼───────────────────┐      ┌──────▼────────────┐
+                   │  Embedding Store          │      │  Two-Layer Graph  │
+                   │  (.embeddings.bin)        │      │                   │
+                   └──────┬───────────────────┘      │  Memory HNSW      │
+                          │                           │  Code HNSW        │
+                   ┌──────▼───────────────────┐      │  Inter-layer refs │
+                   │  ANN Indices              │◄─────┘                   │
+                   │  (.memory-index.hnsw)     │                          │
+                   │  (.code-index.hnsw)       │                          │
+                   └───────────────────────────┘──────────────────────────┘
+```
+
+### 1.1 Data Flow Summary
+
+| Path | Description |
+|------|-------------|
+| **memorize** | Direct write to long-term memory, bypassing the inbox. Embeds immediately. Sets `strength: 1.0`. |
+| **note** | Adds raw text to the inbox with `attention_score: 0.5`. No embedding. |
+| **learn** | Tree-sitter code extraction → embed chunks → build code HNSW → score and push top chunks to inbox. |
+| **consolidate** | Promote inbox → associate similar memories → decay stale ones → re-embed all. |
+| **remember** | Semantic search (HNSW + brute-force fallback) → temporal re-ranking → ref expansion → budget-trimmed output. |
+
+## 2. Memory Levels
 
 | Level | Location | Scope |
 |-------|----------|-------|
 | Project | `~/.llmem/{project}/` | Per-repo corrections, decisions, context |
 | Global | `~/.llmem/global/` | Cross-project user preferences, expertise |
 
-- Both levels use the same directory structure and file format
-- Project memory takes precedence over global when they conflict
-- Agents SHOULD load both levels at session start
-- Agents SHOULD note conflicts and ask the user whether to update the lower-priority level
+- Both levels use identical directory structure and file format
+- Project memory takes precedence over global on conflict
+- Agents SHOULD load both `MEMORY.md` index files at session start
+- The `{project}` directory name is derived from the project root's basename
 
-## 2. Directory Structure
+## 3. Storage Layout
 
 Each level contains:
 
 ```
-MEMORY.md              # Index — always loaded at session start
-user_<topic>.md        # Who the user is, expertise, preferences
-feedback_<topic>.md    # Corrections and validated approaches
-project_<topic>.md     # Non-obvious project context (project-level only)
-reference_<topic>.md   # Pointers to external resources
+MEMORY.md                  # Index — always loaded at session start
+{type}_{topic}.md          # Memory files (kebab-case topic)
+.embeddings.bin            # Embedding store (LMEM binary format)
+.memory-index.hnsw         # Memory-layer ANN index
+.code-index.hnsw           # Code-layer ANN index
+.code-index.json           # Code chunk manifest (learn output)
+.inbox.json                # Working memory staging area
 ```
 
-- The directory MUST contain a `MEMORY.md` index file
-- Memory files are named `{type}_{topic}.md` where topic is kebab-case
-- The `~/.llmem/{project}/` directory is local to the machine
-- The `~/.llmem/global/` directory is local to the machine
-
-## 3. Index File (MEMORY.md)
+### 3.1 Index File (MEMORY.md)
 
 The index is the only file loaded automatically. It serves as a table of contents for relevance matching.
 
-### Format
-
-One line per memory, as a markdown list item:
+**Format:** One line per memory, as a markdown list item:
 
 ```markdown
 - [Title](filename.md) — one-line summary
 ```
 
-### Constraints
+**Constraints:**
 
 - Each line MUST be under 150 characters
-- The index MUST stay under 200 lines per level
+- The index MUST stay under 200 lines per level (configurable via `index.max_lines`)
 - Descriptions MUST be specific enough for relevance matching
 - The index MUST NOT contain memory content — only pointers
 
-### Loading
-
-Agents MUST load both index files at conversation start:
-1. `~/.llmem/global/MEMORY.md` (global)
-2. `~/.llmem/{project}/MEMORY.md` (project, if present)
-
-## 4. Memory File Format
+### 3.2 Memory File Format
 
 Each memory file uses YAML frontmatter followed by a markdown body:
 
@@ -75,182 +101,77 @@ description: <one-line summary — used for relevance matching>
 type: <user | feedback | project | reference>
 created_at: <ISO 8601 timestamp>
 source: <memorize | note | learn | consolidation>
-strength: <float, consolidation strength>
-access_count: <int, retrieval count>
+strength: <f32, consolidation strength>
+access_count: <u32, retrieval count>
 last_accessed: <ISO 8601 timestamp>
+refs:
+  - <memory filename or code chunk ID>
 ---
 
 <markdown content>
 ```
 
-### 4.1 Required Frontmatter Fields
+#### Required Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | string | Short kebab-case identifier, unique within its level |
-| `description` | string | One-line summary (agents use this for relevance matching) |
-| `type` | enum | One of: `user`, `feedback`, `project`, `reference` |
+| `name` | string | Kebab-case identifier, unique within its level |
+| `description` | string | One-line summary for relevance matching |
+| `type` | enum | `user`, `feedback`, `project`, `reference` |
 
-### 4.2 Optional Cognitive Metadata
+#### Cognitive Metadata
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `created_at` | string | — | ISO 8601 timestamp of creation |
+| `created_at` | string | — | ISO 8601 creation timestamp |
 | `last_accessed` | string | — | ISO 8601 timestamp of last retrieval |
-| `access_count` | u32 | 0 | Number of times retrieved (Hebbian reinforcement) |
-| `strength` | f32 | 0.0 | Consolidation strength — increases when memory survives consolidation |
-| `source` | string | — | How the memory was created: `memorize`, `note`, `learn`, `consolidation` |
-| `consolidated_from` | string[] | — | Original filenames if created via consolidation merge |
+| `access_count` | u32 | 0 | Retrieval count (Hebbian reinforcement) |
+| `strength` | f32 | 0.0 | Consolidation strength; `>= 1.0` protects from decay |
+| `source` | string | — | Origin: `memorize`, `note`, `learn`, `consolidation` |
+| `consolidated_from` | string[] | — | Original filenames if created via merge |
+| `refs` | string[] | [] | Inter-layer edges (see [Section 7](#7-inter-layer-graph)) |
 
-### 4.3 Body Content
+#### Body Content
 
 - Keep files small — under 50 lines recommended
 - `feedback` and `project` types SHOULD include `**Why:**` and `**How to apply:**` lines
-- Convert relative dates to absolute when saving (e.g., "Thursday" → "2026-03-25")
+- Convert relative dates to absolute when saving
 - Use standard markdown; no custom syntax
 
-## 5. Memory Types
+## 4. Memory Types
 
-### 5.1 user
+### 4.1 user
 
 Who the user is — role, expertise, preferences, communication style.
 
 - Available at both levels
-- Global: cross-project preferences ("prefers Rust, uses sr for commits")
-- Project: repo-specific role ("lead on this module, new to the frontend")
+- Global: cross-project preferences
+- Project: repo-specific role
 
-### 5.2 feedback
+### 4.2 feedback
 
-Corrections and validated approaches. The strongest signal — save immediately when observed.
+Corrections and validated approaches. The strongest signal.
 
 - Available at both levels
-- Global: universal preferences ("never use mocks for integration tests")
-- Project: repo-specific corrections ("this repo uses sqlx, not diesel")
+- Protected from decay at 2x the normal threshold (see [Section 8.2](#82-decay))
+- Global: universal preferences
+- Project: repo-specific corrections
 
-### 5.3 project
+### 4.3 project
 
 Non-obvious project context, architectural decisions, business rationale.
 
-- Project-level ONLY — meaningless without a specific repo
-- Example: "Auth rewrite driven by compliance, not tech debt"
+- Project-level ONLY
 
-### 5.4 reference
+### 4.4 reference
 
 Pointers to external resources, tools, tracking systems.
 
 - Available at both levels
-- Global: cross-project tools ("bugs tracked in Linear project INGEST")
-- Project: repo-specific resources ("staging at staging.example.com")
 
-## 6. Dynamic Loading
+## 5. Embedding Layer
 
-Memory files are loaded on-demand, not all at once:
-
-1. **Always load**: both `MEMORY.md` index files at session start
-2. **Load on-demand**: individual memory files when:
-   - The index description matches the current task or question
-   - The user explicitly references a memory ("remember when...")
-   - The memory type is relevant (e.g., `feedback_*` during code review)
-3. **Never load all**: avoid reading every memory file — use the index for filtering
-
-This keeps context windows small and memory retrieval fast.
-
-## 7. Precedence and Conflict Resolution
-
-When memories at different levels address the same topic:
-
-1. Project memory overrides global
-2. Agents SHOULD note the conflict to the user
-3. Agents MAY suggest updating the lower-priority memory
-4. Users can explicitly promote a project memory to global or demote a global memory
-
-## 8. Behavioral Rules
-
-### 8.1 When to Save
-
-1. **Observe before saving** — wait for a pattern or explicit instruction; don't save after one occurrence
-2. **Save corrections immediately** — "don't do X" is persisted now
-3. **Include rationale** — a rule without "why" cannot handle edge cases
-
-### 8.2 When to Update
-
-1. Check existing memories before creating new ones
-2. Update, don't duplicate
-3. Prune stale memories — if a memory contradicts current code or user behavior, update or remove it
-
-### 8.3 When to Read
-
-1. Load both index files at conversation start
-2. Read relevant memory files based on index description matching
-3. Verify memory against current code before acting — memory is a snapshot; current state is truth
-
-### 8.4 What NOT to Save
-
-- Code patterns visible in the codebase (just read the code)
-- Git history (use `git log`)
-- Ephemeral task state (use a task tracker)
-- Content already in project root files (CLAUDE.md, AGENTS.md, etc.)
-- Debugging solutions (the fix is in the code; the commit message has context)
-- Personal information unrelated to the work
-
-## 9. Anti-Patterns
-
-- Using tool-specific memory paths (`~/.claude/`, `~/.copilot/`, etc.)
-- Large memory files (split into focused, small topics)
-- Over-indexing on a single instance as a permanent preference
-- Storing memory content directly in the index instead of separate files
-- Creating memories that duplicate what the codebase already expresses
-- Never verifying stale memories against current state
-
-## 10. Integration Guide
-
-### 10.1 Claude Code
-
-Add to `CLAUDE.md`:
-
-```
-Load ~/.llmem/{project}/MEMORY.md and ~/.llmem/global/MEMORY.md at conversation start.
-Save learned preferences and corrections to ~/.llmem/{project}/ or ~/.llmem/global/.
-```
-
-Claude Code can read/write files directly.
-
-### 10.2 OpenAI Codex
-
-Reference `~/.llmem/{project}/` in `AGENTS.md` or system instructions. Codex reads project files and follows conventions when instructed.
-
-### 10.3 Google Gemini CLI
-
-Include a section in `AGENTS.md` pointing to `~/.llmem/{project}/`. Gemini CLI reads project files and can create/update memory.
-
-### 10.4 GitHub Copilot
-
-Add to `.github/copilot-instructions.md`:
-
-```
-Load ~/.llmem/{project}/MEMORY.md for project context at conversation start.
-```
-
-### 10.5 Cursor
-
-Add to `.cursorrules`:
-
-```
-Load ~/.llmem/{project}/MEMORY.md at conversation start for project memory context.
-```
-
-### 10.6 Generic Integration
-
-Any AI tool that reads project files can adopt this convention:
-
-1. Read both `MEMORY.md` index files at session start
-2. Use descriptions to decide which memory files to load
-3. Write new memories when corrections or patterns are observed
-4. Follow the precedence rules (project > global)
-
-## 11. Embedder Trait
-
-An `Embedder` trait enables pluggable embedding models:
+### 5.1 Embedder Trait
 
 ```rust
 pub trait Embedder: Send + Sync {
@@ -260,25 +181,41 @@ pub trait Embedder: Send + Sync {
 }
 ```
 
-Implementations MAY use:
-- Local ONNX models (e.g., all-MiniLM-L6-v2)
-- Ollama embedding endpoints
-- OpenAI/Google embedding APIs
-- Custom trained models
+The default implementation uses local ONNX models via `fastembed`:
 
-## 12. Embedding Store
+| Model | Dimensions | Notes |
+|-------|-----------|-------|
+| `all-MiniLM-L6-v2` | 384 | Default |
+| `all-MiniLM-L6-v2-q` | 384 | Quantized variant |
+| `all-MiniLM-L12-v2` | 384 | Higher quality |
+| `BGE-small-en-v1.5` | 384 | Alternative |
+| `BGE-small-en-v1.5-q` | 384 | Quantized alternative |
 
-Embeddings are stored alongside memory files in `~/.llmem/{project}/.embeddings.bin`.
+### 5.2 Embedding Store (.embeddings.bin)
 
-**File format**: Binary with header (magic `LMEM` + version + dimension + count) followed by packed entries (filename + content hash + float32 vector).
+Binary format with header followed by packed entries:
 
-- Content hashes enable incremental sync — unchanged files are not re-embedded
-- The file SHOULD be committed to the repository (typically <300KB)
-- Both levels store their own `.embeddings.bin`
+```
+Header:
+  [4 bytes] Magic: "LMEM"
+  [1 byte]  Version: u8
+  [4 bytes] Dimension: u32
+  [4 bytes] Count: u32
 
-## 13. ANN Index
+Entry (repeated):
+  [2 bytes] Filename length: u16
+  [N bytes] Filename: UTF-8
+  [8 bytes] Content hash: u64
+  [D*4 bytes] Embedding: f32 * dimension
+```
 
-An `AnnIndex` trait enables pluggable approximate nearest neighbor search:
+- Content hashes enable incremental sync — unchanged files skip re-embedding
+- Hash algorithm: `std::hash::DefaultHasher` (note: not stable across Rust versions or platforms)
+- Embeddings are auto-synced on `memorize` and `consolidate`
+
+## 6. ANN Index Layer
+
+### 6.1 AnnIndex Trait
 
 ```rust
 pub trait AnnIndex: Send + Sync {
@@ -290,29 +227,214 @@ pub trait AnnIndex: Send + Sync {
 }
 ```
 
-### 13.1 HNSW (default)
+### 6.2 Two-Layer Index Architecture
+
+The system maintains two separate HNSW indices per level:
+
+| Index | File | Built By | Contents |
+|-------|------|----------|----------|
+| Memory layer | `.memory-index.hnsw` | `memorize`, `consolidate` | Memory file embeddings |
+| Code layer | `.code-index.hnsw` | `learn` | Source code chunk embeddings |
+
+This separation allows memories and code to be indexed independently while enabling cross-layer retrieval through hierarchical search and ref edges (see [Section 7](#7-inter-layer-graph)).
+
+### 6.3 HNSW (default)
 
 Hierarchical Navigable Small World graph:
+
 - **M**: max connections per node (default 16)
 - **ef_construction**: beam width during build (default 200)
 - **ef_search**: beam width during query (default 50)
 - **Distance**: cosine similarity
-- **Serialization**: `~/.llmem/{project}/.index.hnsw`
+- **Serialization**: `HNSW` magic + version + config + node data
 
-### 13.2 IVF-Flat (alternative)
+### 6.4 IVF-Flat (alternative)
 
 Inverted File Index with flat search within clusters:
-- **n_lists**: number of k-means clusters (default sqrt(n))
+
+- **n_lists**: number of k-means clusters (default 16)
 - **n_probe**: clusters to search (default 10)
 - **Serialization**: `~/.llmem/{project}/.index.ivf`
 
-## 14. Working Memory (Inbox)
+## 7. Inter-Layer Graph
 
-The inbox is a capacity-limited staging area modeled after human working memory (Miller's 7±2). Items from `note` (manual capture) and `learn` (code ingestion) land here before consolidation promotes them to long-term memory.
+The `refs` field in frontmatter stores edges between memories and between memories and code chunks, forming a sparse graph that connects the memory and code layers.
 
-### 14.1 Structure
+### 7.1 Edge Types
 
-Stored as `.inbox.json` in the memory directory:
+| Edge | Format | Example |
+|------|--------|---------|
+| Memory -> Memory | `{filename}.md` | `feedback_prefer-rust.md` |
+| Memory -> Code | `{file}:{start_line}:{end_line}` | `src/lib.rs:42:58` |
+
+### 7.2 Edge Creation
+
+Edges are created in two ways:
+
+1. **During consolidation (associative linking)**: A temporary HNSW is built over all memory embeddings. For each memory, the top-k neighbors (default k=10) are checked. Pairs with cosine similarity above `consolidation.merge_threshold` (default 0.85) receive bidirectional `refs` edges.
+
+2. **During promotion from inbox**: When a `learn` item is promoted to long-term memory, its original `file_source` (file path + line range) is preserved as a code ref edge.
+
+### 7.3 Edge Expansion During Recall
+
+When `recall.expand_refs` is enabled (default: true), retrieving a memory also follows its ref edges:
+
+- **Memory refs**: the referenced memory file is loaded and included in results
+- **Code refs**: the referenced source lines are read from disk, truncated to `consolidation.max_memory_tokens * 4` characters
+
+Expansion is limited to `recall.max_ref_expansions` (default 3) per memory hit.
+
+## 8. Consolidation Pipeline
+
+The `consolidate` command runs a sleep-like cycle with four phases:
+
+```
+  Inbox                    Long-term Memory
+  ┌─────────┐   promote    ┌──────────────┐
+  │ Items   │──────────────>│ New memories │
+  └─────────┘              └──────┬───────┘
+                                  │
+                           associate (HNSW neighbor scan)
+                                  │
+                           ┌──────▼───────┐
+                           │ Linked graph │
+                           └──────┬───────┘
+                                  │
+                            decay (prune stale)
+                                  │
+                           ┌──────▼───────┐
+                           │ Survivors    │
+                           └──────┬───────┘
+                                  │
+                           re-embed + rebuild HNSW
+                                  │
+                           ┌──────▼───────┐
+                           │ Fresh index  │
+                           └──────────────┘
+```
+
+### 8.1 Phase 1: Promote
+
+Inbox items are drained and written as long-term memory files:
+
+| Source | Assigned Type | Strength |
+|--------|--------------|----------|
+| `note` | `feedback` | attention_score |
+| `learn` | `reference` | attention_score |
+
+**Body compression:** Memory bodies are cues, not copies. For code items, `extract_code_cue()` extracts only signature lines (`pub fn`, `struct`, `class`, `impl`, `trait`, `def`, `function`, `export`) up to `max_memory_tokens * 4` characters. For notes, the body is truncated. Full content is accessible via ref edges.
+
+### 8.2 Phase 1.5: Associate
+
+A temporary in-memory HNSW is built from all embeddings. For each memory, the top-10 neighbors are scanned. Pairs above `merge_threshold` receive bidirectional `refs` edges (deduplicated, canonically ordered).
+
+### 8.3 Phase 2: Decay
+
+A memory is pruned when ALL three conditions hold:
+
+1. `days_since_last_access > decay_threshold` (feedback memories use `2 * decay_threshold`)
+2. `access_count < protected_access_count` (default 5)
+3. `strength < 1.0`
+
+Memories created via `memorize` are set to `strength: 1.0` and are therefore permanently protected from decay unless manually modified.
+
+### 8.4 Phase 3: Re-embed and Rebuild
+
+All surviving memories are re-embedded and the `.memory-index.hnsw` is rebuilt from scratch.
+
+## 9. Retrieval Pipeline
+
+The `remember` command implements a multi-stage retrieval pipeline:
+
+```
+  Query
+    │
+    ▼
+  ┌──────────────────┐
+  │ Semantic Search   │  HNSW on memory + code layers
+  │ (or text fallback)│  brute-force cosine if no HNSW
+  └────────┬─────────┘
+           │
+  ┌────────▼─────────┐
+  │ Hierarchical Seed │  Top memory hit's embedding
+  │                   │  seeds a secondary code search
+  └────────┬─────────┘
+           │
+  ┌────────▼─────────┐
+  │ Interleave        │  Memory and code hits are
+  │                   │  round-robin interleaved
+  └────────┬─────────┘
+           │
+  ┌────────▼─────────┐
+  │ Temporal Rerank   │  Blend cosine with temporal score
+  └────────┬─────────┘
+           │
+  ┌────────▼─────────┐
+  │ Ref Expansion     │  Follow refs edges to related
+  │                   │  memories and code chunks
+  └────────┬─────────┘
+           │
+  ┌────────▼─────────┐
+  │ Budget Trim       │  Truncate to character budget
+  │ + Hebbian Update  │  Increment access_count
+  └──────────────────┘
+```
+
+### 9.1 Semantic Search
+
+1. Embed the query using the configured embedder
+2. Search `.memory-index.hnsw` (top 10) per level directory
+3. Search `.code-index.hnsw` (top 10) per level directory
+4. If no HNSW exists, fall back to brute-force cosine over `.embeddings.bin`
+5. If semantic search returns nothing, fall back to text search (substring match on index entries)
+
+### 9.2 Hierarchical Seeding
+
+After the initial search, the top memory hit's embedding is used as a secondary query against the code-layer HNSW. This cross-layer seeding surfaces code chunks related to the most relevant memory, even when the original query didn't match them directly.
+
+### 9.3 Interleaving
+
+Memory and code hits are round-robin interleaved so that both layers contribute to the output, preventing one layer from dominating.
+
+### 9.4 Temporal Re-ranking
+
+Results are re-ranked using a blended score:
+
+```
+final_score = (1 - lambda) * cosine_similarity + lambda * temporal_score
+```
+
+Where `lambda` is `temporal_weight` (default 0.2) and:
+
+```
+temporal_score = recency * frequency_boost * type_weight
+
+recency         = exp(-0.01 * days_since_last_access)
+frequency_boost = min(ln(1 + access_count / age_days) / 3, 1.0)
+```
+
+**Type durability weights:**
+
+| Type | Weight |
+|------|--------|
+| feedback | 1.0 |
+| project | 0.8 |
+| user | 0.6 |
+| reference | 0.4 |
+
+Code chunks receive no temporal scoring (cosine only).
+
+### 9.5 Hebbian Reinforcement
+
+Each time a memory is retrieved, its `access_count` is incremented and `last_accessed` is updated. This mirrors long-term potentiation: frequently accessed memories rank higher in temporal scoring and are protected from decay.
+
+## 10. Working Memory (Inbox)
+
+The inbox is a capacity-limited staging area modeled after human working memory (Miller's 7 +/- 2).
+
+### 10.1 Structure
+
+Stored as `.inbox.json`:
 
 ```json
 {
@@ -331,92 +453,215 @@ Stored as `.inbox.json` in the memory directory:
 }
 ```
 
-### 14.2 Behavior
+### 10.2 Behavior
 
 - Items are sorted by `attention_score` descending
 - When at capacity, the lowest-scored item is evicted
 - `note` items receive a default attention score of 0.5
-- `learn` items are scored by code heuristics (visibility, construct type)
+- `learn` items are scored by code heuristics (see [Section 10.3](#103-attention-scoring-for-code))
 - `consolidate` drains the inbox, promoting items to long-term memory
 
-### 14.3 Attention Scoring for Code
+### 10.3 Attention Scoring for Code
 
-When `learn` ingests code via tree-sitter, chunks are scored:
+When `learn` ingests code via tree-sitter, chunks are scored by construct type:
 
-| Construct | Score |
+| Node Kind | Score |
 |-----------|-------|
-| `struct` / `class` | 0.9 |
-| `impl` / `trait` | 0.85 |
-| `function` | 0.8 |
-| `enum` | 0.75 |
+| `struct_item`, `class_definition` | 0.9 |
+| `impl_item`, `trait_item` | 0.85 |
+| `function_item`, `function_definition` | 0.8 |
+| `enum_item` | 0.75 |
 | Other | 0.5 |
 
 Public items (`pub`, `export`) receive a +0.1 bonus.
 
-## 15. Consolidation
+## 11. Code Indexing
 
-The `consolidate` command runs a sleep-like consolidation cycle that mirrors biological memory consolidation:
+The `learn` command extracts semantic code chunks using tree-sitter.
 
-### 15.1 Phases
+### 11.1 Supported Languages
 
-1. **Promote** — inbox items become long-term memories with appropriate type and initial strength
-2. **Decay** — memories not accessed within `consolidation.decay_days` and below `protected_access_count` are pruned; `feedback` type memories get 2x the decay threshold
-3. **Re-embed** — all surviving memories are re-embedded for fresh semantic search
+| Language | Feature Flag |
+|----------|-------------|
+| Rust | `lang-rust` (default) |
+| Python | `lang-python` (default) |
+| JavaScript | `lang-javascript` (default) |
+| TypeScript | `lang-javascript` (shared) |
+| Go | `lang-go` (default) |
 
-### 15.2 Configuration
+### 11.2 Chunking Strategy
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `consolidation.decay_days` | 90 | Days since last access before decay eligible |
-| `consolidation.merge_threshold` | 0.85 | Cosine similarity threshold for merging |
-| `consolidation.protected_access_count` | 5 | Min accesses to protect from decay |
-| `consolidation.max_memories` | 200 | Max memories per level before forced pruning |
-| `inbox.capacity` | 7 | Working memory inbox size |
+1. Walk the project directory respecting `.gitignore` (via the `ignore` crate)
+2. Parse each file with tree-sitter
+3. Extract nodes matching semantic boundary kinds (functions, structs, classes, impls, traits, enums, etc.)
+4. Skip nodes smaller than 3 lines
+5. Split nodes larger than `max_chunk_lines` (default 100)
+6. Fall back to plain text 100-line chunks for unsupported languages
 
-### 15.3 Hebbian Reinforcement
+### 11.3 Chunk Identity
 
-Each time a memory is retrieved via `remember`, its `access_count` is incremented and `last_accessed` is updated. Frequently accessed memories are protected from decay, mirroring long-term potentiation.
+Each chunk is identified by `{relative_file_path}:{start_line}:{end_line}`. This ID format is used in code-layer HNSW entries and in `refs` edges from memory files.
 
-## 16. Project Resolution
+## 12. TurboQuant (Vector Quantization)
 
-The CLI resolves the project root from `--root` (default: current working directory). Global memories are always available as the base layer. Project memories layer on top when a project root is set.
+Optional vector quantization compresses embedding storage from 32-bit floats to 1-4 bits per coordinate.
 
-- Content hashes prevent unnecessary re-embedding
-- Embeddings are auto-synced on `memorize` and `consolidate`
+### 12.1 Algorithms
 
-## 17. RAG Server
+**MSE Quantizer**: Normalize -> random orthogonal rotation -> Lloyd-Max scalar quantization per coordinate. Achieves distortion bound D_mse <= (sqrt(3) * pi/2) * 1/4^b.
 
-An optional HTTP server (`llmem-server`) provides search over memory:
+**Prod Quantizer**: MSE at (b-1) bits + QJL 1-bit residual sign. Produces unbiased inner product estimates.
 
-- Loads ANN indices on start (both levels)
-- Accepts `--root` CLI arg at startup to set the project context
-- API:
-  - `GET /health` — status, counts, active context
-  - `GET /search?q=<query>&level=project|global|both&top_k=10` — search
-  - `GET /reload` — hot-reload indices; optional `?root=<path>` to switch project
-- Response: JSON array of `{ title, file, summary, level, score }`
+### 12.2 Compressed Store (.embeddings.lmcq)
 
-The convention works without the server. The server is an optional accelerator.
+Binary format `LMCQ` with header (magic + version + dimension + count + bit-width + algorithm) followed by packed quantized entries.
 
-## 18. TurboQuant (Vector Quantization)
-
-Optional vector quantization compresses embedding storage from 32-bit floats to 1-4 bits per coordinate:
+### 12.3 Configuration
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `quantization.enabled` | false | Enable quantized storage |
 | `quantization.bits` | 2 | Bit-width per coordinate (1-4) |
-| `quantization.algorithm` | "mse" | Quantization algorithm: `mse` or `prod` |
-| `quantization.temporal_weight` | 0.2 | Temporal re-ranking weight (0 = pure cosine, 1 = pure temporal) |
+| `quantization.algorithm` | "mse" | `mse` or `prod` |
 
-See `crates/llmem-quant/` for implementation details and arXiv:2504.19874 for the paper.
+See arXiv:2504.19874 for the underlying paper.
 
-## 19. Versioning
+## 13. RAG Server (Daemon)
 
-This specification follows semantic versioning. The current version is **0.1.0**.
+An optional HTTP server (`llmem-server`) provides warm-cache access to ANN indices.
 
-Changes to the specification are tracked in the repository's commit history.
+### 13.1 Transport
 
-## 20. License
+- **Default**: Unix socket at `~/.llmem/llmem.sock`
+- **Alternative**: TCP via `--addr` flag (for debugging)
+- PID written to `~/.llmem/llmem.pid`
+- The CLI communicates with the daemon via HTTP/1.1 over Unix socket
+
+### 13.2 API
+
+| Endpoint | Method | Parameters | Description |
+|----------|--------|------------|-------------|
+| `/health` | GET | — | Status, version, memory counts, active context |
+| `/search` | GET | `q`, `level`, `top_k` | Text search over index entries |
+| `/remember` | GET | `q`, `level`, `budget`, `root` | Full retrieval with Hebbian reinforcement |
+| `/reload` | GET | `root` (optional) | Hot-reload indices; switch project context |
+
+### 13.3 State Management
+
+The server holds `RwLock`-guarded state:
+
+- HNSW indices (project + global)
+- Embedding stores (project + global)
+- Current project root and memory directory
+
+State is loaded at startup from `--root` and refreshed on `/reload`.
+
+## 14. Configuration
+
+All configuration is stored in `~/.llmem/config.toml` as a TOML file. The CLI supports dot-notation get/set (`llmem config get recall.budget`).
+
+### 14.1 Full Configuration Reference
+
+```toml
+[storage]
+root = "~/.llmem"
+
+[embedding]
+provider = "fastembed"       # Embedding provider
+model = "all-MiniLM-L6-v2"  # Model identifier
+
+[recall]
+budget = 2000                # Max output chars
+priority = ["feedback", "project", "user", "reference"]
+expand_refs = true           # Follow inter-layer ref edges
+max_ref_expansions = 3       # Max ref expansions per memory hit
+
+[index]
+max_lines = 200              # Max entries in MEMORY.md
+
+[code]
+languages = ["rust", "python", "javascript", "go"]
+max_chunk_lines = 100        # Max lines per code chunk
+
+[quantization]
+enabled = false
+bits = 2                     # 1-4
+algorithm = "mse"            # "mse" or "prod"
+temporal_weight = 0.2        # Blend factor: 0 = pure cosine, 1 = pure temporal
+
+[consolidation]
+decay_days = 90              # Days before decay eligibility
+merge_threshold = 0.85       # Cosine threshold for associative linking
+protected_access_count = 5   # Min accesses to protect from decay
+max_memories = 200           # Max memories per level
+max_memory_tokens = 120      # Max tokens per promoted memory body
+
+[inbox]
+capacity = 7                 # Working memory size
+
+[output]
+quiet = false                # Suppress elapsed-time on stderr
+```
+
+## 15. Evaluation Harness
+
+The `llmem-evals` crate provides quality metrics for embeddings, search, and quantization.
+
+### 15.1 Search Metrics
+
+- **Precision@k**: fraction of top-k results that are relevant
+- **Recall@k**: fraction of relevant items found in top-k
+- **MRR**: mean reciprocal rank of first relevant result
+- **NDCG@k**: normalized discounted cumulative gain (graded relevance)
+
+### 15.2 Embedding Quality Metrics
+
+- **Anisotropy**: measures how uniformly embeddings occupy the space (lower is better; target < 0.3)
+- **Similarity range**: spread between max and min pairwise cosine (higher is better; target > 0.3)
+- **Discrimination gap**: difference between intra-class and inter-class similarity
+- **Intrinsic dimensionality**: effective dimensionality via participation ratio
+
+### 15.3 Quantization Metrics
+
+- **Per-bit MSE**: mean squared error between original and quantized vectors
+- **Cosine distortion**: cosine similarity between original and reconstructed vectors
+- **Compression ratio**: storage reduction factor
+
+### 15.4 Synthetic Datasets
+
+Evaluation uses clustered Gaussian vectors with graded relevance judgments: grade 2 for same-cluster, grade 1 for nearest-neighbor cluster.
+
+## 16. CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `init` | Create MEMORY.md in project or global directory |
+| `memorize <text>` | Write directly to long-term memory (strength=1.0, bypasses inbox) |
+| `note <text>` | Add to inbox (attention_score=0.5) |
+| `remember <query>` | Cue-based retrieval through the full pipeline |
+| `learn <path>` | Tree-sitter code extraction -> embed -> score -> populate inbox |
+| `consolidate` | Run the four-phase consolidation cycle (supports `--dry-run`) |
+| `reflect` | List all memories with cognitive metadata and inbox summary |
+| `forget <file>` | Remove a memory file, its index entry, and its embedding |
+| `config <action>` | Show, get, set, init, or locate the config file |
+
+All commands output JSON to stdout (machine-readable) and TUI to stderr (human-readable, when TTY detected or `LLMEM_TUI` is set).
+
+## 17. Distance Functions
+
+The core library provides four distance functions used across the system:
+
+| Function | Description | Used By |
+|----------|-------------|---------|
+| `cosine_similarity` | Cosine similarity in [-1, 1] | HNSW, brute-force search, temporal blending |
+| `dot_product` | Raw dot product | Quantization (Prod algorithm) |
+| `l2_distance_squared` | Squared Euclidean distance | IVF-Flat k-means |
+| `normalize` | Unit-length normalization | Quantization pre-processing |
+
+## 18. Versioning
+
+This specification follows semantic versioning. The current version is **0.2.0**.
+
+## 19. License
 
 This specification is released under the Apache License 2.0.
