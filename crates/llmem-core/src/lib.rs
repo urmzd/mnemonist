@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod config;
+pub mod distance;
 pub mod embed;
 mod error;
 pub mod inbox;

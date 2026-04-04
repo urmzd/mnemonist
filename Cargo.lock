@@ -1291,6 +1291,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "llmem-evals"
+version = "0.4.2"
+dependencies = [
+ "criterion",
+ "insta",
+ "llmem-core",
+ "llmem-index",
+ "llmem-quant",
+ "rand",
+ "rand_distr",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "llmem-index"
 version = "0.4.2"
 dependencies = [

@@ -41,6 +41,11 @@ bench:
 validate:
     cargo test --workspace --test validation
 
+# Run eval suite
+eval:
+    cargo test -p llmem-evals
+    cargo bench -p llmem-evals
+
 # Quality gate: format + lint + test
 check: check-fmt lint test
 
