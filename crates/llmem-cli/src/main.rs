@@ -236,23 +236,28 @@ fn parse_memory_type(s: &str) -> Result<MemoryType, String> {
     s.parse()
 }
 
+fn resolve_root(root: &std::path::Path) -> PathBuf {
+    std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf())
+}
+
 fn resolve_dir(global: bool, root: &std::path::Path) -> Result<PathBuf> {
     if global {
         global_dir().context("could not determine config directory")
     } else {
-        Ok(project_dir(root))
+        Ok(project_dir(&resolve_root(root)))
     }
 }
 
 /// Collect memory directories for a given level string.
 fn level_dirs(level: &str, root: &std::path::Path) -> Result<Vec<PathBuf>> {
+    let resolved = resolve_root(root);
     match level {
-        "project" => Ok(vec![project_dir(root)]),
+        "project" => Ok(vec![project_dir(&resolved)]),
         "global" => Ok(vec![
             global_dir().context("could not determine config directory")?,
         ]),
         _ => {
-            let mut v = vec![project_dir(root)];
+            let mut v = vec![project_dir(&resolved)];
             if let Some(g) = global_dir() {
                 v.push(g);
             }
