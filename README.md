@@ -7,7 +7,7 @@
     &middot;
     <a href="https://github.com/urmzd/mnemonist/issues">Report Bug</a>
     &middot;
-    <a href="SPECIFICATION.md">Specification</a>
+    <a href="spec/mnemonist.md">Specification</a>
   </p>
 </p>
 
@@ -25,9 +25,10 @@
 - **Typed memories** — user, feedback, project, reference
 - **Local embedding** — `fastembed` crate with `all-MiniLM-L6-v2` (384-dim, ~22 MB, ONNX Runtime); no external server needed; model downloads to `~/.cache/fastembed/` on first use
 - **Layered graph** — three HNSW layers: code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
-- **Code ingestion** — `learn` embeds all chunks into `.code-index.hnsw`; tree-sitter for Rust/Python/JS/TS/Go, plain-text fallback for shell scripts, markdown, TOML, etc.
-- **Cross-layer recall** — `remember` searches memory and code indices in parallel; follows `refs` edges to surface referenced code chunks with source lines
+- **Pluggable code chunking** — `ChunkingStrategy` trait with built-in `ParagraphChunking` (blank-line boundaries) and `FixedLineChunking` (sliding window with overlap); no tree-sitter dependency
+- **Cross-layer recall** — `remember` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
 - **Consolidation** — `consolidate` promotes inbox items, decays stale memories, and re-embeds
+- **Fuzzy forget** — `forget` resolves partial and suffix matches so you don't need the full filename
 - **Embedding quality metrics** — `learn` reports anisotropy and similarity_range after indexing
 - **TurboQuant** — optional vector quantization (1-4 bit) for compact embedding storage
 - **JSON-first** — stdout for structured JSON, stderr for UX; pipe-friendly
@@ -54,45 +55,38 @@ cargo install mnemonist-cli          # CLI
 cargo install mnemonist-server       # RAG server (optional)
 ```
 
-Or use without tooling — just create `~/.mnemonist/{project}/MEMORY.md` manually.
-
 ## Quick Start
 
-### Without tooling
-
 ```bash
-mkdir -p ~/.mnemonist/my-project
-cat > ~/.mnemonist/my-project/MEMORY.md << 'EOF'
-- [Prefer Rust](feedback_prefer_rust.md) — default to Rust for new CLI tools
-EOF
-
-cat > ~/.mnemonist/my-project/feedback_prefer_rust.md << 'EOF'
----
-name: prefer-rust
-description: Default to Rust for new CLI tools
-type: feedback
----
-
-Use Rust for new CLI tools unless the project already uses another language.
-
-**Why:** Fast, single binary, strong type system.
-
-**How to apply:** When scaffolding new CLIs, start with a Cargo workspace.
-EOF
-```
-
-### With the CLI
-
-```bash
+# 1. Install
 cargo install mnemonist-cli
-mnemonist init                                          # project memory
-mnemonist init --global                                 # global memory
+
+# 2. Initialize memory for your project and globally
+mnemonist init                                          # ~/.mnemonist/{project}/MEMORY.md
+mnemonist init --global                                 # ~/.mnemonist/global/MEMORY.md
+
+# 3. Memorize long-term knowledge
 mnemonist memorize "prefer Rust for CLI tools" -t feedback
-mnemonist note "look into async runtime choices"        # quick capture to inbox
-mnemonist learn .                                       # embed codebase into .code-index.hnsw
-mnemonist consolidate                                   # promote inbox → long-term memory
-mnemonist remember "rust"                               # semantic + text search
-mnemonist reflect --all                                 # review all memories + inbox
+mnemonist memorize "deep Go expertise, new to React" -t user
+
+# 4. Jot quick notes into the working memory inbox
+mnemonist note "look into async runtime choices"
+mnemonist note "check Linear project INGEST for pipeline bugs"
+
+# 5. Ingest the codebase — embeds all source files into .code-index.hnsw
+mnemonist learn .
+
+# 6. Consolidate — promote inbox to long-term memory, decay stale items, re-embed
+mnemonist consolidate
+
+# 7. Recall — semantic + text search across memories and code
+mnemonist remember "rust async patterns"
+
+# 8. Review everything
+mnemonist reflect --all
+
+# 9. Forget something you no longer need (fuzzy name matching)
+mnemonist forget prefer-rust
 ```
 
 ## Usage
@@ -122,11 +116,11 @@ Project memory takes precedence over global when they conflict.
 | `mnemonist init [--global]` | Create `~/.mnemonist/{project}/MEMORY.md` or global |
 | `mnemonist memorize "<point>" [-t type] [-n name]` | Deliberately encode a point into long-term memory (auto-embeds) |
 | `mnemonist note "<point>"` | Jot a quick note into working memory inbox |
-| `mnemonist remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel, follows refs |
-| `mnemonist learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; embeds all chunks into `.code-index.hnsw`, reports quality metrics |
+| `mnemonist remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel with blended relevance scoring, follows refs |
+| `mnemonist learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; chunks files with `ParagraphChunking`, embeds into `.code-index.hnsw`, reports quality metrics |
 | `mnemonist consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw` |
 | `mnemonist reflect [--all] [--global]` | Introspect — review memories and inbox contents |
-| `mnemonist forget <file>` | Deliberately forget a memory |
+| `mnemonist forget <file>` | Deliberately forget a memory (supports fuzzy/suffix name matching) |
 | `mnemonist config init` | Create default config file |
 | `mnemonist config show` | Show current configuration |
 | `mnemonist config get <key>` | Get a config value (dot-notation) |
@@ -214,12 +208,13 @@ Use `mnemonist config set embedding.model all-MiniLM-L6-v2` to change values.
 
 ```bash
 cargo install mnemonist-server
-mnemonist-server  # listens on 127.0.0.1:3179
-curl "http://localhost:3179/search?q=rust&level=both"
-curl "http://localhost:3179/reload"  # hot-reload after context switch
+mnemonist-server                      # listens on Unix socket (default)
+mnemonist-server --addr 127.0.0.1:3179  # or bind to TCP for debugging
 ```
 
-See the full [Specification](SPECIFICATION.md) for details on file format, dynamic loading, precedence rules, and integration guides.
+Endpoints: `/health`, `/search?q=...`, `/remember?q=...&level=both`, `/reload`
+
+See the full [Specification](spec/mnemonist.md) for details on file format, dynamic loading, precedence rules, and integration guides.
 
 ## Benchmarks
 
