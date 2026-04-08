@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.5 (2026-04-08)
+
+### Documentation
+
+- add LICENSE and README to sub-crates for publishing compliance ([94e0754](https://github.com/urmzd/mnemonist/commit/94e07546cb71e665cf75fceca160d1674081a522))
+- **readme**: update features and quick start guide ([3333bbf](https://github.com/urmzd/mnemonist/commit/3333bbf7e4a84fe49a190801ef8d9aed275bdf62))
+
+### Refactoring
+
+- **recall**: remove server crate, add multi-signal reranker with auto-calibration ([1bf8b6e](https://github.com/urmzd/mnemonist/commit/1bf8b6e62ea899488e77710995aa63a6809ce8cd))
+
+### Miscellaneous
+
+- add linguist overrides to fix language stats ([ecc00c0](https://github.com/urmzd/mnemonist/commit/ecc00c0be2a5b61bc53ca1d0a1b24bf1986b3a92))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.4.4...v0.4.5)
+
+
 ## 0.4.4 (2026-04-04)
 
 ### Documentation
