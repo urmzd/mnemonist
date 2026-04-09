@@ -11,6 +11,8 @@ pub mod dataset;
 pub mod embedding;
 pub mod harness;
 pub mod longmemeval;
+#[cfg(feature = "index")]
+pub mod qa;
 pub mod report;
 pub mod search;
 

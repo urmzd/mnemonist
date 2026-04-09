@@ -57,9 +57,16 @@ pub struct LongMemEvalDataset {
 /// A single evaluation query.
 #[derive(Debug, Clone)]
 pub struct LongMemEvalQuery {
+    pub question_id: Option<String>,
+    pub question_type: Option<String>,
+    pub question_date: Option<String>,
     pub question: String,
     pub answer: Option<String>,
     pub gold_session_ids: Vec<String>,
+    /// All session IDs in the haystack (preserves ordering for sequential ingestion).
+    pub haystack_session_ids: Vec<String>,
+    /// Dates corresponding to each haystack session (parallel with haystack_session_ids).
+    pub haystack_dates: Option<Vec<String>>,
 }
 
 // ── Internal deserialization types ───────────────────────────────────────
@@ -69,6 +76,10 @@ pub struct LongMemEvalQuery {
 struct NativeEntry {
     #[serde(default)]
     question_id: Option<String>,
+    #[serde(default)]
+    question_type: Option<String>,
+    #[serde(default)]
+    question_date: Option<String>,
     question: String,
     /// Can be a string, number, or array in the dataset — we capture as Value.
     #[serde(default)]
@@ -79,6 +90,9 @@ struct NativeEntry {
     haystack_session_ids: Vec<String>,
     /// Sessions as a list of turn-lists (parallel with `haystack_session_ids`).
     haystack_sessions: Vec<Vec<Turn>>,
+    /// Dates corresponding to each haystack session.
+    #[serde(default)]
+    haystack_dates: Option<Vec<String>>,
 }
 
 /// Simplified split format.
@@ -190,9 +204,14 @@ fn parse_native_format(value: serde_json::Value) -> Result<LongMemEvalDataset, E
         let answer = entry.answer.as_ref().and_then(answer_to_string);
 
         queries.push(LongMemEvalQuery {
+            question_id: entry.question_id.clone(),
+            question_type: entry.question_type.clone(),
+            question_date: entry.question_date.clone(),
             question: entry.question.clone(),
             answer,
             gold_session_ids: entry.answer_session_ids.clone(),
+            haystack_session_ids: entry.haystack_session_ids.clone(),
+            haystack_dates: entry.haystack_dates.clone(),
         });
     }
 
@@ -225,9 +244,14 @@ fn parse_generic_entry_format(value: serde_json::Value) -> Result<LongMemEvalDat
                 .or_insert_with(|| user_turns_to_document(turns));
         }
         queries.push(LongMemEvalQuery {
+            question_id: None,
+            question_type: None,
+            question_date: None,
             question: entry.question,
             answer: entry.answer,
             gold_session_ids: entry.gold_session_ids,
+            haystack_session_ids: Vec::new(),
+            haystack_dates: None,
         });
     }
 
@@ -249,9 +273,14 @@ fn parse_split_format(value: serde_json::Value) -> Result<LongMemEvalDataset, Ev
         .queries
         .into_iter()
         .map(|q| LongMemEvalQuery {
+            question_id: None,
+            question_type: None,
+            question_date: None,
             question: q.question,
             answer: q.answer,
             gold_session_ids: q.gold_session_ids,
+            haystack_session_ids: Vec::new(),
+            haystack_dates: None,
         })
         .collect();
 
@@ -294,6 +323,17 @@ mod tests {
         assert_eq!(ds.sessions["s2"], "My cat Luna is playful");
         assert_eq!(ds.queries[0].gold_session_ids, vec!["s1"]);
         assert_eq!(ds.queries[0].answer.as_deref(), Some("Olive Garden"));
+        assert_eq!(ds.queries[0].question_id.as_deref(), Some("q_001"));
+        assert_eq!(
+            ds.queries[0].question_type.as_deref(),
+            Some("single-session")
+        );
+        assert_eq!(ds.queries[0].question_date.as_deref(), Some("2024/01/15"));
+        assert_eq!(ds.queries[0].haystack_session_ids, vec!["s1", "s2"]);
+        assert_eq!(
+            ds.queries[0].haystack_dates.as_deref(),
+            Some(vec!["2024/01/10".to_string(), "2024/01/11".to_string()]).as_deref()
+        );
     }
 
     #[test]

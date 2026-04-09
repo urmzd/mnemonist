@@ -1,0 +1,29 @@
+{
+  "timestamp": "1775761111s",
+  "retrieval": {
+    "recall_any_at_5": 0.964,
+    "recall_all_at_5": 0.848,
+    "recall_any_at_10": 0.982,
+    "recall_all_at_10": 0.932,
+    "mrr": 0.8729341269841269,
+    "precision_at_5": 0.3396000000000009,
+    "n_sessions": 19195,
+    "n_queries": 500,
+    "avg_haystack_size": 47.734,
+    "embed_time_ms": 754108,
+    "index_build_time_ms": 1700,
+    "total_query_time_ms": 2159,
+    "avg_query_time_us": 4318.08
+  },
+  "latency": null,
+  "storage": null,
+  "temporal": null,
+  "mempalace": {
+    "mnemonist_recall_any_at_5": 0.964,
+    "mnemonist_recall_all_at_5": 0.848,
+    "n_sessions": 19195,
+    "n_queries": 500,
+    "avg_haystack_size": 47.734,
+    "note": "MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. This is NOT a QA accuracy score — it is raw vector retrieval recall. Their 96.6% number was never reproduced independently. See Experiment 6 for actual LongMemEval QA evaluation."
+  }
+}

@@ -1,0 +1,14 @@
+═══ Experiment 1: Vector Retrieval (NOT LongMemEval QA) ═══
+  sessions: 19195  queries: 500  avg haystack: 48
+  recall_any@5:  0.9640 (96.4%)
+  recall_all@5:  0.8480 (84.8%)
+  recall_any@10: 0.9820 (98.2%)
+  recall_all@10: 0.9320 (93.2%)
+  mrr: 0.8729  precision@5: 0.3396
+  embed: 754108ms  build: 1700ms  query: 2159ms (avg 4318µs)
+
+═══ Experiment 5: MemPalace Comparison (Retrieval Only — NOT QA) ═══
+  sessions: 19195  queries: 500  avg haystack: 48
+  mnemonist recall_any@5:  0.9640 (96.4%)
+  mnemonist recall_all@5:  0.8480 (84.8%)
+  note: MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. This is NOT a QA accuracy score — it is raw vector retrieval recall. Their 96.6% number was never reproduced independently. See Experiment 6 for actual LongMemEval QA evaluation.
