@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 (2026-04-09)
+
+### Features
+
+- **evals**: add end-to-end LongMemEval QA harness and fix retrieval methodology ([afa7c7c](https://github.com/urmzd/mnemonist/commit/afa7c7c8fb6bf152112c05d024da29dbe56ef13c))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.6.0...v0.7.0)
+
+
 ## 0.6.0 (2026-04-09)
 
 ### Features
