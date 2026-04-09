@@ -1968,7 +1968,7 @@ dependencies = [
 
 [[package]]
 name = "mnemonist"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "agentspec-update",
  "anyhow",
@@ -1985,7 +1985,7 @@ dependencies = [
 
 [[package]]
 name = "mnemonist-core"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -2006,7 +2006,7 @@ dependencies = [
 
 [[package]]
 name = "mnemonist-evals"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "clap",
  "criterion",
@@ -2024,7 +2024,7 @@ dependencies = [
 
 [[package]]
 name = "mnemonist-index"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "criterion",
  "ignore",
@@ -2037,7 +2037,7 @@ dependencies = [
 
 [[package]]
 name = "mnemonist-quant"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "criterion",
  "insta",
