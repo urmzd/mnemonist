@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 (2026-04-09)
+
+### Features
+
+- **cli**: add self-update, version subcommands; standardize --format flag ([2aea8ba](https://github.com/urmzd/mnemonist/commit/2aea8ba66852258062ca65162540f40300b1ceae))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.4.5...v0.5.0)
+
+
 ## 0.4.5 (2026-04-08)
 
 ### Documentation
