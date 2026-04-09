@@ -6,9 +6,11 @@
 //! - [`dataset`] — synthetic benchmark dataset generation
 //! - [`harness`] — end-to-end eval runner producing structured reports
 
+pub mod bench;
 pub mod dataset;
 pub mod embedding;
 pub mod harness;
+pub mod longmemeval;
 pub mod report;
 pub mod search;
 

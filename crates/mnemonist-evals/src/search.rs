@@ -98,6 +98,57 @@ pub fn ndcg_at_k(retrieved: &[String], judgments: &HashMap<String, u32>, k: usiz
     if ideal == 0.0 { 0.0 } else { actual / ideal }
 }
 
+/// Recall-any at k: fraction of queries where **at least one** gold document appears in top-k.
+///
+/// This is the metric MemPalace headlines as "recall@5" — a lenient measure
+/// that only requires one relevant hit per query.
+pub fn recall_any_at_k(queries: &[QueryEval], k: usize) -> f64 {
+    if queries.is_empty() {
+        return 0.0;
+    }
+    let hits = queries
+        .iter()
+        .filter(|q| {
+            let relevant: HashSet<&str> = q
+                .judgments
+                .iter()
+                .filter(|(_, g)| **g > 0)
+                .map(|(id, _)| id.as_str())
+                .collect();
+            let top_k: HashSet<&str> = q.retrieved.iter().take(k).map(|s| s.as_str()).collect();
+            top_k.iter().any(|id| relevant.contains(id))
+        })
+        .count();
+    hits as f64 / queries.len() as f64
+}
+
+/// Recall-all at k: fraction of queries where **all** gold documents appear in top-k.
+///
+/// A strict measure — queries with multiple gold sessions must have *every* one
+/// in top-k. MemPalace conspicuously doesn't headline this metric.
+pub fn recall_all_at_k(queries: &[QueryEval], k: usize) -> f64 {
+    if queries.is_empty() {
+        return 0.0;
+    }
+    let hits = queries
+        .iter()
+        .filter(|q| {
+            let relevant: HashSet<&str> = q
+                .judgments
+                .iter()
+                .filter(|(_, g)| **g > 0)
+                .map(|(id, _)| id.as_str())
+                .collect();
+            if relevant.is_empty() {
+                return false;
+            }
+            let top_k: HashSet<&str> = q.retrieved.iter().take(k).map(|s| s.as_str()).collect();
+            relevant.iter().all(|id| top_k.contains(id))
+        })
+        .count();
+    hits as f64 / queries.len() as f64
+}
+
 /// Compute all search metrics for a batch of queries at the given k.
 pub fn evaluate_search(queries: &[QueryEval], k: usize) -> SearchMetrics {
     if queries.is_empty() {
@@ -252,5 +303,62 @@ mod tests {
         let r = retrieved(&["a"]);
         let rel = relevant_set(&[]);
         assert_eq!(recall_at_k(&r, &rel, 1), 0.0);
+    }
+
+    #[test]
+    fn recall_any_finds_one() {
+        let queries = vec![
+            QueryEval {
+                query_id: "q1".to_string(),
+                retrieved: retrieved(&["a", "x", "y", "z", "w"]),
+                judgments: HashMap::from([("a".to_string(), 1), ("b".to_string(), 1)]),
+            },
+            QueryEval {
+                query_id: "q2".to_string(),
+                retrieved: retrieved(&["x", "y", "z", "w", "v"]),
+                judgments: HashMap::from([("a".to_string(), 1)]),
+            },
+        ];
+        // q1: "a" is in top-5 → hit. q2: "a" not in top-5 → miss. → 0.5
+        assert!((recall_any_at_k(&queries, 5) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn recall_all_requires_every_gold() {
+        let queries = vec![QueryEval {
+            query_id: "q1".to_string(),
+            retrieved: retrieved(&["a", "x", "b", "y", "z"]),
+            judgments: HashMap::from([
+                ("a".to_string(), 1),
+                ("b".to_string(), 1),
+                ("c".to_string(), 1), // c not in top-5
+            ]),
+        }];
+        // "a" and "b" present but "c" missing → 0.0
+        assert_eq!(recall_all_at_k(&queries, 5), 0.0);
+    }
+
+    #[test]
+    fn recall_all_perfect() {
+        let queries = vec![QueryEval {
+            query_id: "q1".to_string(),
+            retrieved: retrieved(&["a", "b", "c", "x", "y"]),
+            judgments: HashMap::from([
+                ("a".to_string(), 1),
+                ("b".to_string(), 1),
+                ("c".to_string(), 1),
+            ]),
+        }];
+        assert!((recall_all_at_k(&queries, 5) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn recall_any_empty() {
+        assert_eq!(recall_any_at_k(&[], 5), 0.0);
+    }
+
+    #[test]
+    fn recall_all_empty() {
+        assert_eq!(recall_all_at_k(&[], 5), 0.0);
     }
 }
