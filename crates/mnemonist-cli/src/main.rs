@@ -47,6 +47,12 @@ mod tui {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, clap::ValueEnum)]
+enum OutputFormat {
+    Human,
+    Json,
+}
+
 #[derive(Parser)]
 #[command(
     name = "mnemonist",
@@ -60,9 +66,9 @@ struct Cli {
     #[arg(long, short = 'q', global = true)]
     quiet: bool,
 
-    /// Force JSON output (default when stdout is not a TTY)
-    #[arg(long, global = true)]
-    json: bool,
+    /// Output format
+    #[arg(long, global = true, value_enum, default_value = "human")]
+    format: OutputFormat,
 }
 
 #[derive(Subcommand)]
@@ -208,6 +214,10 @@ enum Command {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    /// Self-update mnemonist to the latest release
+    Update,
+    /// Print the current version
+    Version,
 }
 
 #[derive(Subcommand)]
@@ -403,6 +413,8 @@ fn main() {
         Command::Reflect { .. } => "reflect",
         Command::Forget { .. } => "forget",
         Command::Config { .. } => "config",
+        Command::Update => "update",
+        Command::Version => "version",
     };
 
     let _timer = if quiet {
@@ -1436,6 +1448,26 @@ fn run(cli: Cli) -> Result<()> {
             } else {
                 output_err(&format!("not found: {file}"));
             }
+        }
+
+        // -- update: self-update --
+        Command::Update => {
+            eprintln!("current version: {}", env!("CARGO_PKG_VERSION"));
+            match agentspec_update::self_update(
+                "urmzd/mnemonist",
+                env!("CARGO_PKG_VERSION"),
+                "mnemonist",
+            )? {
+                agentspec_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
+                agentspec_update::UpdateResult::Updated { from, to } => {
+                    eprintln!("updated: {from} → {to}")
+                }
+            }
+        }
+
+        // -- version: print version --
+        Command::Version => {
+            println!("mnemonist v{}", env!("CARGO_PKG_VERSION"));
         }
 
         // -- config: manage configuration --
