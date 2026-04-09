@@ -30,9 +30,9 @@ pub struct StorageConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct EmbeddingConfig {
-    /// Embedding provider: "fastembed" or "none".
+    /// Embedding provider: "candle" or "none".
     pub provider: String,
-    /// Embedding model name (fastembed model identifier).
+    /// Embedding model name (HuggingFace model identifier).
     pub model: String,
 }
 
@@ -168,7 +168,7 @@ impl Default for StorageConfig {
 impl Default for EmbeddingConfig {
     fn default() -> Self {
         Self {
-            provider: "fastembed".to_string(),
+            provider: "candle".to_string(),
             model: "all-MiniLM-L6-v2".to_string(),
         }
     }
