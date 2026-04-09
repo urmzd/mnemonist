@@ -130,7 +130,12 @@ fn similarity_range_mixed_vectors_gt_03() {
         vec![1.0, 0.0, 0.0, 0.0],
         vec![0.0, 1.0, 0.0, 0.0],
         vec![0.0, 0.0, 1.0, 0.0],
-        vec![0.7071, 0.7071, 0.0, 0.0],
+        vec![
+            std::f32::consts::FRAC_1_SQRT_2,
+            std::f32::consts::FRAC_1_SQRT_2,
+            0.0,
+            0.0,
+        ],
     ];
     let range = similarity_range(&vecs);
     assert!(range > 0.3, "similarity_range = {range}, expected > 0.3");

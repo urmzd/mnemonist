@@ -214,7 +214,11 @@ mod tests {
         let vecs = vec![
             vec![1.0, 0.0, 0.0],
             vec![0.0, 1.0, 0.0],
-            vec![0.7071, 0.7071, 0.0], // 45 degrees from both
+            vec![
+                std::f32::consts::FRAC_1_SQRT_2,
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+            ], // 45 degrees from both
         ];
 
         let range = similarity_range(&vecs);
