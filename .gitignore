@@ -19,3 +19,6 @@
 
 # Embedding model cache
 .fastembed_cache/
+
+# Benchmark datasets (large, downloaded via scripts/get_data.sh)
+data/
