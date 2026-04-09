@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.6.0 (2026-04-09)
+
+### Features
+
+- **evals**: add benchmarking suite and LongMemEval evaluation ([abc866d](https://github.com/urmzd/mnemonist/commit/abc866d3b8c95254f43890686bb3bac8158c91c1))
+- **core**: implement candle-based embedder with hardware acceleration ([2db6c9b](https://github.com/urmzd/mnemonist/commit/2db6c9b7bc00bba34d765453a7f9bf10af264b74))
+
+### Documentation
+
+- **core**: update examples to use CandleEmbedder ([80b01b4](https://github.com/urmzd/mnemonist/commit/80b01b4c5323ba3129b18648bbae0764dcabea9e))
+- update for candle embedder and hardware acceleration ([a56aa4e](https://github.com/urmzd/mnemonist/commit/a56aa4e403cad215c928762f823b366b2e6559c5))
+
+### Refactoring
+
+- **core**: update default embedding provider to candle ([3b0ba67](https://github.com/urmzd/mnemonist/commit/3b0ba670f636b3b6ebf8634fb3fc6a1fed197b33))
+
+### Miscellaneous
+
+- bump workspace version to 0.5.2 ([09aeca0](https://github.com/urmzd/mnemonist/commit/09aeca05b569d9e8647b0ffd5f58da1146820f38))
+- improve floating-point precision in test constants ([4be7a51](https://github.com/urmzd/mnemonist/commit/4be7a51fe8861a150b8946b5c24b5a1538f07fac))
+- **deps**: migrate from fastembed to candle embeddings ([f301b4d](https://github.com/urmzd/mnemonist/commit/f301b4d010149db336e63350bce82529c817485b))
+- **scripts**: add benchmark data download infrastructure ([f9b8c2f](https://github.com/urmzd/mnemonist/commit/f9b8c2f3907911bdb1d58148ccb26d55ef677819))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.5.2...v0.6.0)
+
+
 ## 0.5.2 (2026-04-09)
 
 ### Bug Fixes
