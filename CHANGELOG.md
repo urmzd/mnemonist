@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2 (2026-04-09)
+
+### Bug Fixes
+
+- **ci**: remove --allow-dirty from cargo publish ([197879b](https://github.com/urmzd/mnemonist/commit/197879be5f8bcb5a4a1d945439ec8e0c7ebc6502))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.5.1...v0.5.2)
+
+
 ## 0.5.1 (2026-04-09)
 
 ### Bug Fixes
