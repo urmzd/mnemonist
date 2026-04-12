@@ -217,7 +217,7 @@ See the full [Specification](spec/mnemonist.md) for details on file format, dyna
 
 ## Benchmarks
 
-<!-- embed-src src="docs/benchmarks.md" -->
+<!-- fsrc src="docs/benchmarks.md" -->
 ### Distance Functions
 
 | Function | 32-d | 128-d | 384-d |
@@ -313,7 +313,7 @@ See the full [Specification](spec/mnemonist.md) for details on file format, dyna
 | `discrimination_gap` | TBD | — | — |
 
 > Measured on Apple Silicon (M-series) with `cargo bench`. Run `just bench` to reproduce.
-<!-- /embed-src -->
+<!-- /fsrc -->
 
 ## Testing
 
