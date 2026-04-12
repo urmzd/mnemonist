@@ -313,6 +313,7 @@ See the full [Specification](spec/mnemonist.md) for details on file format, dyna
 | `discrimination_gap` | TBD | — | — |
 
 > Measured on Apple Silicon (M-series) with `cargo bench`. Run `just bench` to reproduce.
+> Raw results available in [`docs/benchmarks/`](benchmarks/).
 <!-- /fsrc -->
 
 ## Testing
