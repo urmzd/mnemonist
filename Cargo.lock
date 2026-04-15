@@ -15,19 +15,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "agentspec-update"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49b41cf13d5f1daaf731e67a34204d20c6c9d362256361a982787cb0a1f83399"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "sha2",
- "ureq 3.3.0",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1970,17 +1957,17 @@ dependencies = [
 name = "mnemonist"
 version = "0.7.0"
 dependencies = [
- "agentspec-update",
  "anyhow",
  "chrono",
  "clap",
  "insta",
  "mnemonist-core",
- "mnemonist-index",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "toml",
+ "ureq 3.3.0",
 ]
 
 [[package]]
@@ -1990,10 +1977,14 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "clap",
  "criterion",
  "dirs",
  "hf-hub",
+ "ignore",
  "insta",
+ "rand",
+ "rand_distr",
  "rayon",
  "serde",
  "serde_json",
@@ -2002,50 +1993,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokenizers 0.21.4",
  "toml",
-]
-
-[[package]]
-name = "mnemonist-evals"
-version = "0.7.0"
-dependencies = [
- "clap",
- "criterion",
- "insta",
- "mnemonist-core",
- "mnemonist-index",
- "mnemonist-quant",
- "rand",
- "rand_distr",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "mnemonist-index"
-version = "0.7.0"
-dependencies = [
- "criterion",
- "ignore",
- "insta",
- "mnemonist-core",
- "serde",
- "tempfile",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "mnemonist-quant"
-version = "0.7.0"
-dependencies = [
- "criterion",
- "insta",
- "rand",
- "rand_distr",
- "serde",
- "tempfile",
- "thiserror 2.0.18",
 ]
 
 [[package]]

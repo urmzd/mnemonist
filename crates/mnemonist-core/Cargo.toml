@@ -24,18 +24,46 @@ candle-transformers = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 hf-hub = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
+ignore = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+rand_distr = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
 
 [features]
-default = ["candle"]
+default = ["candle", "ann", "quant", "evals"]
 candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub", "dep:rayon"]
 accelerate = ["candle", "candle-core/accelerate"]
 cuda = ["candle", "candle-core/cuda"]
+ann = ["dep:ignore"]
+quant = ["dep:rand", "dep:rand_distr"]
+evals = ["dep:rand", "dep:rand_distr", "ann", "quant"]
+bench-cli = ["dep:clap", "evals", "candle"]
 
 [dev-dependencies]
 tempfile = { workspace = true }
 criterion = { workspace = true }
 insta = { workspace = true }
 
+[[bin]]
+name = "mnemonist-bench"
+path = "src/evals/bin/bench.rs"
+required-features = ["bench-cli"]
+
 [[bench]]
 name = "core_benchmarks"
 harness = false
+
+[[bench]]
+name = "ann_benchmarks"
+harness = false
+required-features = ["ann"]
+
+[[bench]]
+name = "quant_benchmarks"
+harness = false
+required-features = ["quant"]
+
+[[bench]]
+name = "eval_benchmarks"
+harness = false
+required-features = ["evals"]

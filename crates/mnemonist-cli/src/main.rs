@@ -1,3 +1,5 @@
+mod self_update;
+
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use mnemonist_core::{
@@ -853,8 +855,8 @@ fn run(cli: Cli) -> Result<()> {
             let cap = capacity.unwrap_or(config.inbox.capacity);
 
             // Phase 1: chunk files
-            let strategy = mnemonist_index::code::ParagraphChunking::default();
-            let mut code_index = mnemonist_index::code::CodeIndex::new(&ingest_path, &strategy);
+            let strategy = mnemonist_core::ann::code::ParagraphChunking::default();
+            let mut code_index = mnemonist_core::ann::code::CodeIndex::new(&ingest_path, &strategy);
             let chunk_count = code_index.index(&config.code.exclude_patterns)?;
 
             let file_count = code_index
@@ -896,12 +898,12 @@ fn run(cli: Cli) -> Result<()> {
             match mnemonist_core::CandleEmbedder::default_model() {
                 Ok(embedder) => {
                     let dim = embedder.dimension()?;
-                    let mut hnsw = mnemonist_index::hnsw::HnswIndex::with_defaults(dim);
+                    let mut hnsw = mnemonist_core::ann::hnsw::HnswIndex::with_defaults(dim);
                     match code_index.build_ann(&embedder, &mut hnsw) {
                         Ok(n) => {
                             embedded_count = n;
                             let hnsw_path = mem_dir.join(".code-index.hnsw");
-                            if let Err(e) = mnemonist_index::AnnIndex::save(&hnsw, &hnsw_path) {
+                            if let Err(e) = mnemonist_core::ann::AnnIndex::save(&hnsw, &hnsw_path) {
                                 eprintln!("warning: failed to save code HNSW index: {e}");
                             }
 
@@ -922,9 +924,9 @@ fn run(cli: Cli) -> Result<()> {
                                 .collect();
 
                             if let Ok(sample_embeddings) = embedder.embed_batch(&sample_texts) {
-                                let aniso = mnemonist_index::eval::anisotropy(&sample_embeddings);
+                                let aniso = mnemonist_core::ann::eval::anisotropy(&sample_embeddings);
                                 let range =
-                                    mnemonist_index::eval::similarity_range(&sample_embeddings);
+                                    mnemonist_core::ann::eval::similarity_range(&sample_embeddings);
                                 eval_json = json!({
                                     "sample_size": sample_embeddings.len(),
                                     "anisotropy": (aniso * 10000.0).round() / 10000.0,
@@ -1142,9 +1144,9 @@ fn run(cli: Cli) -> Result<()> {
 
                     // Build temp HNSW for O(n log n) neighbor search
                     let mut temp_hnsw =
-                        mnemonist_index::hnsw::HnswIndex::with_defaults(store.dimension);
+                        mnemonist_core::ann::hnsw::HnswIndex::with_defaults(store.dimension);
                     for entry in entries {
-                        let _ = mnemonist_index::AnnIndex::insert(
+                        let _ = mnemonist_core::ann::AnnIndex::insert(
                             &mut temp_hnsw,
                             &entry.file,
                             &entry.embedding,
@@ -1156,7 +1158,7 @@ fn run(cli: Cli) -> Result<()> {
                     let mut links: Vec<(String, String)> = Vec::new();
                     for entry in entries {
                         if let Ok(hits) =
-                            mnemonist_index::AnnIndex::search(&temp_hnsw, &entry.embedding, k + 1)
+                            mnemonist_core::ann::AnnIndex::search(&temp_hnsw, &entry.embedding, k + 1)
                         {
                             for hit in hits {
                                 if hit.id != entry.file && hit.score >= threshold {
@@ -1453,13 +1455,13 @@ fn run(cli: Cli) -> Result<()> {
         // -- update: self-update --
         Command::Update => {
             eprintln!("current version: {}", env!("CARGO_PKG_VERSION"));
-            match agentspec_update::self_update(
+            match self_update::self_update(
                 "urmzd/mnemonist",
                 env!("CARGO_PKG_VERSION"),
                 "mnemonist",
             )? {
-                agentspec_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
-                agentspec_update::UpdateResult::Updated { from, to } => {
+                self_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
+                self_update::UpdateResult::Updated { from, to } => {
                     eprintln!("updated: {from} → {to}")
                 }
             }
@@ -1569,8 +1571,8 @@ fn semantic_search(
         // Memory layer HNSW
         let mem_hnsw_path = dir.join(".memory-index.hnsw");
         if mem_hnsw_path.exists()
-            && let Ok(hnsw) = mnemonist_index::hnsw::HnswIndex::load_from(&mem_hnsw_path)
-            && let Ok(hits) = mnemonist_index::AnnIndex::search(&hnsw, &query_embedding, 10)
+            && let Ok(hnsw) = mnemonist_core::ann::hnsw::HnswIndex::load_from(&mem_hnsw_path)
+            && let Ok(hits) = mnemonist_core::ann::AnnIndex::search(&hnsw, &query_embedding, 10)
             && let Ok(mem_index) = MemoryIndex::load(dir)
         {
             for hit in hits {
@@ -1583,8 +1585,8 @@ fn semantic_search(
         // Code layer HNSW
         let code_hnsw_path = dir.join(".code-index.hnsw");
         if code_hnsw_path.exists()
-            && let Ok(hnsw) = mnemonist_index::hnsw::HnswIndex::load_from(&code_hnsw_path)
-            && let Ok(hits) = mnemonist_index::AnnIndex::search(&hnsw, &query_embedding, 10)
+            && let Ok(hnsw) = mnemonist_core::ann::hnsw::HnswIndex::load_from(&code_hnsw_path)
+            && let Ok(hits) = mnemonist_core::ann::AnnIndex::search(&hnsw, &query_embedding, 10)
         {
             for hit in hits {
                 let parts: Vec<&str> = hit.id.rsplitn(3, ':').collect();
@@ -1646,8 +1648,8 @@ fn semantic_search(
             for dir in dirs {
                 let code_hnsw_path = dir.join(".code-index.hnsw");
                 if code_hnsw_path.exists()
-                    && let Ok(hnsw) = mnemonist_index::hnsw::HnswIndex::load_from(&code_hnsw_path)
-                    && let Ok(hits) = mnemonist_index::AnnIndex::search(&hnsw, &emb.embedding, 5)
+                    && let Ok(hnsw) = mnemonist_core::ann::hnsw::HnswIndex::load_from(&code_hnsw_path)
+                    && let Ok(hits) = mnemonist_core::ann::AnnIndex::search(&hnsw, &emb.embedding, 5)
                 {
                     for hit in hits {
                         let parts: Vec<&str> = hit.id.rsplitn(3, ':').collect();
@@ -1783,13 +1785,13 @@ fn build_memory_hnsw(dir: &std::path::Path) -> Result<usize> {
         return Ok(0);
     }
 
-    let mut hnsw = mnemonist_index::hnsw::HnswIndex::with_defaults(store.dimension);
+    let mut hnsw = mnemonist_core::ann::hnsw::HnswIndex::with_defaults(store.dimension);
     for entry in &store.entries {
-        mnemonist_index::AnnIndex::insert(&mut hnsw, &entry.file, &entry.embedding)?;
+        mnemonist_core::ann::AnnIndex::insert(&mut hnsw, &entry.file, &entry.embedding)?;
     }
 
     let hnsw_path = dir.join(".memory-index.hnsw");
-    mnemonist_index::AnnIndex::save(&hnsw, &hnsw_path)?;
+    mnemonist_core::ann::AnnIndex::save(&hnsw, &hnsw_path)?;
     Ok(store.entries.len())
 }
 

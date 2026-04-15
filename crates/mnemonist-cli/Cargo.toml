@@ -17,14 +17,14 @@ path = "src/main.rs"
 
 [dependencies]
 mnemonist-core = { workspace = true }
-mnemonist-index = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
-agentspec-update = { workspace = true }
+sha2 = "0.10"
+ureq = { version = "3", features = ["json"] }
 
 [features]
 default = []
