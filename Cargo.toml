@@ -3,7 +3,7 @@ members = ["crates/mnemonist-core", "crates/mnemonist-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.7.2"
+version = "0.7.3"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/urmzd/mnemonist"
@@ -12,7 +12,7 @@ homepage = "https://github.com/urmzd/mnemonist"
 
 [workspace.dependencies]
 # Internal crates
-mnemonist-core = { path = "crates/mnemonist-core", version = "0.7.2" }
+mnemonist-core = { path = "crates/mnemonist-core", version = "0.7.3" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

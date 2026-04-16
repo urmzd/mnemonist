@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.3 (2026-04-16)
+
+### Bug Fixes
+
+- default install dir to ~/.local/bin and simplify install script ([c183924](https://github.com/urmzd/mnemonist/commit/c1839249efe0ec4c6f357496049d16d4fb889921))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.7.2...v0.7.3)
+
+
 ## 0.7.2 (2026-04-16)
 
 ### Bug Fixes
