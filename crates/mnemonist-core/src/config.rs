@@ -219,14 +219,77 @@ impl Default for CodeConfig {
                 "go".to_string(),
             ],
             max_chunk_lines: 100,
-            exclude_patterns: Vec::new(),
+            exclude_patterns: vec![
+                // Build output / bundles
+                "dist".to_string(),
+                "build".to_string(),
+                "out".to_string(),
+                "_build".to_string(),
+                // Dependencies
+                "node_modules".to_string(),
+                "vendor".to_string(),
+                ".venv".to_string(),
+                "venv".to_string(),
+                // Caches / generated
+                "target".to_string(),
+                "__pycache__".to_string(),
+                ".next".to_string(),
+                ".nuxt".to_string(),
+                ".turbo".to_string(),
+                // Lock files (large, low signal)
+                "package-lock".to_string(),
+                "yarn.lock".to_string(),
+                "pnpm-lock".to_string(),
+                "cargo.lock".to_string(),
+                "poetry.lock".to_string(),
+                // Minified / compiled assets
+                ".min.js".to_string(),
+                ".min.css".to_string(),
+                ".map".to_string(),
+                ".chunk.".to_string(),
+                ".bundle.".to_string(),
+            ],
         }
     }
 }
 
 impl Config {
-    /// Load config from `~/.mnemonist/config.toml`. Falls back to defaults if missing.
+    /// Load global config from `~/.mnemonist/config.toml`. Falls back to defaults if missing.
     pub fn load() -> Self {
+        Self::load_global()
+    }
+
+    /// Load global config, then overlay with `mnemonist.toml` from the project root (git root).
+    ///
+    /// Fields present in the project file override the global config; missing fields
+    /// inherit from the global config (or defaults).
+    pub fn load_with_project(project_root: &Path) -> Self {
+        let base = Self::load_global();
+        let project_path = project_root.join("mnemonist.toml");
+
+        if !project_path.exists() {
+            return base;
+        }
+
+        let Ok(project_content) = fs::read_to_string(&project_path) else {
+            return base;
+        };
+
+        let Ok(project_table) = project_content.parse::<toml::Value>() else {
+            return base;
+        };
+
+        // Serialize base config to a TOML Value, deep-merge project on top, deserialize back.
+        let Ok(mut base_val) = toml::Value::try_from(&base) else {
+            return base;
+        };
+
+        deep_merge(&mut base_val, &project_table);
+
+        base_val.try_into().unwrap_or(base)
+    }
+
+    fn load_global() -> Self {
         let default_root = dirs::home_dir()
             .map(|d| d.join(".mnemonist"))
             .unwrap_or_else(|| PathBuf::from(".mnemonist"));
@@ -364,6 +427,22 @@ impl Config {
             .try_into()
             .map_err(|e: toml::de::Error| Error::ConfigFormat(e.to_string()))?;
         Ok(())
+    }
+}
+
+/// Recursively merge `overlay` into `base`. Tables are merged key-by-key;
+/// all other values in `overlay` replace those in `base`.
+fn deep_merge(base: &mut toml::Value, overlay: &toml::Value) {
+    if let (Some(base_table), Some(overlay_table)) = (base.as_table_mut(), overlay.as_table()) {
+        for (key, overlay_val) in overlay_table {
+            if let Some(base_val) = base_table.get_mut(key) {
+                deep_merge(base_val, overlay_val);
+            } else {
+                base_table.insert(key.clone(), overlay_val.clone());
+            }
+        }
+    } else {
+        *base = overlay.clone();
     }
 }
 

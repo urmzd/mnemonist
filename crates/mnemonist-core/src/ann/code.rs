@@ -278,13 +278,19 @@ impl<'a> CodeIndex<'a> {
                 continue;
             }
 
-            // Skip files matching exclude patterns (case-insensitive prefix on file name)
-            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                let name_lower = file_name.to_lowercase();
-                if exclude_patterns
-                    .iter()
-                    .any(|p| name_lower.starts_with(&p.to_lowercase()))
-                {
+            // Skip files matching exclude patterns (case-insensitive prefix on file name
+            // or any path component)
+            {
+                let rel = path
+                    .strip_prefix(&self.root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_lowercase();
+                if exclude_patterns.iter().any(|p| {
+                    let p_lower = p.to_lowercase();
+                    // Match against filename prefix or any path component prefix
+                    rel.split('/').any(|seg| seg.starts_with(&p_lower))
+                }) {
                     continue;
                 }
             }

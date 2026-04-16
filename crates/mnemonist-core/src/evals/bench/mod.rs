@@ -1,15 +1,16 @@
 //! Benchmark suite: 6 experiments comparing mnemonist retrieval infrastructure.
 //!
-//! Each experiment lives in its own module:
+//! Each experiment lives in its own module and is fully self-contained:
 //!
 //! 1. [`vector_retrieval`] — session retrieval recall@k (what MemPalace measured — NOT QA)
 //! 2. [`latency_scaling`] — index build + p50/p95/p99 query latency at 100–10k docs
 //! 3. [`storage_footprint`] — raw vs TurboQuant compressed at 1–4 bits, with recall impact
 //! 4. [`temporal_retrieval`] — dynamic recall improvement via Hebbian access patterns
 //! 5. [`mempalace_comparison`] — apples-to-apples retrieval parity (NOT a LongMemEval QA score)
-//! 6. **LongMemEval QA** — real end-to-end QA (see [`crate::qa`])
+//! 6. [`longmemeval_qa`] — real end-to-end QA (retrieval + LLM scoring)
 
 pub mod latency_scaling;
+pub mod longmemeval_qa;
 pub mod mempalace_comparison;
 #[cfg(feature = "quant")]
 pub mod storage_footprint;
@@ -20,6 +21,7 @@ use serde::Serialize;
 
 // Re-export result types for convenience.
 pub use latency_scaling::{LatencyResult, ScalePoint};
+pub use longmemeval_qa::QaExperimentResult;
 pub use mempalace_comparison::MemPalaceComparisonResult;
 #[cfg(feature = "quant")]
 pub use storage_footprint::{QuantizedStoragePoint, StorageResult};
@@ -40,6 +42,7 @@ pub struct BenchReport {
     pub storage: Option<StorageResult>,
     pub temporal: Option<TemporalResult>,
     pub mempalace: Option<MemPalaceComparisonResult>,
+    pub qa: Option<QaExperimentResult>,
 }
 
 impl BenchReport {
@@ -182,7 +185,29 @@ impl BenchReport {
                 m.mnemonist_recall_all_at_5,
                 m.mnemonist_recall_all_at_5 * 100.0
             ));
+            lines.push(format!(
+                "  time: {:.1}s ({:.2}s per question)",
+                m.total_time_s, m.per_question_time_s
+            ));
             lines.push(format!("  note: {}", m.note));
+        }
+
+        if let Some(ref q) = self.qa {
+            lines.push(String::new());
+            lines.push("═══ Experiment 6: LongMemEval QA ═══".to_string());
+            lines.push(format!("  mode: {}", q.mode));
+            if let Some(recall) = q.retrieval_recall_any_at_k {
+                lines.push(format!("  retrieval recall_any@k: {:.1}%", recall * 100.0));
+            }
+            if let Some(avg_ms) = q.avg_time_per_question_ms {
+                lines.push(format!("  avg time/question: {:.0}ms", avg_ms));
+            }
+            if let Some(acc) = q.overall_accuracy {
+                lines.push(format!("  overall accuracy: {:.1}%", acc * 100.0));
+            }
+            if let Some(n) = q.n_questions {
+                lines.push(format!("  questions: {}", n));
+            }
         }
 
         if lines.is_empty() {

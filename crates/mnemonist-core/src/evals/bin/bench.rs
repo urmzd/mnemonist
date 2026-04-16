@@ -1,12 +1,14 @@
 //! mnemonist-bench: Benchmark suite comparing mnemonist retrieval infrastructure.
 //!
-//! Runs up to 6 experiments against a LongMemEval dataset:
+//! Runs up to 6 independent experiments against a LongMemEval dataset:
 //!   1. Vector retrieval (recall_any@5, recall_all@5) — raw session retrieval, NOT QA
 //!   2. Latency scaling (index build + p50/p95/p99 query latency at 100–10k docs)
 //!   3. Storage footprint (raw vs TurboQuant at 1–4 bits, with recall degradation)
 //!   4. Temporal retrieval (Hebbian reinforcement vs static baseline)
 //!   5. MemPalace comparison — apples-to-apples retrieval parity (NOT a LongMemEval QA score)
 //!   6. LongMemEval QA — real end-to-end evaluation (see qa.rs)
+//!
+//! Each experiment is self-contained: it handles its own embedding and setup.
 //!
 //! Usage:
 //!   cargo run --bin mnemonist-bench --features bench-cli -- --dataset data/longmemeval_s_cleaned.json
@@ -15,7 +17,6 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use mnemonist_core::embed::Embedder;
 use mnemonist_core::evals::bench;
 use mnemonist_core::evals::longmemeval;
 
@@ -71,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let experiments: Vec<usize> = if cli.experiments == "all" {
-        vec![1, 2, 3, 4, 5]
+        vec![1, 2, 3, 4, 5, 6]
     } else {
         cli.experiments
             .split(',')
@@ -104,66 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("Initializing embedder (all-MiniLM-L6-v2, candle)...");
     let embedder = mnemonist_core::embed::CandleEmbedder::default_model()?;
 
-    // ── Pre-embed everything (shared across experiments 2–4) ─────────────
-    let total_sessions = dataset.sessions.len();
-    eprintln!("Embedding {total_sessions} sessions...");
-    let session_ids: Vec<String> = dataset.sessions.keys().cloned().collect();
-    let session_texts: Vec<&str> = session_ids
-        .iter()
-        .map(|id| dataset.sessions[id].as_str())
-        .collect();
-
-    const BATCH_SIZE: usize = 256;
-    let session_start = std::time::Instant::now();
-    let mut session_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_sessions);
-    for (i, chunk) in session_texts.chunks(BATCH_SIZE).enumerate() {
-        let done = i * BATCH_SIZE;
-        let t0 = std::time::Instant::now();
-        let batch = embedder.embed_batch(chunk)?;
-        eprintln!(
-            "  [{done}/{total_sessions}] ({:.1}s)",
-            t0.elapsed().as_secs_f64()
-        );
-        session_embeddings.extend(batch);
-    }
-    eprintln!(
-        "  [{total_sessions}/{total_sessions}] done ({:.1}s total)",
-        session_start.elapsed().as_secs_f64()
-    );
-
-    let embeddings: Vec<(String, Vec<f32>)> =
-        session_ids.into_iter().zip(session_embeddings).collect();
-
-    let total_queries = dataset.queries.len();
-    eprintln!("Embedding {total_queries} queries...");
-    let query_texts: Vec<&str> = dataset
-        .queries
-        .iter()
-        .map(|q| q.question.as_str())
-        .collect();
-    let query_start = std::time::Instant::now();
-    let mut query_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_queries);
-    for (i, chunk) in query_texts.chunks(BATCH_SIZE).enumerate() {
-        let done = i * BATCH_SIZE;
-        let t0 = std::time::Instant::now();
-        let batch = embedder.embed_batch(chunk)?;
-        eprintln!(
-            "  [{done}/{total_queries}] ({:.1}s)",
-            t0.elapsed().as_secs_f64()
-        );
-        query_embeddings.extend(batch);
-    }
-    eprintln!(
-        "  [{total_queries}/{total_queries}] done ({:.1}s total)",
-        query_start.elapsed().as_secs_f64()
-    );
-    let query_gold: Vec<Vec<String>> = dataset
-        .queries
-        .iter()
-        .map(|q| q.gold_session_ids.clone())
-        .collect();
-
-    eprintln!("Embeddings ready. Running experiments...\n");
+    eprintln!("Running experiments...\n");
 
     // ── Run experiments ──────────────────────────────────────────────────
     let mut report = bench::BenchReport {
@@ -180,6 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         storage: None,
         temporal: None,
         mempalace: None,
+        qa: None,
     };
 
     if experiments.contains(&1) {
@@ -199,7 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if experiments.contains(&2) {
         eprintln!("Running Experiment 2: Latency Scaling...");
-        match bench::latency_scaling::run(&embeddings, &query_embeddings, &scale_sizes) {
+        match bench::latency_scaling::run(&dataset, &embedder, &scale_sizes) {
             Ok(l) => {
                 for p in &l.scale_points {
                     eprintln!(
@@ -219,13 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "quant")]
     if experiments.contains(&3) {
         eprintln!("Running Experiment 3: Storage Footprint...");
-        match bench::storage_footprint::run(
-            &embeddings,
-            &query_embeddings,
-            &query_gold,
-            &quant_bits,
-            42,
-        ) {
+        match bench::storage_footprint::run(&dataset, &embedder, &quant_bits, 42) {
             Ok(s) => {
                 for q in &s.quantized {
                     eprintln!(
@@ -243,12 +180,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if experiments.contains(&4) {
         eprintln!("Running Experiment 4: Temporal Retrieval...");
-        match bench::temporal_retrieval::run(
-            &embeddings,
-            &query_embeddings,
-            &query_gold,
-            cli.temporal_cycles,
-        ) {
+        match bench::temporal_retrieval::run(&dataset, &embedder, cli.temporal_cycles) {
             Ok(t) => {
                 eprintln!(
                     "  baseline={:.1}%  reinforced={:.1}%  delta={:+.1}%",
@@ -271,6 +203,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     m.mnemonist_recall_any_at_5 * 100.0,
                     m.mnemonist_recall_all_at_5 * 100.0
                 );
+                eprintln!(
+                    "  time: {:.1}s ({:.2}s per question)",
+                    m.total_time_s, m.per_question_time_s
+                );
                 eprintln!("  note: {}", m.note);
                 report.mempalace = Some(m);
             }
@@ -279,94 +215,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if experiments.contains(&6) {
-        use mnemonist_core::evals::qa;
-
-        if let Some(ref answers_path) = cli.qa_answers {
-            // Scoring mode: read LLM-generated answers and score them
-            eprintln!("Running Experiment 6: LongMemEval QA — Scoring...");
-            let content = std::fs::read_to_string(answers_path)?;
-            let records: Vec<qa::QaAnswerRecord> = content
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .map(|l| serde_json::from_str(l))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            let qa_report = qa::score_answers(&records);
-            eprintln!(
-                "  overall accuracy: {:.1}% ({}/{})",
-                qa_report.overall_accuracy * 100.0,
-                (qa_report.overall_accuracy * qa_report.n_questions as f64) as usize,
-                qa_report.n_questions
-            );
-            for t in &qa_report.per_type {
-                eprintln!(
-                    "    {}: {:.1}% ({} questions)",
-                    t.question_type,
-                    t.accuracy * 100.0,
-                    t.count
-                );
+        eprintln!("Running Experiment 6: LongMemEval QA...");
+        let qa_config = bench::longmemeval_qa::QaExperimentConfig {
+            top_k: cli.qa_top_k,
+            output_path: cli.qa_output.clone(),
+            answers_path: cli.qa_answers.clone(),
+        };
+        match bench::longmemeval_qa::run(&dataset, &embedder, &qa_config) {
+            Ok(q) => {
+                report.qa = Some(q);
             }
-        } else {
-            // Retrieval mode: ingest sessions, retrieve context, output JSONL
-            eprintln!("Running Experiment 6: LongMemEval QA — Retrieval...");
-            let qa_config = qa::QaConfig {
-                top_k: cli.qa_top_k,
-            };
-
-            match qa::run_qa_retrieval(&dataset, &embedder, &qa_config) {
-                Ok((records, summary)) => {
-                    eprintln!(
-                        "  retrieval recall_any@{}: {:.1}% ({:.0}ms avg/question)",
-                        cli.qa_top_k,
-                        summary.retrieval_recall_any_at_k * 100.0,
-                        summary.avg_time_per_question_ms
-                    );
-                    for t in &summary.per_type_retrieval {
-                        eprintln!(
-                            "    {}: {:.1}% ({} questions)",
-                            t.question_type,
-                            t.retrieval_recall * 100.0,
-                            t.count
-                        );
-                    }
-
-                    // Write JSONL output
-                    let jsonl: String = records
-                        .iter()
-                        .map(|r| serde_json::to_string(r).unwrap())
-                        .collect::<Vec<_>>()
-                        .join("\n");
-
-                    if let Some(ref output_path) = cli.qa_output {
-                        std::fs::write(output_path, &jsonl)?;
-                        eprintln!("  wrote {} records to {:?}", records.len(), output_path);
-                    } else {
-                        println!("{jsonl}");
-                    }
-                }
-                Err(e) => eprintln!("  ERROR: {e}"),
-            }
+            Err(e) => eprintln!("  ERROR: {e}"),
         }
     }
 
-    // ── Output (experiments 1-5) ────────────────────────────────────────
-    if !experiments.contains(&6) || cli.qa_output.is_some() {
-        eprintln!();
-        let summary = report.to_summary();
-        let json = report.to_json();
+    // ── Output ──────────────────────────────────────────────────────────
+    eprintln!();
+    let summary = report.to_summary();
+    let json = report.to_json();
 
-        match cli.format.as_str() {
-            "json" => println!("{json}"),
-            _ => println!("{summary}"),
-        }
+    match cli.format.as_str() {
+        "json" => println!("{json}"),
+        _ => println!("{summary}"),
+    }
 
-        // Save to output directory if specified
-        if let Some(ref dir) = cli.output_dir {
-            std::fs::create_dir_all(dir)?;
-            std::fs::write(dir.join("results.json"), &json)?;
-            std::fs::write(dir.join("results.txt"), &summary)?;
-            eprintln!("Results saved to {:?}", dir);
-        }
+    // Save to output directory if specified
+    if let Some(ref dir) = cli.output_dir {
+        std::fs::create_dir_all(dir)?;
+        std::fs::write(dir.join("results.json"), &json)?;
+        std::fs::write(dir.join("results.txt"), &summary)?;
+        eprintln!("Results saved to {:?}", dir);
     }
 
     Ok(())

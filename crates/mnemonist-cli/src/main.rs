@@ -549,7 +549,7 @@ fn run(cli: Cli) -> Result<()> {
             root,
             global,
         } => {
-            let config = Config::load();
+            let config = Config::load_with_project(&root);
             let dir = resolve_dir(global, &root)?;
             std::fs::create_dir_all(&dir)?;
 
@@ -604,7 +604,7 @@ fn run(cli: Cli) -> Result<()> {
                 let mut memories: Vec<MemoryOut> = Vec::new();
                 let mut total_chars = 0usize;
 
-                let recall_cfg = Config::load();
+                let recall_cfg = Config::load_with_project(&root);
                 let min_results = recall_cfg.recall.min_results;
 
                 let mut matched = semantic_search(&q, &dirs, &root);
@@ -866,7 +866,7 @@ fn run(cli: Cli) -> Result<()> {
             let ingest_path =
                 std::fs::canonicalize(&path).context("could not resolve ingest path")?;
 
-            let config = Config::load();
+            let config = Config::load_with_project(&root);
             let cap = capacity.unwrap_or(config.inbox.capacity);
 
             // Phase 1: chunk files
@@ -1076,7 +1076,7 @@ fn run(cli: Cli) -> Result<()> {
             global,
             root,
         } => {
-            let config = Config::load();
+            let config = Config::load_with_project(&root);
             let dir = resolve_dir(global, &root)?;
 
             if !dir.exists() {

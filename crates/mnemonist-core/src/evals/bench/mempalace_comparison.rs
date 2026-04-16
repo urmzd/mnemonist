@@ -27,6 +27,8 @@ pub struct MemPalaceComparisonResult {
     pub n_sessions: usize,
     pub n_queries: usize,
     pub avg_haystack_size: f64,
+    pub total_time_s: f64,
+    pub per_question_time_s: f64,
     pub note: String,
 }
 
@@ -49,6 +51,8 @@ pub fn run(
     let mut any_hits = 0usize;
     let mut all_hits = 0usize;
     let mut total_haystack = 0usize;
+
+    let bench_start = std::time::Instant::now();
 
     for (i, q) in dataset.queries.iter().enumerate() {
         let haystack_ids: Vec<&str> = if !q.haystack_session_ids.is_empty() {
@@ -115,12 +119,16 @@ pub fn run(
         }
     }
 
+    let total_time = bench_start.elapsed().as_secs_f64();
+
     Ok(MemPalaceComparisonResult {
         mnemonist_recall_any_at_5: any_hits as f64 / total as f64,
         mnemonist_recall_all_at_5: all_hits as f64 / total as f64,
         n_sessions: dataset.sessions.len(),
         n_queries: total,
         avg_haystack_size: total_haystack as f64 / total as f64,
+        total_time_s: total_time,
+        per_question_time_s: total_time / total as f64,
         note: "MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. \
                This is NOT a QA accuracy score — it is raw vector retrieval recall. \
                Their 96.6% number was never reproduced independently. \

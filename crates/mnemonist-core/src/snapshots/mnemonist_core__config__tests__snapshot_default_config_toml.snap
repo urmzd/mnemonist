@@ -33,7 +33,31 @@ languages = [
     "go",
 ]
 max_chunk_lines = 100
-exclude_patterns = []
+exclude_patterns = [
+    "dist",
+    "build",
+    "out",
+    "_build",
+    "node_modules",
+    "vendor",
+    ".venv",
+    "venv",
+    "target",
+    "__pycache__",
+    ".next",
+    ".nuxt",
+    ".turbo",
+    "package-lock",
+    "yarn.lock",
+    "pnpm-lock",
+    "cargo.lock",
+    "poetry.lock",
+    ".min.js",
+    ".min.css",
+    ".map",
+    ".chunk.",
+    ".bundle.",
+]
 
 [quantization]
 enabled = false

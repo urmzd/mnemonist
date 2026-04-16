@@ -8,8 +8,10 @@ use serde::Serialize;
 use crate::ann::AnnIndex;
 use crate::ann::hnsw::HnswIndex;
 use crate::distance::cosine_similarity;
+use crate::embed::Embedder;
 
 use crate::evals::EvalError;
+use crate::evals::longmemeval::LongMemEvalDataset;
 
 /// Results from the storage footprint experiment.
 #[derive(Debug, Clone, Serialize)]
@@ -33,15 +35,19 @@ pub struct QuantizedStoragePoint {
 }
 
 /// Run Experiment 3: storage footprint comparison.
+///
+/// Embeds all sessions and queries, then measures raw vs quantized storage
+/// and recall degradation at each bit-width.
 #[cfg(feature = "quant")]
 pub fn run(
-    embeddings: &[(String, Vec<f32>)],
-    query_embeddings: &[Vec<f32>],
-    query_gold: &[Vec<String>],
+    dataset: &LongMemEvalDataset,
+    embedder: &dyn Embedder,
     bits_range: &[u8],
     seed: u64,
 ) -> Result<StorageResult, EvalError> {
     use crate::quant::TurboQuantMse;
+
+    let (embeddings, query_embeddings, query_gold) = embed_dataset(dataset, embedder)?;
 
     let dim = embeddings
         .first()
@@ -52,7 +58,7 @@ pub fn run(
     let raw_bytes = embeddings.len() * dim * 4;
 
     let mut index = HnswIndex::with_defaults(dim);
-    for (id, emb) in embeddings {
+    for (id, emb) in &embeddings {
         index
             .insert(id, emb)
             .map_err(|e| EvalError::Other(e.to_string()))?;
@@ -90,12 +96,12 @@ pub fn run(
         let compressed_bytes = embeddings.len() * bytes_per_vec;
 
         let recall_5 =
-            compute_quantized_recall_any(embeddings, &dequantized, query_embeddings, query_gold, 5);
+            compute_quantized_recall_any(&embeddings, &dequantized, &query_embeddings, &query_gold, 5);
         let recall_10 = compute_quantized_recall_any(
-            embeddings,
+            &embeddings,
             &dequantized,
-            query_embeddings,
-            query_gold,
+            &query_embeddings,
+            &query_gold,
             10,
         );
 
@@ -152,4 +158,56 @@ fn compute_quantized_recall_any(
     }
 
     total_hits as f64 / query_embeddings.len() as f64
+}
+
+/// Embed all sessions and queries from the dataset.
+#[cfg(feature = "quant")]
+fn embed_dataset(
+    dataset: &LongMemEvalDataset,
+    embedder: &dyn Embedder,
+) -> Result<(Vec<(String, Vec<f32>)>, Vec<Vec<f32>>, Vec<Vec<String>>), EvalError> {
+    const BATCH_SIZE: usize = 256;
+
+    let total_sessions = dataset.sessions.len();
+    eprintln!("  Embedding {total_sessions} sessions...");
+    let session_ids: Vec<String> = dataset.sessions.keys().cloned().collect();
+    let session_texts: Vec<&str> = session_ids
+        .iter()
+        .map(|id| dataset.sessions[id].as_str())
+        .collect();
+
+    let mut session_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_sessions);
+    for chunk in session_texts.chunks(BATCH_SIZE) {
+        let batch = embedder
+            .embed_batch(chunk)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        session_embeddings.extend(batch);
+    }
+
+    let embeddings: Vec<(String, Vec<f32>)> =
+        session_ids.into_iter().zip(session_embeddings).collect();
+
+    let total_queries = dataset.queries.len();
+    eprintln!("  Embedding {total_queries} queries...");
+    let query_texts: Vec<&str> = dataset
+        .queries
+        .iter()
+        .map(|q| q.question.as_str())
+        .collect();
+
+    let mut query_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_queries);
+    for chunk in query_texts.chunks(BATCH_SIZE) {
+        let batch = embedder
+            .embed_batch(chunk)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        query_embeddings.extend(batch);
+    }
+
+    let query_gold: Vec<Vec<String>> = dataset
+        .queries
+        .iter()
+        .map(|q| q.gold_session_ids.clone())
+        .collect();
+
+    Ok((embeddings, query_embeddings, query_gold))
 }

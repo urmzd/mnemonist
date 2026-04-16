@@ -9,8 +9,10 @@ use serde::Serialize;
 
 use crate::ann::AnnIndex;
 use crate::ann::hnsw::{HnswConfig, HnswIndex};
+use crate::embed::Embedder;
 
 use crate::evals::EvalError;
+use crate::evals::longmemeval::LongMemEvalDataset;
 
 /// Results from the latency scaling experiment.
 #[derive(Debug, Clone, Serialize)]
@@ -31,11 +33,17 @@ pub struct ScalePoint {
 }
 
 /// Run Experiment 2: latency at scale.
+///
+/// Embeds all sessions and queries, then builds HNSW indices at each scale size
+/// and measures build time and query latency percentiles.
 pub fn run(
-    embeddings: &[(String, Vec<f32>)],
-    query_embeddings: &[Vec<f32>],
+    dataset: &LongMemEvalDataset,
+    embedder: &dyn Embedder,
     scale_sizes: &[usize],
 ) -> Result<LatencyResult, EvalError> {
+    // Embed sessions
+    let (embeddings, query_embeddings) = embed_dataset(dataset, embedder)?;
+
     let dim = embeddings
         .first()
         .ok_or(EvalError::InsufficientData { min: 1, got: 0 })?
@@ -65,7 +73,7 @@ pub fn run(
 
         let mut latencies_us: Vec<f64> = Vec::with_capacity(query_embeddings.len());
 
-        for q in query_embeddings {
+        for q in &query_embeddings {
             let start = Instant::now();
             let _ = index.search(q, 5);
             latencies_us.push(start.elapsed().as_nanos() as f64 / 1000.0);
@@ -99,4 +107,49 @@ pub fn run(
     }
 
     Ok(LatencyResult { scale_points })
+}
+
+/// Embed all sessions and queries from the dataset.
+fn embed_dataset(
+    dataset: &LongMemEvalDataset,
+    embedder: &dyn Embedder,
+) -> Result<(Vec<(String, Vec<f32>)>, Vec<Vec<f32>>), EvalError> {
+    const BATCH_SIZE: usize = 256;
+
+    let total_sessions = dataset.sessions.len();
+    eprintln!("  Embedding {total_sessions} sessions...");
+    let session_ids: Vec<String> = dataset.sessions.keys().cloned().collect();
+    let session_texts: Vec<&str> = session_ids
+        .iter()
+        .map(|id| dataset.sessions[id].as_str())
+        .collect();
+
+    let mut session_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_sessions);
+    for chunk in session_texts.chunks(BATCH_SIZE) {
+        let batch = embedder
+            .embed_batch(chunk)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        session_embeddings.extend(batch);
+    }
+
+    let embeddings: Vec<(String, Vec<f32>)> =
+        session_ids.into_iter().zip(session_embeddings).collect();
+
+    let total_queries = dataset.queries.len();
+    eprintln!("  Embedding {total_queries} queries...");
+    let query_texts: Vec<&str> = dataset
+        .queries
+        .iter()
+        .map(|q| q.question.as_str())
+        .collect();
+
+    let mut query_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_queries);
+    for chunk in query_texts.chunks(BATCH_SIZE) {
+        let batch = embedder
+            .embed_batch(chunk)
+            .map_err(|e| EvalError::Other(e.to_string()))?;
+        query_embeddings.extend(batch);
+    }
+
+    Ok((embeddings, query_embeddings))
 }
