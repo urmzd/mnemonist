@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.1 (2026-04-17)
+
+### Bug Fixes
+
+- **ci**: use checked_div for manual_checked_ops lint (rust 1.95) ([a38ff94](https://github.com/urmzd/mnemonist/commit/a38ff94cf1228c5c652e75bd614c13ec35817636))
+- **ci**: resolve clippy and fmt failures in bench experiments ([7b35479](https://github.com/urmzd/mnemonist/commit/7b354799085d2030ee88698d2e9b54ab330b442f))
+
+### Refactoring
+
+- make each bench experiment independent and self-contained ([85f8432](https://github.com/urmzd/mnemonist/commit/85f84320c39b5cd0222a3cc71eedc4575efe926e))
+
+### Misc
+
+- update Cargo.lock ([c699e99](https://github.com/urmzd/mnemonist/commit/c699e99eaf42448e0b36457f5a24a6e7556ede05))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.8.0...v0.8.1)
+
+
 ## 0.8.0 (2026-04-16)
 
 ### Features
