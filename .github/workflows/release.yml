@@ -98,8 +98,6 @@ jobs:
           }
           publish mnemonist-core
           sleep 30
-          publish mnemonist-index
-          sleep 30
           publish mnemonist
 
   build:
