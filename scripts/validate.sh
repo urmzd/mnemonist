@@ -107,17 +107,7 @@ echo -e "${BOLD}${CYAN}  mnemonist${RESET}${BOLD} system validation${RESET}"
 echo -e "${DIM}  ────────────────────────────────────────${RESET}"
 echo ""
 
-# ── 1. Init ──────────────────────────────────────────────────────────────────
-echo -e "${WHITE}  init${RESET}"
-
-run "init project" "$MNEMONIST" init --root "$PROJECT"
-eq "d['data']['level']" '"project"' "init: level is project"
-eq "d['ok']" 'true' "init: ok is true"
-
-run "init global" "$MNEMONIST" init --global
-eq "d['data']['level']" '"global"' "init global: level is global"
-
-# ── 2. Config ────────────────────────────────────────────────────────────────
+# ── 1. Config ────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  config${RESET}"
 
 run "config init" "$MNEMONIST" config init
@@ -139,9 +129,9 @@ run "config show" "$MNEMONIST" config show
 ok "len(d['data']['config']) > 100" "config show: non-empty"
 
 run "config path" "$MNEMONIST" config path
-ok "'config.toml' in d['data']['path']" "config path: ends in config.toml"
+ok "'mnemonist.toml' in d['data']['path']" "config path: ends in mnemonist.toml"
 
-# ── 3. Memorize ──────────────────────────────────────────────────────────────
+# ── 2. Memorize──────────────────────────────────────────────────────────────
 echo -e "${WHITE}  memorize${RESET}"
 
 run "memorize feedback" "$MNEMONIST" memorize "always write tests" --root "$PROJECT"
@@ -165,7 +155,7 @@ eq "d['data']['action']" '"updated"' "memorize upsert: action is updated"
 run "memorize stdin" sh -c "echo '{\"type\":\"feedback\",\"name\":\"stdin-mem\",\"description\":\"from stdin\",\"body\":\"body content\",\"level\":\"project\"}' | '$MNEMONIST' memorize ignored --stdin --root '$PROJECT'"
 eq "d['data']['file']" '"feedback_stdin-mem.md"' "memorize stdin: correct file"
 
-# ── 4. Note ──────────────────────────────────────────────────────────────────
+# ── 3. Note──────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  note${RESET}"
 
 run "note 1" "$MNEMONIST" note "check logging" --root "$PROJECT"
@@ -181,7 +171,7 @@ done
 run "note capacity" "$MNEMONIST" reflect --root "$PROJECT"
 ok "d['data']['inbox']['size'] <= 7" "note: respects capacity (<=7)"
 
-# ── 5. Remember ──────────────────────────────────────────────────────────────
+# ── 4. Remember──────────────────────────────────────────────────────────────
 echo -e "${WHITE}  remember${RESET}"
 
 run "remember rust" "$MNEMONIST" remember "rust" --level project --root "$PROJECT"
@@ -191,21 +181,21 @@ ok "d['data']['token_estimate'] >= 0" "remember: has token estimate"
 run "remember obscure" "$MNEMONIST" remember "xyzzy999" --level project --root "$PROJECT"
 ok "'memories' in d['data']" "remember: returns memories array"
 
-# ── 6. Reflect ───────────────────────────────────────────────────────────────
+# ── 5. Reflect───────────────────────────────────────────────────────────────
 echo -e "${WHITE}  reflect${RESET}"
 
 run "reflect" "$MNEMONIST" reflect --root "$PROJECT"
 ok "len(d['data']['memories']) == 5" "reflect: 5 memories"
 ok "d['data']['inbox']['size'] > 0" "reflect: inbox non-empty"
 
-# ── 7. Learn ─────────────────────────────────────────────────────────────────
+# ── 6. Learn─────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  learn${RESET}"
 
 run "learn codebase" "$MNEMONIST" learn "$REPO_ROOT" --root "$PROJECT"
 ok "d['data']['chunks'] > 0" "learn: extracted chunks"
 ok "d['data']['files'] > 0" "learn: found files"
 
-# ── 8. Consolidate ───────────────────────────────────────────────────────────
+# ── 7. Consolidate───────────────────────────────────────────────────────────
 echo -e "${WHITE}  consolidate${RESET}"
 
 run "consolidate dry-run" "$MNEMONIST" consolidate --dry-run --root "$PROJECT"
@@ -222,7 +212,7 @@ run "post-consolidate reflect" "$MNEMONIST" reflect --root "$PROJECT"
 eq "d['data']['inbox']['size']" '0' "consolidate: inbox drained"
 ok "len(d['data']['memories']) > 5" "consolidate: memories grew"
 
-# ── 9. Forget ────────────────────────────────────────────────────────────────
+# ── 8. Forget────────────────────────────────────────────────────────────────
 echo -e "${WHITE}  forget${RESET}"
 
 run "forget" "$MNEMONIST" forget feedback_stdin-mem.md --root "$PROJECT"
@@ -231,7 +221,7 @@ eq "d['data']['action']" '"forgotten"' "forget: action is forgotten"
 run_fail "forget nonexistent" "$MNEMONIST" forget nonexistent.md --root "$PROJECT"
 eq "d['ok']" 'false' "forget nonexistent: ok is false"
 
-# ── 10. Context ──────────────────────────────────────────────────────────────
+# ── 9. Context──────────────────────────────────────────────────────────────
 echo -e "${WHITE}  context${RESET}"
 
 run "ctx show (empty)" "$MNEMONIST" ctx show

@@ -47,6 +47,110 @@ mod tui {
     }
 }
 
+// -- Live progress rendering --
+
+/// Renders `mnemonist_core::Progress` events to stderr with a carriage-return
+/// live line. Silent when stderr is not a TTY or when `--quiet` is set.
+struct StderrProgress {
+    enabled: bool,
+    state: std::sync::Mutex<ProgressState>,
+}
+
+struct ProgressState {
+    phase: String,
+    total: Option<usize>,
+    last_draw: std::time::Instant,
+    started: std::time::Instant,
+    active: bool,
+}
+
+impl StderrProgress {
+    fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            state: std::sync::Mutex::new(ProgressState {
+                phase: String::new(),
+                total: None,
+                last_draw: std::time::Instant::now(),
+                started: std::time::Instant::now(),
+                active: false,
+            }),
+        }
+    }
+
+    fn draw(current: usize, s: &ProgressState) {
+        use tui::*;
+        let phase = &s.phase;
+        match s.total {
+            Some(total) if total > 0 => {
+                let b = bar(current, total, 20);
+                eprint!("\r  {CYAN}◆{RESET} {BOLD}{phase}{RESET}  {b} {DIM}{current}/{total}{RESET}");
+            }
+            _ => {
+                eprint!("\r  {CYAN}◆{RESET} {BOLD}{phase}{RESET}  {DIM}{current}{RESET}");
+            }
+        }
+        let _ = io::Write::flush(&mut io::stderr());
+    }
+}
+
+impl mnemonist_core::Progress for StderrProgress {
+    fn start(&self, phase: &str, total: Option<usize>) {
+        if !self.enabled {
+            return;
+        }
+        let mut s = self.state.lock().unwrap();
+        s.phase = phase.to_string();
+        s.total = total;
+        s.started = std::time::Instant::now();
+        s.last_draw = s.started - std::time::Duration::from_secs(1);
+        s.active = true;
+        Self::draw(0, &s);
+    }
+
+    fn tick(&self, current: usize) {
+        if !self.enabled {
+            return;
+        }
+        let mut s = self.state.lock().unwrap();
+        if !s.active {
+            return;
+        }
+        let now = std::time::Instant::now();
+        // Throttle ~15fps; always redraw at completion
+        let done = s.total.is_some_and(|t| current >= t);
+        if !done && now.duration_since(s.last_draw).as_millis() < 66 {
+            return;
+        }
+        s.last_draw = now;
+        Self::draw(current, &s);
+    }
+
+    fn finish(&self, detail: Option<&str>) {
+        if !self.enabled {
+            return;
+        }
+        let mut s = self.state.lock().unwrap();
+        if !s.active {
+            return;
+        }
+        use tui::*;
+        let elapsed = s.started.elapsed().as_secs_f64();
+        let phase = &s.phase;
+        let note = detail.unwrap_or("");
+        // Clear the live line, then print a terminal line.
+        eprint!("\r\x1b[2K");
+        if note.is_empty() {
+            eprintln!("  {GREEN}✓{RESET} {BOLD}{phase}{RESET}  {DIM}({elapsed:.1}s){RESET}");
+        } else {
+            eprintln!(
+                "  {GREEN}✓{RESET} {BOLD}{phase}{RESET}  {DIM}{note} ({elapsed:.1}s){RESET}"
+            );
+        }
+        s.active = false;
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, clap::ValueEnum)]
 enum OutputFormat {
     Human,
@@ -73,17 +177,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Initialize a memory directory
-    Init {
-        /// Initialize global memory (~/.mnemonist/global/) instead of project
-        #[arg(long, short)]
-        global: bool,
-
-        /// Project root (defaults to current directory)
-        #[arg(long, default_value = ".")]
-        root: PathBuf,
-    },
-
     /// Deliberately encode a point into long-term memory
     Memorize {
         /// What to memorize (free text)
@@ -416,7 +509,6 @@ fn main() {
     let quiet = cli.quiet || Config::load().output.quiet;
 
     let cmd_label = match &cli.command {
-        Command::Init { .. } => "init",
         Command::Memorize { .. } => "memorize",
         Command::Note { .. } => "note",
         Command::Remember { .. } => "remember",
@@ -442,19 +534,8 @@ fn main() {
 }
 
 fn run(cli: Cli) -> Result<()> {
+    let quiet = cli.quiet;
     match cli.command {
-        // -- Infrastructure --
-        Command::Init { global, root } => {
-            let dir = resolve_dir(global, &root)?;
-            MemoryIndex::init(&dir)?;
-            let level = if global { "global" } else { "project" };
-            info!("initialized {level} memory at {}", dir.display());
-            output_ok(json!({
-                "level": level,
-                "path": dir.display().to_string(),
-            }));
-        }
-
         // -- memorize: deliberate encoding into long-term memory --
         Command::Memorize {
             point,
@@ -867,6 +948,8 @@ fn run(cli: Cli) -> Result<()> {
             let config = Config::load_with_project(&root);
             let cap = capacity.unwrap_or(config.inbox.capacity);
 
+            let progress = StderrProgress::new(is_tty() && !quiet);
+
             // Phase 1: chunk files
             let strategy = mnemonist_core::ann::code::ParagraphChunking::default();
             let mut code_index = mnemonist_core::ann::code::CodeIndex::new(&ingest_path, &strategy);
@@ -875,8 +958,11 @@ fn run(cli: Cli) -> Result<()> {
                 git_ignore: !no_gitignore,
                 exclude_globs: exclude,
             };
-            let chunk_count =
-                code_index.index_with_options(&config.code.exclude_patterns, &index_opts)?;
+            let chunk_count = code_index.index_with_progress(
+                &config.code.exclude_patterns,
+                &index_opts,
+                Some(&progress),
+            )?;
 
             let file_count = code_index
                 .chunks()
@@ -918,7 +1004,8 @@ fn run(cli: Cli) -> Result<()> {
                 Ok(embedder) => {
                     let dim = embedder.dimension()?;
                     let mut hnsw = mnemonist_core::ann::hnsw::HnswIndex::with_defaults(dim);
-                    match code_index.build_ann(&embedder, &mut hnsw) {
+                    match code_index.build_ann_with_progress(&embedder, &mut hnsw, Some(&progress))
+                    {
                         Ok(n) => {
                             embedded_count = n;
                             let hnsw_path = mem_dir.join(".code-index.hnsw");
@@ -927,6 +1014,8 @@ fn run(cli: Cli) -> Result<()> {
                             }
 
                             // Eval: sample up to 100 chunks for quality metrics
+                            use mnemonist_core::Progress as _;
+                            progress.start("evaluating", None);
                             let sample_size = chunk_count.min(100);
                             let step = chunk_count.checked_div(sample_size).unwrap_or(1).max(1);
                             let sample_texts: Vec<&str> = code_index
@@ -937,7 +1026,12 @@ fn run(cli: Cli) -> Result<()> {
                                 .map(|c| c.content.as_str())
                                 .collect();
 
-                            if let Ok(sample_embeddings) = embedder.embed_batch(&sample_texts) {
+                            let sample_result = embedder.embed_batch(&sample_texts);
+                            match &sample_result {
+                                Ok(v) => progress.finish(Some(&format!("n={}", v.len()))),
+                                Err(_) => progress.finish(Some("skipped")),
+                            }
+                            if let Ok(sample_embeddings) = sample_result {
                                 let aniso =
                                     mnemonist_core::ann::eval::anisotropy(&sample_embeddings);
                                 let range =
@@ -1071,10 +1165,6 @@ fn run(cli: Cli) -> Result<()> {
         } => {
             let config = Config::load_with_project(&root);
             let dir = resolve_dir(global, &root)?;
-
-            if !dir.exists() {
-                output_err("memory directory does not exist — run `mnemonist init` first");
-            }
 
             let mut index = MemoryIndex::load(&dir)?;
             let mut actions: Vec<Value> = Vec::new();
@@ -1271,8 +1361,10 @@ fn run(cli: Cli) -> Result<()> {
                 inbox.save(&dir)?;
                 index.save()?;
 
+                let progress = StderrProgress::new(is_tty() && !quiet);
+
                 // Re-embed all memories and rebuild memory HNSW
-                let embed_result = try_embed_all(&dir);
+                let embed_result = try_embed_all_with_progress(&dir, Some(&progress));
                 if let Ok((synced, total)) = embed_result {
                     actions.push(json!({
                         "action": "embed",
@@ -1280,7 +1372,7 @@ fn run(cli: Cli) -> Result<()> {
                         "total": total,
                     }));
                 }
-                if let Ok(n) = build_memory_hnsw(&dir) {
+                if let Ok(n) = build_memory_hnsw_with_progress(&dir, Some(&progress)) {
                     actions.push(json!({
                         "action": "index",
                         "indexed": n,
@@ -1794,7 +1886,15 @@ fn try_embed_single(dir: &std::path::Path, filename: &str) -> Result<()> {
 
 /// Build (or rebuild) the memory-layer HNSW index from all .md files in a directory.
 /// Uses the existing .embeddings.bin as the source of vectors.
+#[allow(dead_code)]
 fn build_memory_hnsw(dir: &std::path::Path) -> Result<usize> {
+    build_memory_hnsw_with_progress(dir, None)
+}
+
+fn build_memory_hnsw_with_progress(
+    dir: &std::path::Path,
+    reporter: Option<&dyn mnemonist_core::Progress>,
+) -> Result<usize> {
     let store_path = dir.join(".embeddings.bin");
     if !store_path.exists() {
         return Ok(0);
@@ -1804,9 +1904,18 @@ fn build_memory_hnsw(dir: &std::path::Path) -> Result<usize> {
         return Ok(0);
     }
 
+    if let Some(r) = reporter {
+        r.start("indexing", Some(store.entries.len()));
+    }
     let mut hnsw = mnemonist_core::ann::hnsw::HnswIndex::with_defaults(store.dimension);
-    for entry in &store.entries {
+    for (idx, entry) in store.entries.iter().enumerate() {
         mnemonist_core::ann::AnnIndex::insert(&mut hnsw, &entry.file, &entry.embedding)?;
+        if let Some(r) = reporter {
+            r.tick(idx + 1);
+        }
+    }
+    if let Some(r) = reporter {
+        r.finish(None);
     }
 
     let hnsw_path = dir.join(".memory-index.hnsw");
@@ -1815,7 +1924,15 @@ fn build_memory_hnsw(dir: &std::path::Path) -> Result<usize> {
 }
 
 /// Try to re-embed all memories in a directory. Returns (synced, total).
+#[allow(dead_code)]
 fn try_embed_all(dir: &std::path::Path) -> Result<(usize, usize)> {
+    try_embed_all_with_progress(dir, None)
+}
+
+fn try_embed_all_with_progress(
+    dir: &std::path::Path,
+    reporter: Option<&dyn mnemonist_core::Progress>,
+) -> Result<(usize, usize)> {
     let embedder = mnemonist_core::CandleEmbedder::default_model()?;
     let store_path = dir.join(".embeddings.bin");
 
@@ -1825,7 +1942,7 @@ fn try_embed_all(dir: &std::path::Path) -> Result<(usize, usize)> {
         EmbeddingStore::new(embedder.dimension()?)
     };
 
-    let synced = store.sync(dir, &embedder)?;
+    let synced = store.sync_with_progress(dir, &embedder, reporter)?;
     let total = store.entries.len();
     store.save(&store_path)?;
 

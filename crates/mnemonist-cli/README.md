@@ -10,9 +10,10 @@ cargo install mnemonist-cli
 
 ## Commands
 
+Memory directories are created automatically on first use — `mnemonist learn .` is typically the first step.
+
 | Command | Description |
 |---------|-------------|
-| `mnemonist init [--global]` | Initialize memory directory |
 | `mnemonist memorize "<point>" [-t type] [-n name]` | Encode a point into long-term memory (auto-embeds) |
 | `mnemonist note "<point>"` | Jot a quick note into working memory inbox |
 | `mnemonist remember "<ask>" [--budget N] [--level both]` | Recall by cue — searches memory and code indices, follows refs |
@@ -30,7 +31,8 @@ All commands output JSON to stdout (`{"ok": true, "data": {...}}`).
 - Global memory: `~/.mnemonist/global/`
 - Code index: `.code-index.hnsw` (project root)
 - Memory index: `.memory-index.hnsw` (project root)
-- Config: `~/.mnemonist/config.toml`
+- Config (global): `~/.mnemonist/mnemonist.toml`
+- Config (project overrides): `./mnemonist.toml` at the repo root
 
 ## License
 

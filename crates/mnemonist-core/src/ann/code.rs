@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::progress::Progress;
 use crate::{Chunk, ChunkingStrategy, Error};
 use ignore::WalkBuilder;
 
@@ -247,6 +248,17 @@ impl<'a> CodeIndex<'a> {
         exclude_patterns: &[String],
         opts: &IndexOptions,
     ) -> Result<usize, Error> {
+        self.index_with_progress(exclude_patterns, opts, None)
+    }
+
+    /// Walk the project with progress reporting. `reporter`, when `Some`,
+    /// emits a `scanning` phase with file-count ticks.
+    pub fn index_with_progress(
+        &mut self,
+        exclude_patterns: &[String],
+        opts: &IndexOptions,
+        reporter: Option<&dyn Progress>,
+    ) -> Result<usize, Error> {
         self.chunks.clear();
         self.chunk_map.clear();
 
@@ -269,6 +281,12 @@ impl<'a> CodeIndex<'a> {
         }
 
         let walker = builder.build();
+
+        if let Some(r) = reporter {
+            r.start("scanning", None);
+        }
+
+        let mut files_seen = 0usize;
 
         for entry in walker {
             let entry = entry.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
@@ -312,6 +330,18 @@ impl<'a> CodeIndex<'a> {
                 self.chunks.push(chunk);
                 self.chunk_map.insert(id, idx);
             }
+
+            files_seen += 1;
+            if let Some(r) = reporter {
+                r.tick(files_seen);
+            }
+        }
+
+        if let Some(r) = reporter {
+            r.finish(Some(&format!(
+                "{files_seen} files, {} chunks",
+                self.chunks.len()
+            )));
         }
 
         Ok(self.chunks.len())
@@ -333,11 +363,30 @@ impl<'a> CodeIndex<'a> {
         embedder: &dyn crate::Embedder,
         ann: &mut dyn AnnIndex,
     ) -> Result<usize, Error> {
+        self.build_ann_with_progress(embedder, ann, None)
+    }
+
+    /// Build an ANN index with progress reporting.
+    pub fn build_ann_with_progress(
+        &self,
+        embedder: &dyn crate::Embedder,
+        ann: &mut dyn AnnIndex,
+        reporter: Option<&dyn Progress>,
+    ) -> Result<usize, Error> {
+        if let Some(r) = reporter {
+            r.start("embedding", Some(self.chunks.len()));
+        }
         let mut count = 0;
         for chunk in &self.chunks {
             let embedding = embedder.embed(&chunk.content)?;
             ann.insert(&chunk.id(), &embedding)?;
             count += 1;
+            if let Some(r) = reporter {
+                r.tick(count);
+            }
+        }
+        if let Some(r) = reporter {
+            r.finish(None);
         }
         Ok(count)
     }

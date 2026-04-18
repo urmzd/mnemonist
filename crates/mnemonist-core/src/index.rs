@@ -58,8 +58,9 @@ pub struct MemoryIndex {
 }
 
 impl MemoryIndex {
-    /// Load the index from a memory directory.
+    /// Load the index from a memory directory, creating the directory if missing.
     pub fn load(dir: &Path) -> Result<Self, Error> {
+        fs::create_dir_all(dir)?;
         let path = dir.join(INDEX_FILE);
         if !path.exists() {
             return Ok(Self {
@@ -73,19 +74,6 @@ impl MemoryIndex {
 
         Ok(Self {
             entries,
-            dir: dir.to_path_buf(),
-        })
-    }
-
-    /// Create a new empty index, writing MEMORY.md to disk.
-    pub fn init(dir: &Path) -> Result<Self, Error> {
-        fs::create_dir_all(dir)?;
-        let path = dir.join(INDEX_FILE);
-        if !path.exists() {
-            fs::write(&path, "")?;
-        }
-        Ok(Self {
-            entries: vec![],
             dir: dir.to_path_buf(),
         })
     }
@@ -210,10 +198,10 @@ mod tests {
     }
 
     #[test]
-    fn init_and_save() {
+    fn load_autocreates_and_save() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join(".mnemonist");
-        let mut index = MemoryIndex::init(&dir).unwrap();
+        let mut index = MemoryIndex::load(&dir).unwrap();
         index
             .add(IndexEntry {
                 title: "Test".to_string(),

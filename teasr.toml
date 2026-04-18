@@ -24,17 +24,17 @@ text = "mnemonist\nAn open ecosystem for tool-agnostic AI agent memory"
 duration = 2000
 center = true
 
-# Step 1: Initialize memory
+# Step 1: Ingest the codebase — auto-creates memory dir and embeds sources
 [[scenes.interactions]]
 type = "type"
-text = "mnemonist init"
+text = "mnemonist learn ."
 speed = 40
 [[scenes.interactions]]
 type = "key"
 key = "enter"
 [[scenes.interactions]]
 type = "wait"
-duration = 2000
+duration = 2500
 
 # Step 2: Memorize long-term knowledge (typed memories)
 [[scenes.interactions]]

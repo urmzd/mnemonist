@@ -12,9 +12,7 @@ All commands output JSON to stdout (`{"ok": true, "data": {...}}`). Stderr carri
 
 ## Commands
 
-### `mnemonist init [--global]`
-
-Create `MEMORY.md` index at the target level. Run once per project and once globally.
+Memory directories and `MEMORY.md` are created automatically on first use — no explicit init step is required. `mnemonist learn .` is typically the first command run in a new project.
 
 ### `mnemonist memorize "<point>" [-t type] [-n name] [--global] [--stdin]`
 
@@ -96,7 +94,7 @@ Remove a memory file and its embedding. Argument is the filename (e.g., `feedbac
 
 | Subcommand | Description |
 |------------|-------------|
-| `init` | Create default `~/.mnemonist/config.toml` |
+| `init` | Create default `~/.mnemonist/mnemonist.toml` |
 | `show` | Display full config as TOML |
 | `get <key>` | Get value by dot-notation (e.g., `embedding.model`) |
 | `set <key> <value>` | Set value with type preservation |

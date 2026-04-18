@@ -7,6 +7,7 @@ mod error;
 pub mod inbox;
 pub mod index;
 pub mod memory;
+pub mod progress;
 pub mod rerank;
 pub mod temporal;
 
@@ -25,6 +26,7 @@ pub use error::Error;
 pub use inbox::{FileSource, Inbox, InboxItem};
 pub use index::{IndexEntry, MemoryIndex};
 pub use memory::{Frontmatter, MemoryFile, MemoryLevel, MemoryType};
+pub use progress::{NoopProgress, Progress};
 pub use rerank::{Candidate, MemorySignals, RankedResult, RecallProfile, rerank};
 
 /// Default index file name within a memory directory.

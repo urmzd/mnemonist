@@ -15,6 +15,10 @@
   <a href="https://crates.io/crates/mnemonist"><img src="https://img.shields.io/crates/v/mnemonist" alt="crates.io"></a>
 </p>
 
+<p align="center">
+  <img src="showcase/mnemonist-demo.gif" alt="mnemonist demo" width="760">
+</p>
+
 ## Features
 
 - **Cognitive CLI** — commands named after memory processes: `memorize`, `remember`, `note`, `learn`, `consolidate`, `reflect`, `forget`
@@ -40,37 +44,29 @@
 curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | sh
 ```
 
-Or install via Cargo:
-
-```bash
-cargo install mnemonist-cli
-```
+<!-- Rust developers can also install from source with `cargo install mnemonist-cli`. -->
 
 ### Hardware acceleration
 
-On macOS, enable Apple's Accelerate BLAS for ~2x faster embedding throughput:
+Pre-built binaries run on CPU with pure Rust matmuls — functional, but large batch operations like `learn` are slower than accelerated builds. If you have a Rust toolchain, you can build from source with hardware acceleration:
 
 ```bash
+# macOS — Apple's Accelerate BLAS (~2x faster embedding throughput)
 cargo install mnemonist-cli --features accelerate
-```
 
-On Linux/Windows with an NVIDIA GPU:
-
-```bash
+# Linux/Windows with an NVIDIA GPU
 cargo install mnemonist-cli --features cuda
 ```
-
-Without either flag, embedding runs on CPU with pure Rust matmuls — functional but slower for large batch operations like `learn`.
 
 ## Quick Start
 
 ```bash
 # 1. Install
-cargo install mnemonist-cli
+curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | sh
+# Or, if you have a Rust toolchain: cargo install mnemonist-cli
 
-# 2. Initialize memory for your project and globally
-mnemonist init                                          # ~/.mnemonist/{project}/MEMORY.md
-mnemonist init --global                                 # ~/.mnemonist/global/MEMORY.md
+# 2. Ingest the codebase — auto-creates ~/.mnemonist/{project}/ and embeds source files
+mnemonist learn .
 
 # 3. Memorize long-term knowledge
 mnemonist memorize "prefer Rust for CLI tools" -t feedback
@@ -80,19 +76,16 @@ mnemonist memorize "deep Go expertise, new to React" -t user
 mnemonist note "look into async runtime choices"
 mnemonist note "check Linear project INGEST for pipeline bugs"
 
-# 5. Ingest the codebase — embeds all source files into .code-index.hnsw
-mnemonist learn .
-
-# 6. Consolidate — promote inbox to long-term memory, decay stale items, re-embed
+# 5. Consolidate — promote inbox to long-term memory, decay stale items, re-embed
 mnemonist consolidate
 
-# 7. Recall — semantic + text search across memories and code
+# 6. Recall — semantic + text search across memories and code
 mnemonist remember "rust async patterns"
 
-# 8. Review everything
+# 7. Review everything
 mnemonist reflect --all
 
-# 9. Forget something you no longer need (fuzzy name matching)
+# 8. Forget something you no longer need (fuzzy name matching)
 mnemonist forget prefer-rust
 ```
 
@@ -116,11 +109,16 @@ Project memory takes precedence over global when they conflict.
 | `project` | Repo-specific context (project-level only) | "Auth rewrite driven by compliance" |
 | `reference` | External resource pointers | "Bugs tracked in Linear project INGEST" |
 
+### CLI at a glance
+
+<p align="center">
+  <img src="showcase/cli-help.gif" alt="mnemonist --help" width="760">
+</p>
+
 ### CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `mnemonist init [--global]` | Create `~/.mnemonist/{project}/MEMORY.md` or global |
 | `mnemonist memorize "<point>" [-t type] [-n name]` | Deliberately encode a point into long-term memory (auto-embeds) |
 | `mnemonist note "<point>"` | Jot a quick note into working memory inbox |
 | `mnemonist remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel with blended relevance scoring, follows refs |
@@ -170,7 +168,7 @@ Each memory file tracks cognitive metadata in its frontmatter:
 
 ### Configuration
 
-Config file: `~/.mnemonist/config.toml` (created with `mnemonist config init`)
+Layered config: `~/.mnemonist/mnemonist.toml` (global default, created with `mnemonist config init`) + `./mnemonist.toml` at the project root (per-project overrides; missing fields inherit).
 
 ```toml
 [storage]

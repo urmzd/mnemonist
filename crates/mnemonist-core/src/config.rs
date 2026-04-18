@@ -254,7 +254,7 @@ impl Default for CodeConfig {
 }
 
 impl Config {
-    /// Load global config from `~/.mnemonist/config.toml`. Falls back to defaults if missing.
+    /// Load global config from `~/.mnemonist/mnemonist.toml`. Falls back to defaults if missing.
     pub fn load() -> Self {
         Self::load_global()
     }
@@ -293,23 +293,30 @@ impl Config {
         let default_root = dirs::home_dir()
             .map(|d| d.join(".mnemonist"))
             .unwrap_or_else(|| PathBuf::from(".mnemonist"));
-        let config_path = default_root.join("config.toml");
 
-        if config_path.exists()
-            && let Ok(content) = fs::read_to_string(&config_path)
-            && let Ok(config) = toml::from_str::<Config>(&content)
-        {
-            return config;
+        // Prefer mnemonist.toml; fall back to legacy config.toml.
+        let candidates = [
+            default_root.join("mnemonist.toml"),
+            default_root.join("config.toml"),
+        ];
+
+        for config_path in &candidates {
+            if config_path.exists()
+                && let Ok(content) = fs::read_to_string(config_path)
+                && let Ok(config) = toml::from_str::<Config>(&content)
+            {
+                return config;
+            }
         }
 
         Self::default()
     }
 
-    /// Save config to `~/.mnemonist/config.toml`.
+    /// Save config to `~/.mnemonist/mnemonist.toml`.
     pub fn save(&self) -> Result<(), Error> {
         let root = self.root();
         fs::create_dir_all(&root)?;
-        let config_path = root.join("config.toml");
+        let config_path = root.join("mnemonist.toml");
         let content =
             toml::to_string_pretty(self).map_err(|e| Error::ConfigFormat(e.to_string()))?;
         fs::write(config_path, content)?;
@@ -318,7 +325,7 @@ impl Config {
 
     /// Config file path.
     pub fn path(&self) -> PathBuf {
-        self.root().join("config.toml")
+        self.root().join("mnemonist.toml")
     }
 
     /// Resolved root directory.

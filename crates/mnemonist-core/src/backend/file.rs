@@ -34,9 +34,9 @@ impl FileBackend {
         })
     }
 
-    /// Initialize a new memory directory.
+    /// Initialize a new memory directory (auto-creates via load).
     pub fn init(dir: &Path) -> Result<Self, Error> {
-        let index = MemoryIndex::init(dir)?;
+        let index = MemoryIndex::load(dir)?;
         Ok(Self {
             dir: dir.to_path_buf(),
             index,

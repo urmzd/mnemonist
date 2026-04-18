@@ -9,7 +9,7 @@ Core types and operations for [mnemonist](https://github.com/urmzd/mnemonist) �
 - **Embedder trait** — pluggable embedding interface with built-in `CandleEmbedder` (Metal/CUDA/CPU)
 - **Embedding store** — binary format for persisting embeddings alongside memory files
 - **File backend** — `FileBackend` implementing `MemoryBackend` for file-based storage
-- **Config** — `Config` struct for `~/.mnemonist/config.toml` management
+- **Config** — `Config` struct for `~/.mnemonist/mnemonist.toml` management (layered with project-root `mnemonist.toml`)
 
 ## Usage
 

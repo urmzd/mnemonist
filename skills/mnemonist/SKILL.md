@@ -80,10 +80,10 @@ Under 200 lines per level. Loaded at every conversation start. Never write memor
 
 ### 1. Setup
 
+Memory directories are created automatically on first use — the first step is usually `mnemonist learn .` to ingest the codebase.
+
 ```bash
-mnemonist init                    # create project memory
-mnemonist init --global           # create global memory
-mnemonist config init             # create default config.toml
+mnemonist config init             # optional: create default ~/.mnemonist/mnemonist.toml
 ```
 
 ### 2. Capturing Memories

@@ -1,0 +1,21 @@
+# Project-local mnemonist config.
+# Overrides fields from ~/.mnemonist/mnemonist.toml; missing fields inherit.
+# Docs: skills/mnemonist/references/configuration.md
+
+[code]
+# Skip large generated/vendored directories when `mnemonist learn .` walks the repo.
+# These extend the global defaults rather than replace them; keep only entries
+# that are specific to this workspace.
+exclude_patterns = [
+    "target",
+    "showcase",
+    "benches/experiments/data",
+    ".embeddings.bin",
+    ".code-index.hnsw",
+    ".memory-index.hnsw",
+]
+
+[inbox]
+# Slightly larger working-memory capacity while developing — we ingest the whole
+# workspace during `learn` and want more chunks to survive the inbox cutoff.
+capacity = 12

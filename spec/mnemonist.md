@@ -524,7 +524,7 @@ See arXiv:2504.19874 for the underlying paper.
 
 ## 13. Configuration
 
-All configuration is stored in `~/.mnemonist/config.toml` as a TOML file. The CLI supports dot-notation get/set (`mnemonist config get recall.budget`).
+Configuration is layered: `~/.mnemonist/mnemonist.toml` is the global default and `./mnemonist.toml` at the project root overrides fields per-project (missing fields inherit). The CLI supports dot-notation get/set (`mnemonist config get recall.budget`), which reads and writes the global file.
 
 ### 13.1 Full Configuration Reference
 
@@ -601,8 +601,7 @@ Evaluation uses clustered Gaussian vectors with graded relevance judgments: grad
 
 | Command | Description |
 |---------|-------------|
-| `init` | Create MEMORY.md in project or global directory |
-| `memorize <text>` | Write directly to long-term memory (strength=1.0, bypasses inbox) |
+| `memorize <text>` | Write directly to long-term memory (strength=1.0, bypasses inbox). Memory directories auto-create on first use |
 | `note <text>` | Add to inbox (attention_score=0.5) |
 | `remember <query>` | Cue-based retrieval through the full pipeline |
 | `learn <path>` | Tree-sitter code extraction -> embed -> score -> populate inbox |

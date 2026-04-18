@@ -1,6 +1,11 @@
 # Configuration Reference
 
-Config file: `~/.mnemonist/config.toml` (create with `mnemonist config init`).
+Layered config:
+
+- `~/.mnemonist/mnemonist.toml` — global default (create with `mnemonist config init`)
+- `./mnemonist.toml` at the project root — per-project overrides; fields present here replace the global value, missing fields inherit
+
+Legacy `~/.mnemonist/config.toml` is still read as a fallback when `mnemonist.toml` doesn't exist.
 
 ```toml
 [storage]
@@ -44,6 +49,6 @@ All values are accessible via dot-notation:
 
 ```bash
 mnemonist config get recall.budget          # → 2000
-mnemonist config set recall.budget 3000     # updates config.toml
+mnemonist config set recall.budget 3000     # updates ~/.mnemonist/mnemonist.toml
 mnemonist config set inbox.capacity 5       # reduce working memory
 ```

@@ -30,33 +30,12 @@ fn run(home: &std::path::Path, args: &[&str]) -> (Value, i32) {
 }
 
 #[test]
-fn init_creates_memory_directory() {
-    let tmp = tempfile::tempdir().unwrap();
-    let home = tmp.path().join("home");
-    std::fs::create_dir_all(&home).unwrap();
-    let project = tmp.path().join("myproject");
-    std::fs::create_dir_all(&project).unwrap();
-
-    let (json, code) = run(&home, &["init", "--root", project.to_str().unwrap()]);
-    assert_eq!(code, 0);
-    assert_eq!(json["ok"], true);
-    assert_eq!(json["data"]["level"], "project");
-
-    // Verify MEMORY.md was created
-    let mem_dir = PathBuf::from(json["data"]["path"].as_str().unwrap());
-    assert!(mem_dir.join("MEMORY.md").exists());
-}
-
-#[test]
 fn memorize_creates_memory_file() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
-
-    // Init first
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
 
     // Memorize
     let (json, code) = run(
@@ -87,8 +66,6 @@ fn memorize_with_type_and_name() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
-
     let (json, code) = run(
         &home,
         &[
@@ -114,8 +91,6 @@ fn note_adds_to_inbox() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
-
     let (json, code) = run(
         &home,
         &["note", "check logging", "--root", project.to_str().unwrap()],
@@ -133,7 +108,6 @@ fn remember_finds_memorized_content() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     run(
         &home,
         &[
@@ -169,8 +143,6 @@ fn remember_returns_empty_for_no_match() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
-
     let (json, code) = run(
         &home,
         &[
@@ -194,7 +166,6 @@ fn reflect_shows_memories_and_inbox() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     run(
         &home,
         &[
@@ -223,7 +194,6 @@ fn consolidate_promotes_inbox_items() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     run(
         &home,
         &[
@@ -267,7 +237,6 @@ fn forget_removes_memory() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     let (memorize_json, _) = run(
         &home,
         &[
@@ -299,8 +268,6 @@ fn forget_nonexistent_fails() {
     std::fs::create_dir_all(&home).unwrap();
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
-
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
 
     let (json, code) = run(
         &home,
@@ -358,8 +325,6 @@ fn memorize_stdin_json() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
-
     let input = serde_json::json!({
         "type": "user",
         "name": "stdin-test",
@@ -405,8 +370,6 @@ fn multiple_notes_respect_capacity() {
     std::fs::create_dir_all(&home).unwrap();
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
-
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
 
     // Add more notes than the default capacity (7)
     for i in 0..10 {
@@ -485,18 +448,6 @@ fn redact_cli_json(mut json: Value) -> Value {
 }
 
 #[test]
-fn snapshot_init_output() {
-    let tmp = tempfile::tempdir().unwrap();
-    let home = tmp.path().join("home");
-    std::fs::create_dir_all(&home).unwrap();
-    let project = tmp.path().join("proj");
-    std::fs::create_dir_all(&project).unwrap();
-
-    let (json, _) = run(&home, &["init", "--root", project.to_str().unwrap()]);
-    assert_json_snapshot!(redact_cli_json(json));
-}
-
-#[test]
 fn snapshot_memorize_output() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -504,7 +455,6 @@ fn snapshot_memorize_output() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     let (json, _) = run(
         &home,
         &[
@@ -530,7 +480,6 @@ fn snapshot_note_output() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     let (json, _) = run(
         &home,
         &[
@@ -551,7 +500,6 @@ fn snapshot_reflect_output() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     run(
         &home,
         &[
@@ -582,7 +530,6 @@ fn snapshot_consolidate_dry_run_output() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     run(
         &home,
         &[
@@ -624,7 +571,6 @@ fn snapshot_forget_error_output() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    run(&home, &["init", "--root", project.to_str().unwrap()]);
     let (json, _) = run(
         &home,
         &[

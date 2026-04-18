@@ -177,6 +177,16 @@ impl EmbeddingStore {
     /// Sync embeddings with memory files in a directory.
     /// Returns the number of files re-embedded.
     pub fn sync(&mut self, dir: &Path, embedder: &dyn Embedder) -> Result<usize, Error> {
+        self.sync_with_progress(dir, embedder, None)
+    }
+
+    /// Sync embeddings with optional progress reporting.
+    pub fn sync_with_progress(
+        &mut self,
+        dir: &Path,
+        embedder: &dyn Embedder,
+        reporter: Option<&dyn crate::progress::Progress>,
+    ) -> Result<usize, Error> {
         let mut re_embedded = 0;
 
         // Find all memory files
@@ -194,8 +204,12 @@ impl EmbeddingStore {
         // Remove entries for deleted files
         self.entries.retain(|e| current_files.contains(&e.file));
 
+        if let Some(r) = reporter {
+            r.start("re-embedding", Some(current_files.len()));
+        }
+
         // Embed new or changed files
-        for file in &current_files {
+        for (idx, file) in current_files.iter().enumerate() {
             let path = dir.join(file);
             let content = fs::read_to_string(&path)?;
             let hash = content_hash(&content);
@@ -203,6 +217,9 @@ impl EmbeddingStore {
             if let Some(existing) = self.entries.iter().find(|e| e.file == *file)
                 && existing.hash == hash
             {
+                if let Some(r) = reporter {
+                    r.tick(idx + 1);
+                }
                 continue; // unchanged
             }
 
@@ -213,6 +230,13 @@ impl EmbeddingStore {
                 embedding,
             });
             re_embedded += 1;
+            if let Some(r) = reporter {
+                r.tick(idx + 1);
+            }
+        }
+
+        if let Some(r) = reporter {
+            r.finish(Some(&format!("{re_embedded} re-embedded")));
         }
 
         Ok(re_embedded)
