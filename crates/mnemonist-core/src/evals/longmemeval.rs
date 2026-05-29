@@ -49,7 +49,17 @@ pub struct Turn {
 #[derive(Debug, Clone)]
 pub struct LongMemEvalDataset {
     /// All sessions keyed by ID. Value is the concatenated user-turn text.
+    /// This is the **retrieval** representation (matches MemPalace methodology).
     pub sessions: HashMap<String, String>,
+    /// Full role-tagged transcripts (user + assistant) keyed by session ID.
+    /// This is the **reader-context** representation for QA: many gold answers
+    /// (e.g. single-session-assistant, knowledge-update) live in assistant turns,
+    /// so answering from user-turns-only context is impossible. Falls back to
+    /// `sessions` when a session has no transcript.
+    pub sessions_full: HashMap<String, String>,
+    /// Session dates keyed by session ID (from `haystack_dates`), used to anchor
+    /// temporal-reasoning questions. Empty for formats without dates.
+    pub session_dates: HashMap<String, String>,
     /// Queries with ground-truth gold session IDs.
     pub queries: Vec<LongMemEvalQuery>,
 }
@@ -123,6 +133,16 @@ fn user_turns_to_document(turns: &[Turn]) -> String {
         .join(" ")
 }
 
+/// Render a session as a full role-tagged transcript (both user and assistant
+/// turns) for use as reader context during QA.
+fn turns_to_transcript(turns: &[Turn]) -> String {
+    turns
+        .iter()
+        .map(|t| format!("{}: {}", t.role, t.content))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Convert a serde_json::Value answer to an Option<String>.
 fn answer_to_string(v: &serde_json::Value) -> Option<String> {
     match v {
@@ -178,6 +198,8 @@ fn parse_native_format(value: serde_json::Value) -> Result<LongMemEvalDataset, E
         .map_err(|e| EvalError::Other(format!("invalid native LongMemEval format: {e}")))?;
 
     let mut sessions: HashMap<String, String> = HashMap::new();
+    let mut sessions_full: HashMap<String, String> = HashMap::new();
+    let mut session_dates: HashMap<String, String> = HashMap::new();
     let mut queries = Vec::with_capacity(entries.len());
 
     for entry in &entries {
@@ -190,7 +212,7 @@ fn parse_native_format(value: serde_json::Value) -> Result<LongMemEvalDataset, E
             )));
         }
 
-        // Build session map from parallel arrays
+        // Build session maps from parallel arrays (retrieval doc + full transcript).
         for (sid, turns) in entry
             .haystack_session_ids
             .iter()
@@ -199,6 +221,19 @@ fn parse_native_format(value: serde_json::Value) -> Result<LongMemEvalDataset, E
             sessions
                 .entry(sid.clone())
                 .or_insert_with(|| user_turns_to_document(turns));
+            sessions_full
+                .entry(sid.clone())
+                .or_insert_with(|| turns_to_transcript(turns));
+        }
+
+        // Capture per-session dates (parallel with haystack_session_ids) for
+        // temporal-reasoning context anchoring.
+        if let Some(dates) = &entry.haystack_dates {
+            for (sid, date) in entry.haystack_session_ids.iter().zip(dates.iter()) {
+                session_dates
+                    .entry(sid.clone())
+                    .or_insert_with(|| date.clone());
+            }
         }
 
         let answer = entry.answer.as_ref().and_then(answer_to_string);
@@ -215,7 +250,12 @@ fn parse_native_format(value: serde_json::Value) -> Result<LongMemEvalDataset, E
         });
     }
 
-    Ok(LongMemEvalDataset { sessions, queries })
+    Ok(LongMemEvalDataset {
+        sessions,
+        sessions_full,
+        session_dates,
+        queries,
+    })
 }
 
 /// Parse a generic per-entry format (dict-based sessions).
@@ -235,6 +275,7 @@ fn parse_generic_entry_format(value: serde_json::Value) -> Result<LongMemEvalDat
         .map_err(|e| EvalError::Other(format!("invalid entry format: {e}")))?;
 
     let mut sessions = HashMap::new();
+    let mut sessions_full = HashMap::new();
     let mut queries = Vec::new();
 
     for entry in entries {
@@ -242,6 +283,9 @@ fn parse_generic_entry_format(value: serde_json::Value) -> Result<LongMemEvalDat
             sessions
                 .entry(sid.clone())
                 .or_insert_with(|| user_turns_to_document(turns));
+            sessions_full
+                .entry(sid.clone())
+                .or_insert_with(|| turns_to_transcript(turns));
         }
         queries.push(LongMemEvalQuery {
             question_id: None,
@@ -255,7 +299,12 @@ fn parse_generic_entry_format(value: serde_json::Value) -> Result<LongMemEvalDat
         });
     }
 
-    Ok(LongMemEvalDataset { sessions, queries })
+    Ok(LongMemEvalDataset {
+        sessions,
+        sessions_full,
+        session_dates: HashMap::new(),
+        queries,
+    })
 }
 
 /// Parse the simplified split format.
@@ -263,11 +312,12 @@ fn parse_split_format(value: serde_json::Value) -> Result<LongMemEvalDataset, Ev
     let split: SplitFormat = serde_json::from_value(value)
         .map_err(|e| EvalError::Other(format!("invalid split format: {e}")))?;
 
-    let sessions = split
-        .sessions
-        .into_iter()
-        .map(|(sid, turns)| (sid, user_turns_to_document(&turns)))
-        .collect();
+    let mut sessions = HashMap::new();
+    let mut sessions_full = HashMap::new();
+    for (sid, turns) in split.sessions {
+        sessions.insert(sid.clone(), user_turns_to_document(&turns));
+        sessions_full.insert(sid, turns_to_transcript(&turns));
+    }
 
     let queries = split
         .queries
@@ -284,7 +334,12 @@ fn parse_split_format(value: serde_json::Value) -> Result<LongMemEvalDataset, Ev
         })
         .collect();
 
-    Ok(LongMemEvalDataset { sessions, queries })
+    Ok(LongMemEvalDataset {
+        sessions,
+        sessions_full,
+        session_dates: HashMap::new(),
+        queries,
+    })
 }
 
 #[cfg(test)]
@@ -334,6 +389,39 @@ mod tests {
             ds.queries[0].haystack_dates.as_deref(),
             Some(vec!["2024/01/10".to_string(), "2024/01/11".to_string()]).as_deref()
         );
+    }
+
+    #[test]
+    fn native_format_builds_full_transcripts_and_dates() {
+        let json = r#"[
+            {
+                "question_id": "q_001",
+                "question": "What rotation did the assistant assign?",
+                "answer": "Day shift",
+                "answer_session_ids": ["s1"],
+                "haystack_dates": ["2024/01/10", "2024/01/11"],
+                "haystack_session_ids": ["s1", "s2"],
+                "haystack_sessions": [
+                    [
+                        {"role": "user", "content": "make a rotation"},
+                        {"role": "assistant", "content": "Day shift it is"}
+                    ],
+                    [{"role": "user", "content": "unrelated"}]
+                ]
+            }
+        ]"#;
+
+        let ds = parse_dataset(json).unwrap();
+        // Retrieval doc = user turns only (unchanged behaviour).
+        assert_eq!(ds.sessions["s1"], "make a rotation");
+        // Reader context = full transcript including assistant turns.
+        assert_eq!(
+            ds.sessions_full["s1"],
+            "user: make a rotation\nassistant: Day shift it is"
+        );
+        // Dates captured per session.
+        assert_eq!(ds.session_dates["s1"], "2024/01/10");
+        assert_eq!(ds.session_dates["s2"], "2024/01/11");
     }
 
     #[test]

@@ -57,10 +57,10 @@ longmemeval-json dataset="data/longmemeval_s_cleaned.json":
 validate:
     cargo test --workspace --test validation
 
-# Run eval suite
+# Run eval suite (evals/ann/quant are features of mnemonist-core, not a separate crate)
 eval:
-    cargo test -p mnemonist-evals
-    cargo bench -p mnemonist-evals
+    cargo test -p mnemonist-core --features evals,ann,quant
+    cargo bench -p mnemonist-core --features evals,ann,quant
 
 # Quality gate: format + lint + test
 check: check-fmt lint test

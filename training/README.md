@@ -2,6 +2,8 @@
 
 Distillation training pipeline for mnemonist's two custom embedding models.
 
+> **Status: experimental / not yet integrated.** The shipped CLI uses the baseline all-MiniLM-L6-v2 model; no model produced by this pipeline is loaded by the Rust runtime yet.
+
 ## Models
 
 1. **Code Embedding Model** — 6-layer transformer, 384-dim output, ~22M params. Specialized for source code retrieval across Rust, Python, JS/TS, Go.
@@ -14,7 +16,7 @@ Distillation training pipeline for mnemonist's two custom embedding models.
 1. Generate data    →  training/prompts/ + src/datagen/generate.py
 2. Train models     →  scripts/train_code_model.py, scripts/train_memory_model.py
 3. Export to ONNX   →  src/export/onnx_export.py
-4. Deploy           →  dataset/models/*.onnx → used by crates/mnemonist-embed/
+4. Deploy           →  dataset/models/*.onnx → used by crates/mnemonist-embed/  (future / not implemented)
 ```
 
 ## Quick Start
@@ -41,4 +43,4 @@ python -m src.export.onnx_export --checkpoint checkpoints/memory_latest.pt --out
 
 - TurboQuant paper: `../dataset/turboquant.pdf`
 - Quantization implementation: `../crates/mnemonist-quant/`
-- ONNX inference in Rust: `../crates/mnemonist-embed/` (future)
+- ONNX inference in Rust: `../crates/mnemonist-embed/` (future / not implemented)

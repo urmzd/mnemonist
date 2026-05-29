@@ -1,5 +1,24 @@
 {
-  "timestamp": "1775761111s",
+  "meta": {
+    "git_commit": "f68c13a (+ working-tree eval improvements)",
+    "generated": "2026-05",
+    "hardware": "Apple M4 Pro (macOS)",
+    "embedder": "all-MiniLM-L6-v2",
+    "embedder_dim": 384,
+    "embedder_backend": "candle + accelerate",
+    "hnsw": {
+      "m": 16,
+      "m0": 32,
+      "ef_construction": 200,
+      "ef_search": 100
+    },
+    "dataset": "longmemeval_s_cleaned.json",
+    "n_sessions": 19195,
+    "n_questions": 500,
+    "qa_reader_model": "gpt-4o-mini",
+    "qa_judge_model": "gpt-4o",
+    "qa_top_k": 5
+  },
   "retrieval": {
     "recall_any_at_5": 0.964,
     "recall_all_at_5": 0.848,
@@ -15,15 +34,244 @@
     "total_query_time_ms": 2159,
     "avg_query_time_us": 4318.08
   },
-  "latency": null,
-  "storage": null,
-  "temporal": null,
+  "latency": {
+    "scale_points": [
+      {
+        "n_documents": 100,
+        "index_build_time_ms": 21,
+        "query_latency_p50_us": 52.292,
+        "query_latency_p95_us": 57.375,
+        "query_latency_p99_us": 77.875,
+        "avg_query_time_us": 53.46169999999992,
+        "n_queries": 500
+      },
+      {
+        "n_documents": 500,
+        "index_build_time_ms": 199,
+        "query_latency_p50_us": 139.291,
+        "query_latency_p95_us": 168.584,
+        "query_latency_p99_us": 203.583,
+        "avg_query_time_us": 139.842426,
+        "n_queries": 500
+      },
+      {
+        "n_documents": 1000,
+        "index_build_time_ms": 432,
+        "query_latency_p50_us": 155.75,
+        "query_latency_p95_us": 200.084,
+        "query_latency_p99_us": 225.75,
+        "avg_query_time_us": 153.67741599999997,
+        "n_queries": 500
+      },
+      {
+        "n_documents": 5000,
+        "index_build_time_ms": 3430,
+        "query_latency_p50_us": 174.791,
+        "query_latency_p95_us": 262.916,
+        "query_latency_p99_us": 302.125,
+        "avg_query_time_us": 180.54011400000007,
+        "n_queries": 500
+      },
+      {
+        "n_documents": 10000,
+        "index_build_time_ms": 7094,
+        "query_latency_p50_us": 191.75,
+        "query_latency_p95_us": 337.875,
+        "query_latency_p99_us": 405.75,
+        "avg_query_time_us": 203.46632799999995,
+        "n_queries": 500
+      }
+    ]
+  },
+  "storage": {
+    "n_vectors": 19195,
+    "dimension": 384,
+    "raw_embedding_bytes": 29483520,
+    "hnsw_index_bytes": 32519621,
+    "raw_recall_any_at_5": 0.266,
+    "raw_recall_any_at_10": 0.372,
+    "quantized": [
+      {
+        "bits": 1,
+        "compressed_bytes": 998140,
+        "compression_ratio": 29.53846153846154,
+        "recall_any_at_5": 0.286,
+        "recall_any_at_10": 0.354,
+        "cosine_distortion": 0.201740642707464
+      },
+      {
+        "bits": 2,
+        "compressed_bytes": 1919500,
+        "compression_ratio": 15.36,
+        "recall_any_at_5": 0.258,
+        "recall_any_at_10": 0.346,
+        "cosine_distortion": 0.06025397866056064
+      },
+      {
+        "bits": 3,
+        "compressed_bytes": 2840860,
+        "compression_ratio": 10.378378378378379,
+        "recall_any_at_5": 0.264,
+        "recall_any_at_10": 0.358,
+        "cosine_distortion": 0.01729196689190359
+      },
+      {
+        "bits": 4,
+        "compressed_bytes": 3762220,
+        "compression_ratio": 7.836734693877551,
+        "recall_any_at_5": 0.272,
+        "recall_any_at_10": 0.37,
+        "cosine_distortion": 0.0047200758682622605
+      }
+    ]
+  },
+  "temporal": {
+    "baseline_recall_any_at_5": 0.266,
+    "reinforced_recall_any_at_5": 0.36,
+    "recall_delta": 0.09399999999999997,
+    "n_consolidation_cycles": 10,
+    "n_queries_per_cycle": 250,
+    "n_documents": 19195
+  },
   "mempalace": {
     "mnemonist_recall_any_at_5": 0.964,
     "mnemonist_recall_all_at_5": 0.848,
     "n_sessions": 19195,
     "n_queries": 500,
     "avg_haystack_size": 47.734,
-    "note": "MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. This is NOT a QA accuracy score — it is raw vector retrieval recall. Their 96.6% number was never reproduced independently. See Experiment 6 for actual LongMemEval QA evaluation."
+    "note": "MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. This is NOT a QA accuracy score \u2014 it is raw vector retrieval recall. Their 96.6% number was never reproduced independently. See Experiment 6 for actual LongMemEval QA evaluation."
+  },
+  "qa": {
+    "overall_accuracy": 0.372,
+    "retrieval_recall_any_at_k": 0.964,
+    "n_questions": 500,
+    "n_graded": 500,
+    "scoring_method": "llm_judge (gpt-4o)",
+    "per_type": [
+      {
+        "question_type": "knowledge-update",
+        "accuracy": 0.3974358974358974,
+        "retrieval_recall": 1.0,
+        "count": 78
+      },
+      {
+        "question_type": "multi-session",
+        "accuracy": 0.19548872180451127,
+        "retrieval_recall": 0.9924812030075187,
+        "count": 133
+      },
+      {
+        "question_type": "single-session-assistant",
+        "accuracy": 0.875,
+        "retrieval_recall": 0.9642857142857143,
+        "count": 56
+      },
+      {
+        "question_type": "single-session-preference",
+        "accuracy": 0.1,
+        "retrieval_recall": 0.9666666666666667,
+        "count": 30
+      },
+      {
+        "question_type": "single-session-user",
+        "accuracy": 0.7428571428571429,
+        "retrieval_recall": 0.9142857142857143,
+        "count": 70
+      },
+      {
+        "question_type": "temporal-reasoning",
+        "accuracy": 0.18796992481203006,
+        "retrieval_recall": 0.9398496240601504,
+        "count": 133
+      }
+    ]
+  },
+  "code_rag": {
+    "overall_macro": {
+      "recall_any@1": 0.34285714285714286,
+      "recall_any@3": 0.5767857142857142,
+      "recall_any@5": 0.7214285714285714,
+      "recall_any@10": 0.8107142857142857,
+      "recall_all@1": 0.31785714285714284,
+      "recall_all@3": 0.5517857142857142,
+      "recall_all@5": 0.6821428571428572,
+      "recall_all@10": 0.7732142857142857,
+      "mrr": 0.4958382936507936,
+      "precision@5": 0.15214285714285714,
+      "n_repos": 5,
+      "n_queries": 78
+    },
+    "per_repo": [
+      {
+        "repo": "fsrc",
+        "recall_any@1": 0.375,
+        "recall_any@3": 0.6875,
+        "recall_any@5": 0.8125,
+        "recall_any@10": 0.8125,
+        "recall_all@1": 0.375,
+        "recall_all@3": 0.6875,
+        "recall_all@5": 0.8125,
+        "recall_all@10": 0.8125,
+        "mrr": 0.5416666666666666,
+        "precision@5": 0.1625,
+        "n_queries": 16
+      },
+      {
+        "repo": "mnemonist",
+        "recall_any@1": 0.1875,
+        "recall_any@3": 0.375,
+        "recall_any@5": 0.5625,
+        "recall_any@10": 0.625,
+        "recall_all@1": 0.1875,
+        "recall_all@3": 0.3125,
+        "recall_all@5": 0.5,
+        "recall_all@10": 0.5625,
+        "mrr": 0.33229166666666665,
+        "precision@5": 0.125,
+        "n_queries": 16
+      },
+      {
+        "repo": "saige",
+        "recall_any@1": 0.21428571428571427,
+        "recall_any@3": 0.5714285714285714,
+        "recall_any@5": 0.8571428571428571,
+        "recall_any@10": 0.9285714285714286,
+        "recall_all@1": 0.21428571428571427,
+        "recall_all@3": 0.5714285714285714,
+        "recall_all@5": 0.7857142857142857,
+        "recall_all@10": 0.9285714285714286,
+        "mrr": 0.46071428571428574,
+        "precision@5": 0.18571428571428572,
+        "n_queries": 14
+      },
+      {
+        "repo": "sr",
+        "recall_any@1": 0.3125,
+        "recall_any@3": 0.5,
+        "recall_any@5": 0.5625,
+        "recall_any@10": 0.875,
+        "recall_all@1": 0.1875,
+        "recall_all@3": 0.4375,
+        "recall_all@5": 0.5,
+        "recall_all@10": 0.75,
+        "mrr": 0.4413938492063492,
+        "precision@5": 0.125,
+        "n_queries": 16
+      },
+      {
+        "repo": "teasr",
+        "recall_any@1": 0.625,
+        "recall_any@3": 0.75,
+        "recall_any@5": 0.8125,
+        "recall_any@10": 0.8125,
+        "recall_all@1": 0.625,
+        "recall_all@3": 0.75,
+        "recall_all@5": 0.8125,
+        "recall_all@10": 0.8125,
+        "mrr": 0.703125,
+        "precision@5": 0.1625,
+        "n_queries": 16
+      }
+    ]
   }
 }

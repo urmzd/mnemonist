@@ -53,9 +53,9 @@ Falls back to text search if no embeddings exist yet.
 
 Ingest a codebase as sensory experience. Phases:
 
-1. **Extract** — tree-sitter chunks for Rust/Python/JS/TS/Go; plain-text fallback for other files
+1. **Extract** — chunks via the `ChunkingStrategy` trait (default `ParagraphChunking`: blank-line boundaries, merge small / split large with overlap; language-agnostic, no tree-sitter)
 2. **Embed** — all chunks embedded with candle, stored in `.code-index.hnsw`
-3. **Score** — attention scoring (struct=0.9, impl/trait=0.85, function=0.8, enum=0.75; +0.1 for public)
+3. **Score** — heuristic attention: base 0.5, +0.2 for public/exported items, +0.2 for chunk length
 4. **Promote** — top chunks added to inbox
 
 | Flag | Default | Description |
@@ -99,3 +99,11 @@ Remove a memory file and its embedding. Argument is the filename (e.g., `feedbac
 | `get <key>` | Get value by dot-notation (e.g., `embedding.model`) |
 | `set <key> <value>` | Set value with type preservation |
 | `path` | Print config file path |
+
+### `mnemonist update`
+
+Self-update to the latest release published on GitHub (`urmzd/mnemonist`). Downloads the binary asset for the current platform and validates it against the published `.sha256` checksum before replacing the running binary. Reports the current version, then either `already up to date` or the upgraded version range.
+
+### `mnemonist version`
+
+Print the current version (e.g., `mnemonist v0.9.1`).

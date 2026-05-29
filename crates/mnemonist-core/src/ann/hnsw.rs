@@ -408,14 +408,19 @@ impl AnnIndex for HnswIndex {
 
         self.id_to_node.remove(id);
 
-        // Update entry point if needed
+        // Update entry point if needed. The entry point must sit at the top
+        // layer, so pick the highest-level remaining node (ties broken by lowest
+        // node id for determinism). Picking an arbitrary node here would violate
+        // the HNSW invariant and silently degrade recall after forget/decay.
         if self.entry_point == Some(node_id) {
-            self.entry_point = self.id_to_node.values().copied().next();
-            if let Some(ep) = self.entry_point {
-                self.max_level = self.nodes[ep as usize].level;
-            } else {
-                self.max_level = 0;
-            }
+            self.entry_point = self
+                .id_to_node
+                .values()
+                .copied()
+                .max_by_key(|&n| (self.nodes[n as usize].level, std::cmp::Reverse(n)));
+            self.max_level = self
+                .entry_point
+                .map_or(0, |ep| self.nodes[ep as usize].level);
         }
 
         Ok(true)
@@ -580,6 +585,47 @@ mod tests {
         assert!(index.remove("a").unwrap());
         assert_eq!(index.len(), 1);
         assert!(!index.remove("a").unwrap());
+    }
+
+    #[test]
+    fn removing_entry_point_preserves_top_layer_invariant() {
+        // After removing the entry point, the new entry point must be the
+        // highest-level remaining node and max_level must match it — otherwise
+        // search descends from a low layer and recall degrades over time.
+        let mut index = HnswIndex::with_defaults(8);
+        for i in 0..200 {
+            index
+                .insert(&format!("item_{i}"), &make_vector(8, i as f32))
+                .unwrap();
+        }
+
+        // Remove the current entry point repeatedly and re-check the invariant.
+        for _ in 0..10 {
+            let Some(ep) = index.entry_point else { break };
+            let removed_id = index.nodes[ep as usize].id.clone();
+            index.remove(&removed_id).unwrap();
+
+            if let Some(new_ep) = index.entry_point {
+                let max_remaining = index
+                    .id_to_node
+                    .values()
+                    .map(|&n| index.nodes[n as usize].level)
+                    .max()
+                    .unwrap();
+                assert_eq!(
+                    index.nodes[new_ep as usize].level, max_remaining,
+                    "entry point must be a highest-level node"
+                );
+                assert_eq!(
+                    index.max_level, max_remaining,
+                    "max_level must track entry point"
+                );
+            }
+        }
+
+        // Search still returns sensible results after churn.
+        let results = index.search(&make_vector(8, 50.0), 5).unwrap();
+        assert!(!results.is_empty());
     }
 
     #[test]

@@ -6,13 +6,7 @@ A specification and Rust implementation defining a convention for storing AI age
 
 ## Architecture
 
-Rust workspace with four crates:
-- `mnemonist-core` — spec types, file parsing, index operations, inbox, config, embeddings
-- `mnemonist-cli` — CLI binary (`mnemonist`) with cognitive commands
-- `mnemonist-index` — ANN indices (HNSW, IVF-Flat) and code indexing
-- `mnemonist-quant` — TurboQuant vector quantization (1-4 bit)
-
-Training pipeline in `training/` (Python): data generation, model distillation, ONNX export.
+Rust workspace with two crates: `mnemonist-core` (spec types, file parsing, index operations, inbox, config, embeddings; with feature-gated submodules `ann/` for ANN indices and `quant/` for TurboQuant and `evals/` for the eval suite) and `mnemonist-cli` (the CLI binary). Python training pipeline in `training/`.
 
 ## Discovering Structure
 
@@ -45,5 +39,5 @@ Conventional commits via `sr commit`:
 To add a new memory type:
 1. Add variant to `MemoryType` enum in `crates/mnemonist-core/src/memory.rs`
 2. Update `Display` and `FromStr` implementations
-3. Add the type to Section 5 of `SPECIFICATION.md`
+3. Add the type to Section 5 of `spec/mnemonist.md`
 4. Update the README memory types table

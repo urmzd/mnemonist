@@ -20,6 +20,8 @@ budget = 2000                  # output character limit
 priority = ["feedback", "project", "user", "reference"]
 expand_refs = true             # follow inter-layer edges on recall
 max_ref_expansions = 3         # how many ref hops to follow
+min_similarity = 0.35          # discard hits below this cosine floor
+min_results = 2                # always return at least N results even past the char budget
 
 [index]
 max_lines = 200                # MEMORY.md line limit
@@ -27,6 +29,7 @@ max_lines = 200                # MEMORY.md line limit
 [code]
 languages = ["rust", "python", "javascript", "go"]
 max_chunk_lines = 100          # max lines per code chunk
+exclude_patterns = ["dist", "node_modules", "target", "package-lock", ".min.js"]  # filename prefixes/substrings to skip (case-insensitive)
 
 [inbox]
 capacity = 7                   # working memory limit (Miller's 7+/-2)

@@ -46,6 +46,11 @@ pub struct QaContextRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub question_type: Option<String>,
     pub question: String,
+    /// Reference date for the question ("today"), used to anchor temporal reasoning.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub question_date: Option<String>,
+    /// Full role-tagged transcripts of the retrieved sessions (date-prefixed when
+    /// available) — what the reader LLM answers from.
     pub retrieved_context: Vec<String>,
     pub retrieved_session_ids: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -167,6 +172,7 @@ pub fn run_qa_retrieval(
                     .unwrap_or_else(|| format!("q_{i}")),
                 question_type: query.question_type.clone(),
                 question: query.question.clone(),
+                question_date: query.question_date.clone(),
                 retrieved_context: Vec::new(),
                 retrieved_session_ids: Vec::new(),
                 gold_answer: query.answer.clone(),
@@ -208,9 +214,21 @@ pub fn run_qa_retrieval(
             .map_err(|e| EvalError::Other(format!("search: {e}")))?;
 
         let retrieved_ids: Vec<String> = search_results.iter().map(|h| h.id.clone()).collect();
+        // Emit the FULL transcript (user + assistant) as reader context — many gold
+        // answers live in assistant turns. Prefix with the session date so temporal
+        // questions can be answered. Retrieval above still used the user-turn doc.
         let retrieved_context: Vec<String> = retrieved_ids
             .iter()
-            .filter_map(|id| dataset.sessions.get(id).cloned())
+            .filter_map(|id| {
+                dataset
+                    .sessions_full
+                    .get(id)
+                    .or_else(|| dataset.sessions.get(id))
+                    .map(|txt| match dataset.session_dates.get(id) {
+                        Some(d) => format!("[Date: {d}]\n{txt}"),
+                        None => txt.clone(),
+                    })
+            })
             .collect();
 
         let retrieval_hit = query
@@ -238,6 +256,7 @@ pub fn run_qa_retrieval(
             question_id: qid,
             question_type: query.question_type.clone(),
             question: query.question.clone(),
+            question_date: query.question_date.clone(),
             retrieved_context,
             retrieved_session_ids: retrieved_ids,
             gold_answer: query.answer.clone(),
