@@ -203,6 +203,9 @@ pub struct IndexOptions {
     pub git_ignore: bool,
     /// Additional glob patterns to exclude (e.g. `["dist/**", "*.min.js"]`).
     pub exclude_globs: Vec<String>,
+    /// Glob patterns to restrict indexing to (the `--attend` flag). When
+    /// non-empty, ONLY files matching one of these globs are indexed.
+    pub include_globs: Vec<String>,
 }
 
 impl Default for IndexOptions {
@@ -211,6 +214,7 @@ impl Default for IndexOptions {
             hidden: false,
             git_ignore: true,
             exclude_globs: Vec::new(),
+            include_globs: Vec::new(),
         }
     }
 }
@@ -268,8 +272,15 @@ impl<'a> CodeIndex<'a> {
             .git_ignore(opts.git_ignore)
             .git_global(opts.git_ignore);
 
-        if !opts.exclude_globs.is_empty() {
+        if !opts.exclude_globs.is_empty() || !opts.include_globs.is_empty() {
             let mut ob = ignore::overrides::OverrideBuilder::new(&self.root);
+            // Positive (whitelist) globs: when any are present, the `ignore`
+            // crate excludes everything that does NOT match one of them.
+            for pat in &opts.include_globs {
+                ob.add(pat)
+                    .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+            }
+            // Negated globs are treated as blacklist entries (excludes).
             for pat in &opts.exclude_globs {
                 ob.add(&format!("!{pat}"))
                     .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
@@ -491,5 +502,31 @@ struct Foo {
         let strategy = ParagraphChunking::default();
         let chunks = strategy.chunk("hi", "tiny.txt");
         assert!(chunks.is_empty());
+    }
+
+    #[test]
+    fn include_globs_restrict_indexing() {
+        // `--attend` semantics: when include_globs is set, only matching files
+        // are indexed.
+        let dir = tempfile::tempdir().unwrap();
+        let body = "fn demo() {\n    let x = 1;\n    let y = 2;\n    println!(\"{}\", x + y);\n}\n";
+        std::fs::write(dir.path().join("keep.rs"), body).unwrap();
+        std::fs::write(dir.path().join("skip.py"), body).unwrap();
+
+        let strategy = ParagraphChunking::default();
+        let mut index = CodeIndex::new(dir.path(), &strategy);
+        let opts = IndexOptions {
+            include_globs: vec!["*.rs".to_string()],
+            ..IndexOptions::default()
+        };
+        index.index_with_options(&[], &opts).unwrap();
+
+        let files: std::collections::HashSet<&str> =
+            index.chunks().iter().map(|c| c.file.as_str()).collect();
+        assert!(files.contains("keep.rs"), "rust file should be indexed");
+        assert!(
+            !files.contains("skip.py"),
+            "python file should be excluded by attend glob"
+        );
     }
 }

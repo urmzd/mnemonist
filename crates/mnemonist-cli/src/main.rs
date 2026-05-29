@@ -170,8 +170,8 @@ struct Cli {
     #[arg(long, short = 'q', global = true)]
     quiet: bool,
 
-    /// Output format
-    #[arg(long, global = true, value_enum, default_value = "human")]
+    /// Output format for stdout: `json` (compact, default) or `human` (pretty-printed JSON)
+    #[arg(long, global = true, value_enum, default_value = "json")]
     format: OutputFormat,
 }
 
@@ -383,14 +383,26 @@ fn level_dirs(level: &str, root: &std::path::Path) -> Result<Vec<PathBuf>> {
 
 // -- JSON output helpers --
 
+/// Selected stdout format, set once in `main`. Defaults to compact JSON.
+static OUTPUT_FORMAT: std::sync::OnceLock<OutputFormat> = std::sync::OnceLock::new();
+
+/// Render the structured envelope as compact (`json`) or pretty (`human`) JSON.
+/// stdout is always valid JSON; `human` simply indents it for reading.
+fn render(out: &Value) -> String {
+    match OUTPUT_FORMAT.get() {
+        Some(OutputFormat::Human) => serde_json::to_string_pretty(out).unwrap(),
+        _ => serde_json::to_string(out).unwrap(),
+    }
+}
+
 fn output_ok(data: Value) {
     let out = json!({"ok": true, "data": data});
-    println!("{}", serde_json::to_string(&out).unwrap());
+    println!("{}", render(&out));
 }
 
 fn output_err(msg: &str) -> ! {
     let out = json!({"ok": false, "error": msg});
-    println!("{}", serde_json::to_string(&out).unwrap());
+    println!("{}", render(&out));
     std::process::exit(1);
 }
 
@@ -505,6 +517,7 @@ fn now_iso() -> String {
 
 fn main() {
     let cli = Cli::parse();
+    let _ = OUTPUT_FORMAT.set(cli.format);
 
     let quiet = cli.quiet || Config::load().output.quiet;
 
@@ -934,7 +947,7 @@ fn run(cli: Cli) -> Result<()> {
         // -- learn: ingest a codebase as sensory experience --
         Command::Learn {
             path,
-            attend: _attend,
+            attend,
             capacity,
             hidden,
             no_gitignore,
@@ -957,6 +970,7 @@ fn run(cli: Cli) -> Result<()> {
                 hidden,
                 git_ignore: !no_gitignore,
                 exclude_globs: exclude,
+                include_globs: attend.into_iter().collect(),
             };
             let chunk_count = code_index.index_with_progress(
                 &config.code.exclude_patterns,
