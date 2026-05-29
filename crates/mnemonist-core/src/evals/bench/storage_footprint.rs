@@ -20,6 +20,11 @@ pub struct StorageResult {
     pub dimension: usize,
     pub raw_embedding_bytes: usize,
     pub hnsw_index_bytes: usize,
+    /// Raw (unquantized) recall baseline, so quantization degradation is
+    /// measurable. NOTE: this is GLOBAL retrieval over every session (the
+    /// hardest setting), not the per-question haystack used in Exp 1/5/6.
+    pub raw_recall_any_at_5: f64,
+    pub raw_recall_any_at_10: f64,
     pub quantized: Vec<QuantizedStoragePoint>,
 }
 
@@ -71,6 +76,13 @@ pub fn run(
         .map(|m| m.len() as usize)
         .unwrap_or(0);
     let _ = std::fs::remove_file(&tmp_path);
+
+    // Raw (unquantized) recall baseline — the reference point for degradation.
+    let raw_vecs: Vec<Vec<f32>> = embeddings.iter().map(|(_, v)| v.clone()).collect();
+    let raw_recall_5 =
+        compute_quantized_recall_any(&embeddings, &raw_vecs, &query_embeddings, &query_gold, 5);
+    let raw_recall_10 =
+        compute_quantized_recall_any(&embeddings, &raw_vecs, &query_embeddings, &query_gold, 10);
 
     let mut quantized = Vec::new();
 
@@ -125,6 +137,8 @@ pub fn run(
         dimension: dim,
         raw_embedding_bytes: raw_bytes,
         hnsw_index_bytes: hnsw_bytes,
+        raw_recall_any_at_5: raw_recall_5,
+        raw_recall_any_at_10: raw_recall_10,
         quantized,
     })
 }

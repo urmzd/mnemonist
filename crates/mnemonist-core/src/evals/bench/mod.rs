@@ -126,6 +126,15 @@ impl BenchReport {
                 s.hnsw_index_bytes as f64 / 1024.0
             ));
             lines.push(format!(
+                "  raw recall (global, no quant): recall@5={:.1}%  recall@10={:.1}%",
+                s.raw_recall_any_at_5 * 100.0,
+                s.raw_recall_any_at_10 * 100.0
+            ));
+            lines.push(
+                "  (global retrieval over ALL sessions — NOT the per-question haystack used in Exp 1/5/6)"
+                    .to_string(),
+            );
+            lines.push(format!(
                 "  {:>4}  {:>10}  {:>6}  {:>12}  {:>10}  {:>11}",
                 "bits", "bytes", "ratio", "cos_dist", "recall@5", "recall@10"
             ));
