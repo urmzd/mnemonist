@@ -1,0 +1,1909 @@
+{
+  "overall_macro": {
+    "recall_any@1": 0.34285714285714286,
+    "recall_any@3": 0.5767857142857142,
+    "recall_any@5": 0.7214285714285714,
+    "recall_any@10": 0.8107142857142857,
+    "recall_all@1": 0.31785714285714284,
+    "recall_all@3": 0.5517857142857142,
+    "recall_all@5": 0.6821428571428572,
+    "recall_all@10": 0.7732142857142857,
+    "mrr": 0.4958382936507936,
+    "precision@5": 0.15214285714285714,
+    "n_repos": 5,
+    "n_queries": 78
+  },
+  "repos": [
+    {
+      "repo": "fsrc",
+      "aggregate": {
+        "recall_any@1": 0.375,
+        "recall_any@3": 0.6875,
+        "recall_any@5": 0.8125,
+        "recall_any@10": 0.8125,
+        "recall_all@1": 0.375,
+        "recall_all@3": 0.6875,
+        "recall_all@5": 0.8125,
+        "recall_all@10": 0.8125,
+        "mrr": 0.5416666666666666,
+        "precision@5": 0.1625,
+        "n_queries": 16
+      },
+      "per_query": [
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "Where is the CLI argument parser defined and what subcommands does the tool support?",
+          "gold_files": [
+            "src/main.rs"
+          ],
+          "top5": [
+            "AGENTS.md",
+            "src/lang.rs",
+            "llms.txt",
+            "src/main.rs",
+            "Justfile"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How does the tool handle file processing when invoked from the command line?",
+          "gold_files": [
+            "src/main.rs"
+          ],
+          "top5": [
+            "AGENTS.md",
+            "src/main.rs",
+            "skills/fsrc/SKILL.md",
+            "llms.txt",
+            "tests/integration.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "Where is the core logic for finding and replacing fsrc directives implemented?",
+          "gold_files": [
+            "src/embed.rs"
+          ],
+          "top5": [
+            "tests/fixtures/host.py",
+            "skills/fsrc/SKILL.md",
+            "tests/fixtures/host.rs",
+            "tests/fixtures/host.sql",
+            "tests/fixtures/host.yml"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the tool determine the language tag for code fences when auto-detecting?",
+          "gold_files": [
+            "src/lang.rs"
+          ],
+          "top5": [
+            "src/lang.rs",
+            "tests/fixtures/host.html",
+            "tests/fixtures/host.rs",
+            "src/embed.rs",
+            "tests/fixtures/host_expected.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.3333333333333333,
+          "precision@5": 0.2,
+          "query": "How are error and status messages presented to the user in the terminal?",
+          "gold_files": [
+            "src/ui.rs"
+          ],
+          "top5": [
+            "action.yml",
+            "src/main.rs",
+            "src/ui.rs",
+            "llms.txt",
+            "sr.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "Where is the logic for skipping fsrc directives that appear inside backtick-fenced code blocks?",
+          "gold_files": [
+            "src/embed.rs"
+          ],
+          "top5": [
+            "skills/fsrc/SKILL.md",
+            "tests/fixtures/host.yml",
+            "tests/fixtures/host.py",
+            "tests/fixtures/host.css",
+            "tests/fixtures/host.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How does the line-range filtering feature work when extracting specific lines from source files?",
+          "gold_files": [
+            "src/embed.rs"
+          ],
+          "top5": [
+            "tests/integration.rs",
+            "src/embed.rs",
+            "llms.txt",
+            "AGENTS.md",
+            "skills/fsrc/SKILL.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "What happens when a referenced source file cannot be read during processing?",
+          "gold_files": [
+            "src/embed.rs"
+          ],
+          "top5": [
+            "llms.txt",
+            "AGENTS.md",
+            "skills/fsrc/SKILL.md",
+            "src/main.rs",
+            "tests/integration.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the self-update mechanism detect the correct binary to download for the current platform?",
+          "gold_files": [
+            "src/self_update.rs"
+          ],
+          "top5": [
+            "src/self_update.rs",
+            "LICENSE",
+            "CHANGELOG.md",
+            "SECURITY.md",
+            "README.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How are SHA256 checksums validated when downloading a new binary during self-update?",
+          "gold_files": [
+            "src/self_update.rs"
+          ],
+          "top5": [
+            "src/self_update.rs",
+            "CHANGELOG.md",
+            "Cargo.toml",
+            "src/main.rs",
+            "SECURITY.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "What is the atomic replacement strategy used to ensure a safe binary update without data loss?",
+          "gold_files": [
+            "src/self_update.rs"
+          ],
+          "top5": [
+            "src/self_update.rs",
+            "CHANGELOG.md",
+            "src/main.rs",
+            "tests/integration.rs",
+            "SECURITY.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "How does the tool ensure fenced code output is idempotent when run multiple times on the same file?",
+          "gold_files": [
+            "src/embed.rs"
+          ],
+          "top5": [
+            "tests/integration.rs",
+            "skills/fsrc/SKILL.md",
+            "src/main.rs",
+            "src/embed.rs",
+            "AGENTS.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.3333333333333333,
+          "precision@5": 0.2,
+          "query": "What validation does the CLI perform before attempting to process files?",
+          "gold_files": [
+            "src/main.rs"
+          ],
+          "top5": [
+            "tests/integration.rs",
+            "AGENTS.md",
+            "src/main.rs",
+            "skills/fsrc/SKILL.md",
+            "action.yml"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How is the GitHub Actions integration configured and what inputs does it expose?",
+          "gold_files": [
+            "action.yml"
+          ],
+          "top5": [
+            "README.md",
+            "action.yml",
+            "example.yml",
+            "CHANGELOG.md",
+            "SECURITY.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "What test cases verify that the embedding process works across different file types and comment styles?",
+          "gold_files": [
+            "tests/integration.rs"
+          ],
+          "top5": [
+            "tests/integration.rs",
+            "AGENTS.md",
+            "llms.txt",
+            "skills/fsrc/SKILL.md",
+            "example.yml"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the tool handle the verify mode to detect if files are out of date without modifying them?",
+          "gold_files": [
+            "src/main.rs"
+          ],
+          "top5": [
+            "src/main.rs",
+            "tests/integration.rs",
+            "skills/fsrc/SKILL.md",
+            "action.yml",
+            "CHANGELOG.md"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "mnemonist",
+      "aggregate": {
+        "recall_any@1": 0.1875,
+        "recall_any@3": 0.375,
+        "recall_any@5": 0.5625,
+        "recall_any@10": 0.625,
+        "recall_all@1": 0.1875,
+        "recall_all@3": 0.3125,
+        "recall_all@5": 0.5,
+        "recall_all@10": 0.5625,
+        "mrr": 0.33229166666666665,
+        "precision@5": 0.125,
+        "n_queries": 16
+      },
+      "per_query": [
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "where is the command-line argument parser defined for the CLI",
+          "gold_files": [
+            "crates/mnemonist-cli/src/main.rs"
+          ],
+          "top5": [
+            "docs/benchmarks/rag_gold/fsrc.jsonl",
+            "docs/benchmarks/rag_gold/teasr.jsonl",
+            "docs/benchmarks/rag_gold/mnemonist.jsonl",
+            "docs/benchmarks/rag_gold/saige.jsonl",
+            "docs/benchmarks/rag_gold/sr.jsonl"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "how are errors propagated and converted to user-facing messages",
+          "gold_files": [
+            "crates/mnemonist-core/src/error.rs"
+          ],
+          "top5": [
+            "docs/benchmarks/rag_gold/mnemonist.jsonl",
+            "scripts/longmemeval_qa.py",
+            "crates/mnemonist-core/src/memory.rs",
+            "crates/mnemonist-core/src/error.rs",
+            "crates/mnemonist-core/src/config.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "where is the embedding model downloaded and invoked for vector generation",
+          "gold_files": [
+            "crates/mnemonist-core/src/embed/candle.rs"
+          ],
+          "top5": [
+            "dataset/README.md",
+            "training/README.md",
+            "crates/mnemonist-core/src/embed/mod.rs",
+            "crates/mnemonist-core/src/evals/embedding.rs",
+            "crates/mnemonist-core/README.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.2,
+          "precision@5": 0.2,
+          "query": "how does the system determine which memories to surface given a query",
+          "gold_files": [
+            "crates/mnemonist-core/src/rerank.rs",
+            "crates/mnemonist-core/src/temporal.rs"
+          ],
+          "top5": [
+            "spec/mnemonist.md",
+            "training/prompts/memory/generate_memory_queries.md",
+            "crates/mnemonist-core/src/evals/bench/mod.rs",
+            "crates/mnemonist-core/src/evals/qa.rs",
+            "crates/mnemonist-core/src/temporal.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "where is the in-memory staging area for quick notes defined",
+          "gold_files": [
+            "crates/mnemonist-core/src/inbox.rs"
+          ],
+          "top5": [
+            "skills/mnemonist/SKILL.md",
+            "crates/mnemonist-cli/src/main.rs",
+            "crates/mnemonist-core/README.md",
+            "spec/mnemonist.md",
+            "crates/mnemonist-cli/README.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "how are memory files structured with frontmatter and body content",
+          "gold_files": [
+            "crates/mnemonist-core/src/memory.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-core/src/memory.rs",
+            "crates/mnemonist-cli/src/main.rs",
+            "training/src/models/memory_encoder.py",
+            "skills/mnemonist/SKILL.md",
+            "crates/mnemonist-core/src/backend/file.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.2,
+          "precision@5": 0.2,
+          "query": "where is the main entry point and how does it dispatch to subcommands",
+          "gold_files": [
+            "crates/mnemonist-cli/src/main.rs"
+          ],
+          "top5": [
+            "docs/benchmarks/rag_gold/fsrc.jsonl",
+            "skills/mnemonist/references/cli-reference.md",
+            "docs/benchmarks/rag_gold/teasr.jsonl",
+            "docs/benchmarks/rag_gold/saige.jsonl",
+            "crates/mnemonist-cli/src/main.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "how does the system read and index source code files into the knowledge base",
+          "gold_files": [
+            "crates/mnemonist-core/src/chunk.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-core/src/ann/code.rs",
+            "scripts/rag_eval.py",
+            "spec/mnemonist.md",
+            "docs/benchmarks/rag_gold/teasr.jsonl",
+            "docs/benchmarks/rag_gold/sr.jsonl"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "where is the hierarchical navigable small world graph index implemented",
+          "gold_files": [
+            "crates/mnemonist-core/src/ann/hnsw.rs"
+          ],
+          "top5": [
+            "docs/benchmarks.md",
+            "crates/mnemonist-core/src/ann/hnsw.rs",
+            "crates/mnemonist-core/src/evals/qa.rs",
+            "crates/mnemonist-core/src/evals/bench/latency_scaling.rs",
+            "crates/mnemonist-core/src/ann/mod.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.16666666666666666,
+          "precision@5": 0.0,
+          "query": "how are configuration files loaded and applied across global and project scopes",
+          "gold_files": [
+            "crates/mnemonist-core/src/config.rs"
+          ],
+          "top5": [
+            "docs/benchmarks/rag_gold/teasr.jsonl",
+            "crates/mnemonist-cli/src/main.rs",
+            "docs/benchmarks/rag_gold/saige.jsonl",
+            "docs/benchmarks/rag_gold/fsrc.jsonl",
+            "sr.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.4,
+          "query": "how does vector quantization reduce storage footprint of embeddings",
+          "gold_files": [
+            "crates/mnemonist-core/src/quant/mod.rs",
+            "crates/mnemonist-core/src/quant/mse.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-core/src/evals/bench/storage_footprint.rs",
+            "crates/mnemonist-core/src/quant/mod.rs",
+            "crates/mnemonist-core/src/quant/store.rs",
+            "spec/mnemonist.md",
+            "crates/mnemonist-core/src/quant/mse.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "where is the live progress renderer that displays carriage-return updates on stderr",
+          "gold_files": [
+            "crates/mnemonist-cli/src/main.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-core/src/progress.rs",
+            "crates/mnemonist-cli/src/main.rs",
+            "CHANGELOG.md",
+            "crates/mnemonist-core/src/ann/code.rs",
+            "sr.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "where is distance computation between vectors implemented for similarity search",
+          "gold_files": [
+            "crates/mnemonist-core/src/distance.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-core/src/distance.rs",
+            "crates/mnemonist-core/src/ann/eval.rs",
+            "spec/mnemonist.md",
+            "crates/mnemonist-core/src/evals/quantization.rs",
+            "crates/mnemonist-core/src/ann/mod.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "how are memory consolidation rules applied during the sleep cycle",
+          "gold_files": [
+            "crates/mnemonist-core/src/config.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-core/src/config.rs",
+            "CHANGELOG.md",
+            "skills/mnemonist/SKILL.md",
+            "spec/mnemonist.md",
+            "llms.txt"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "where are integration tests validating CLI output and memory operations",
+          "gold_files": [
+            "crates/mnemonist-cli/tests/integration.rs"
+          ],
+          "top5": [
+            "crates/mnemonist-cli/tests/snapshots/integration__snapshot_memorize_output.snap",
+            "llms.txt",
+            "crates/mnemonist-core/src/config.rs",
+            "docs/benchmarks/rag_gold/saige.jsonl",
+            "crates/mnemonist-cli/tests/snapshots/integration__snapshot_forget_error_output.snap"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "how does the system follow inter-layer references between code and memories",
+          "gold_files": [
+            "crates/mnemonist-core/src/memory.rs"
+          ],
+          "top5": [
+            "spec/mnemonist.md",
+            "crates/mnemonist-cli/src/main.rs",
+            "crates/mnemonist-core/README.md",
+            "skills/mnemonist/SKILL.md",
+            "llms.txt"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "saige",
+      "aggregate": {
+        "recall_any@1": 0.21428571428571427,
+        "recall_any@3": 0.5714285714285714,
+        "recall_any@5": 0.8571428571428571,
+        "recall_any@10": 0.9285714285714286,
+        "recall_all@1": 0.21428571428571427,
+        "recall_all@3": 0.5714285714285714,
+        "recall_all@5": 0.7857142857142857,
+        "recall_all@10": 0.9285714285714286,
+        "mrr": 0.46071428571428574,
+        "precision@5": 0.18571428571428572,
+        "n_queries": 14
+      },
+      "per_query": [
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.2,
+          "precision@5": 0.2,
+          "query": "How does the CLI determine which LLM provider to use when none is explicitly specified?",
+          "gold_files": [
+            "cmd/saige/provider.go"
+          ],
+          "top5": [
+            "agent/types/provider.go",
+            "agent/otel/option.go",
+            "examples/agent/resilient/main.go",
+            "cmd/saige-mcp/main.go",
+            "cmd/saige/provider.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.16666666666666666,
+          "precision@5": 0.0,
+          "query": "Where is the agent's core invocation loop implemented and how does it manage concurrent tool execution?",
+          "gold_files": [
+            "agent/agent.go"
+          ],
+          "top5": [
+            "examples/agent/concurrent-subagents/main.go",
+            "README.md",
+            "agent/subagent.go",
+            "agent/agenttest/agenttest.go",
+            "skills/agent/SKILL.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "How are streaming deltas from the LLM differentiated from streaming deltas produced by tool execution?",
+          "gold_files": [
+            "agent/types/delta.go"
+          ],
+          "top5": [
+            "agent/eval/stream.go",
+            "agent/tui/stream.go",
+            "agent/stream.go",
+            "agent/types/delta.go",
+            "README.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "What mechanism allows the CLI to wait for user approval before executing a tool marked as requiring human-in-the-loop review?",
+          "gold_files": [
+            "agent/stream.go"
+          ],
+          "top5": [
+            "README.md",
+            "agent/agenttest/agenttest.go",
+            "examples/agent/concurrent-subagents/main.go",
+            "agent/types/tool_test.go",
+            "agent/types/tool.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How does the RAG pipeline handle duplicate documents and what strategies are available?",
+          "gold_files": [
+            "rag/internal/pipeline/pipeline.go"
+          ],
+          "top5": [
+            "rag/config.go",
+            "rag/internal/pipeline/pipeline.go",
+            "skills/rag/SKILL.md",
+            "rag/internal/pipeline/pipeline_test.go",
+            "examples/rag/arxiv/main.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.3333333333333333,
+          "precision@5": 0.2,
+          "query": "Where are the different content extraction implementations for various document formats (PDF, plaintext, etc.) registered?",
+          "gold_files": [
+            "rag/extractor/auto.go"
+          ],
+          "top5": [
+            "rag/extractor/pdf.go",
+            "rag/extractor/plaintext.go",
+            "rag/extractor/auto.go",
+            "agent/types/extractor.go",
+            "rag/source/filesystem.go"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the knowledge graph deduplication process distinguish between exact matches and fuzzy matches when ingesting entities?",
+          "gold_files": [
+            "knowledge/internal/engine/engine.go"
+          ],
+          "top5": [
+            "knowledge/internal/engine/engine.go",
+            "knowledge/internal/fuzzy/fuzzy.go",
+            "skills/rag/SKILL.md",
+            "rag/graphretriever/retriever.go",
+            "README.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.4,
+          "query": "Where is provider resilience (retry and fallback composition) implemented for handling transient LLM failures?",
+          "gold_files": [
+            "agent/provider/retry/retry.go",
+            "agent/provider/fallback/fallback.go"
+          ],
+          "top5": [
+            "examples/agent/resilient/main.go",
+            "agent/provider/fallback/fallback.go",
+            "agent/provider/retry/retry.go",
+            "agent/types/errors.go",
+            "agent/provider/fallback/fallback_test.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How does the conversation tree persist branching history and support rewinding to previous conversation states?",
+          "gold_files": [
+            "agent/tree/tree.go"
+          ],
+          "top5": [
+            "agent/types/node.go",
+            "agent/tree/tree.go",
+            "agent/types/store.go",
+            "agent/agent.go",
+            "agent/stream.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "Where is the MCP (Model Context Protocol) server initialized and how are tool packs wired into the MCP runtime?",
+          "gold_files": [
+            "cmd/saige-mcp/main.go"
+          ],
+          "top5": [
+            "README.md",
+            "cmd/saige-mcp/main.go",
+            "cmd/saige-mcp/bridge.go",
+            "AGENTS.md",
+            "agent/types/provider.go"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "What is the interface contract for custom LLM providers and which methods must be implemented?",
+          "gold_files": [
+            "agent/types/provider.go"
+          ],
+          "top5": [
+            "agent/types/provider.go",
+            "agent/provider/ollama/adapter.go",
+            "examples/agent/resilient/main.go",
+            "agent/otel/option.go",
+            "agent/provider/google/adapter.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "How does the RAG pipeline assemble context for an answer with proper citation metadata?",
+          "gold_files": [
+            "rag/internal/pipeline/pipeline.go"
+          ],
+          "top5": [
+            "rag/contextassembler/compressing.go",
+            "rag/contextassembler/default.go",
+            "rag/config.go",
+            "rag/internal/pipeline/pipeline.go",
+            "skills/rag/SKILL.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the interactive TUI runner handle streaming deltas from the agent and render them to the terminal?",
+          "gold_files": [
+            "agent/tui/runner.go"
+          ],
+          "top5": [
+            "agent/tui/runner.go",
+            "examples/agent/tui/main.go",
+            "README.md",
+            "agent/tui/stream.go",
+            "examples/agent/runner/main.go"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "How does the knowledge graph implement hybrid search combining vector similarity and full-text BM25 ranking?",
+          "gold_files": [
+            "knowledge/internal/engine/engine.go",
+            "knowledge/pgstore/search.go"
+          ],
+          "top5": [
+            "skills/rag/SKILL.md",
+            "skills/knowledge-graph/SKILL.md",
+            "rag/graphretriever/retriever.go",
+            "knowledge/pgstore/search.go",
+            "knowledge/tool/tools.go"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "sr",
+      "aggregate": {
+        "recall_any@1": 0.3125,
+        "recall_any@3": 0.5,
+        "recall_any@5": 0.5625,
+        "recall_any@10": 0.875,
+        "recall_all@1": 0.1875,
+        "recall_all@3": 0.4375,
+        "recall_all@5": 0.5,
+        "recall_all@10": 0.75,
+        "mrr": 0.4413938492063492,
+        "precision@5": 0.125,
+        "n_queries": 16
+      },
+      "per_query": [
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.16666666666666666,
+          "precision@5": 0.0,
+          "query": "How are conventional commits parsed and classified by semver bump level?",
+          "gold_files": [
+            "crates/core/src/commit.rs"
+          ],
+          "top5": [
+            "crates/core/src/version.rs",
+            "crates/core/src/release.rs",
+            "README.md",
+            "CONTRIBUTING.md",
+            "docs/FAQ.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.3333333333333333,
+          "precision@5": 0.2,
+          "query": "Where does the CLI argument parser define the release command with its various options?",
+          "gold_files": [
+            "crates/cli/src/main.rs"
+          ],
+          "top5": [
+            "crates/cli/README.md",
+            "llms.txt",
+            "crates/cli/src/main.rs",
+            "crates/core/README.md",
+            "crates/cli/docs/migration.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How is the release plan computed without modifying the repository?",
+          "gold_files": [
+            "crates/core/src/release.rs"
+          ],
+          "top5": [
+            "llms.txt",
+            "crates/core/src/release.rs",
+            "README.md",
+            "skills/sr/SKILL.md",
+            "crates/core/README.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.1,
+          "precision@5": 0.0,
+          "query": "Where is the version bumping logic for different package ecosystems implemented?",
+          "gold_files": [
+            "crates/core/src/version_files.rs"
+          ],
+          "top5": [
+            "crates/core/src/release.rs",
+            "crates/core/src/stages/bump.rs",
+            "llms.txt",
+            "crates/core/README.md",
+            "README.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "How are release resources (tags, releases, assets, publishes) reconciled with their desired state?",
+          "gold_files": [
+            "crates/core/src/diff.rs"
+          ],
+          "top5": [
+            "crates/core/src/release.rs",
+            "README.md",
+            "llms.txt",
+            "crates/core/src/diff.rs",
+            "crates/cli/docs/migration.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.125,
+          "precision@5": 0.0,
+          "query": "What is the sequence of steps that execute during a release, and when is each one considered complete?",
+          "gold_files": [
+            "crates/core/src/stages/mod.rs"
+          ],
+          "top5": [
+            "crates/cli/docs/migration.md",
+            "README.md",
+            "llms.txt",
+            "crates/core/src/release.rs",
+            "crates/core/src/stages/commit.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the code detect version files across different programming language ecosystems?",
+          "gold_files": [
+            "crates/core/src/version_files.rs"
+          ],
+          "top5": [
+            "crates/core/src/version_files.rs",
+            "crates/core/README.md",
+            "CONTRIBUTING.md",
+            "examples/multi-language.yaml",
+            "crates/cli/templates/multi-language.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "Where is the configuration file parsed and what is its structure?",
+          "gold_files": [
+            "crates/core/src/config.rs"
+          ],
+          "top5": [
+            "crates/core/src/config.rs",
+            "crates/cli/src/main.rs",
+            "crates/cli/docs/migration.md",
+            "README.md",
+            "crates/core/src/release.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.3333333333333333,
+          "precision@5": 0.2,
+          "query": "How does the changelog get formatted and merged into the existing changelog file?",
+          "gold_files": [
+            "crates/core/src/changelog.rs"
+          ],
+          "top5": [
+            "crates/core/src/stages/bump.rs",
+            "crates/core/src/config.rs",
+            "crates/core/src/changelog.rs",
+            "README.md",
+            "crates/core/src/git/mod.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.1111111111111111,
+          "precision@5": 0.0,
+          "query": "What abstraction allows the codebase to support multiple VCS providers like GitHub?",
+          "gold_files": [
+            "crates/core/src/release.rs",
+            "crates/core/src/github.rs"
+          ],
+          "top5": [
+            "crates/core/README.md",
+            "AGENTS.md",
+            "README.md",
+            "llms.txt",
+            "examples/multi-language.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "How are errors propagated and categorized throughout the release pipeline?",
+          "gold_files": [
+            "crates/core/src/error.rs"
+          ],
+          "top5": [
+            "crates/core/src/stages/verify.rs",
+            "crates/cli/docs/migration.md",
+            "crates/core/src/release.rs",
+            "README.md",
+            "crates/core/src/changelog.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.14285714285714285,
+          "precision@5": 0.0,
+          "query": "Where is the logic that determines if a release has already been published to registries?",
+          "gold_files": [
+            "crates/core/src/publishers/mod.rs"
+          ],
+          "top5": [
+            "crates/core/src/publish.rs",
+            "README.md",
+            "llms.txt",
+            "crates/core/src/config.rs",
+            "crates/core/src/stages/publish.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.4,
+          "query": "How does the CLI handle configuration discovery when no explicit config file is provided?",
+          "gold_files": [
+            "crates/core/src/config.rs",
+            "crates/cli/src/main.rs"
+          ],
+          "top5": [
+            "crates/core/src/config.rs",
+            "crates/cli/src/main.rs",
+            "crates/core/src/publish.rs",
+            "crates/cli/docs/migration.md",
+            "crates/core/src/release.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How are workspace members (Cargo, npm, uv) discovered and used during release?",
+          "gold_files": [
+            "crates/core/src/workspaces.rs"
+          ],
+          "top5": [
+            "crates/core/src/workspaces.rs",
+            "crates/cli/templates/cargo-workspace.yaml",
+            "examples/cargo-workspace.yaml",
+            "README.md",
+            "crates/cli/templates/uv-workspace.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "Where is the self-update mechanism that downloads and installs the latest sr binary?",
+          "gold_files": [
+            "crates/cli/src/main.rs"
+          ],
+          "top5": [
+            "llms.txt",
+            "crates/core/README.md",
+            "crates/cli/README.md",
+            "crates/cli/docs/migration.md",
+            "sr.yaml"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 0.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the code stage files in a git commit and ensure idempotency across release stages?",
+          "gold_files": [
+            "crates/core/src/stages/bump.rs",
+            "crates/core/src/stages/commit.rs"
+          ],
+          "top5": [
+            "crates/core/src/stages/commit.rs",
+            "crates/cli/docs/migration.md",
+            "crates/core/src/release.rs",
+            "crates/core/src/config.rs",
+            "llms.txt"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "teasr",
+      "aggregate": {
+        "recall_any@1": 0.625,
+        "recall_any@3": 0.75,
+        "recall_any@5": 0.8125,
+        "recall_any@10": 0.8125,
+        "recall_all@1": 0.625,
+        "recall_all@3": 0.75,
+        "recall_all@5": 0.8125,
+        "recall_all@10": 0.8125,
+        "mrr": 0.703125,
+        "precision@5": 0.1625,
+        "n_queries": 16
+      },
+      "per_query": [
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.25,
+          "precision@5": 0.2,
+          "query": "Where is the command-line argument parser that defines the CLI interface including setup, run, update, and version commands?",
+          "gold_files": [
+            "crates/teasr-cli/src/main.rs"
+          ],
+          "top5": [
+            "CHANGELOG.md",
+            "crates/teasr-cli/README.md",
+            "AGENTS.md",
+            "crates/teasr-cli/src/main.rs",
+            "skills/teasr-dev/SKILL.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How are configuration files discovered and loaded from the user's project directory?",
+          "gold_files": [
+            "crates/teasr-core/src/config.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/config.rs",
+            "sr.yaml",
+            "AGENTS.md",
+            "skills/teasr-dev/SKILL.md",
+            "install.sh"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "What are the three capture backend types and how are they instantiated for different scene types?",
+          "gold_files": [
+            "crates/teasr-core/src/orchestrator.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/orchestrator.rs",
+            "crates/teasr-core/README.md",
+            "README.md",
+            "crates/teasr-core/src/lib.rs",
+            "AGENTS.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "Where are errors propagated to the user through styled console output?",
+          "gold_files": [
+            "crates/teasr-core/src/ui.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/config.rs",
+            "crates/teasr-core/src/term_render/ansi_parse.rs",
+            "crates/teasr-core/src/term_render/themes.rs",
+            "crates/teasr-core/src/capture/terminal.rs",
+            "crates/teasr-cli/src/main.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How is a terminal PTY session created and its output captured as frames?",
+          "gold_files": [
+            "crates/teasr-core/src/capture/terminal.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/capture/terminal.rs",
+            "crates/teasr-core/src/capture/screen.rs",
+            "crates/teasr-core/src/orchestrator.rs",
+            "AGENTS.md",
+            "crates/teasr-core/benches/capture.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "How does the web browser backend handle user interactions like clicking, hovering, and scrolling on pages?",
+          "gold_files": [
+            "crates/teasr-core/src/capture/web.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/types.rs",
+            "crates/teasr-core/src/capture/web.rs",
+            "crates/teasr-core/src/browser/chromium.rs",
+            "crates/teasr-core/src/browser/mod.rs",
+            "crates/teasr-core/src/capture/chrome.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "Where is the browser abstraction defined and how does it isolate capture from the underlying browser implementation?",
+          "gold_files": [
+            "crates/teasr-core/src/browser/mod.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/browser/mod.rs",
+            "crates/teasr-core/src/capture/web.rs",
+            "crates/teasr-core/src/browser/chromium.rs",
+            "crates/teasr-core/README.md",
+            "crates/teasr-core/src/chrome_frame.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "What is the pipeline architecture for encoding captured frames into multiple output formats concurrently?",
+          "gold_files": [
+            "crates/teasr-core/src/pipeline/mod.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/pipeline/mod.rs",
+            "crates/teasr-core/src/convert/gif.rs",
+            "crates/teasr-core/src/pipeline/sinks.rs",
+            "crates/teasr-core/src/capture/terminal.rs",
+            "crates/teasr-core/src/types.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How are terminal output streams converted to PNG images with styling and themes?",
+          "gold_files": [
+            "crates/teasr-core/src/term_render/mod.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/term_render/mod.rs",
+            "crates/teasr-core/src/capture/terminal.rs",
+            "crates/teasr-core/src/chrome_frame.rs",
+            "crates/teasr-core/src/term_render/splash.rs",
+            "skills/teasr/SKILL.md"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 0.5,
+          "precision@5": 0.2,
+          "query": "Where is the main orchestration logic that sequences scene setup, interaction execution, and output encoding?",
+          "gold_files": [
+            "crates/teasr-core/src/orchestrator.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/types.rs",
+            "crates/teasr-core/src/orchestrator.rs",
+            "crates/teasr-core/README.md",
+            "crates/teasr-core/src/lib.rs",
+            "crates/teasr-core/src/pipeline/mod.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "How are web and markdown content rendered to HTML for browser capture?",
+          "gold_files": [
+            "crates/teasr-core/src/render/markdown.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/types.rs",
+            "showcase/markdown-demo.md",
+            "llms.txt",
+            "README.md",
+            "crates/teasr-core/src/orchestrator.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the self-update mechanism detect the platform, fetch the latest binary from GitHub, and atomically replace the running executable?",
+          "gold_files": [
+            "crates/teasr-cli/src/self_update.rs"
+          ],
+          "top5": [
+            "crates/teasr-cli/src/self_update.rs",
+            "SECURITY.md",
+            "install.sh",
+            "CONTRIBUTING.md",
+            "cross/Dockerfile.aarch64-unknown-linux-gnu"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the setup subcommand manage font installation across macOS, Linux, and Windows?",
+          "gold_files": [
+            "crates/teasr-core/src/setup.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/setup.rs",
+            "crates/teasr-cli/src/main.rs",
+            "crates/teasr-core/src/types.rs",
+            "crates/teasr-core/src/orchestrator.rs",
+            "crates/teasr-core/src/term_render/rasterize.rs"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "How does the screen capture backend detect and record a specific window or display region?",
+          "gold_files": [
+            "crates/teasr-core/src/capture/screen.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/capture/screen.rs",
+            "README.md",
+            "crates/teasr-core/src/browser/chromium.rs",
+            "crates/teasr-core/README.md",
+            "CHANGELOG.md"
+          ]
+        },
+        {
+          "recall_any@1": 1.0,
+          "recall_all@1": 1.0,
+          "recall_any@3": 1.0,
+          "recall_all@3": 1.0,
+          "recall_any@5": 1.0,
+          "recall_all@5": 1.0,
+          "recall_any@10": 1.0,
+          "recall_all@10": 1.0,
+          "mrr": 1.0,
+          "precision@5": 0.2,
+          "query": "Where are GIF frames merged to reduce identical consecutive frames before encoding, and how is the resulting animated GIF assembled?",
+          "gold_files": [
+            "crates/teasr-core/src/convert/gif.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/convert/gif.rs",
+            "crates/teasr-core/src/pipeline/sinks.rs",
+            "crates/teasr-core/src/types.rs",
+            "README.md",
+            "crates/teasr-core/src/pipeline/mod.rs"
+          ]
+        },
+        {
+          "recall_any@1": 0.0,
+          "recall_all@1": 0.0,
+          "recall_any@3": 0.0,
+          "recall_all@3": 0.0,
+          "recall_any@5": 0.0,
+          "recall_all@5": 0.0,
+          "recall_any@10": 0.0,
+          "recall_all@10": 0.0,
+          "mrr": 0.0,
+          "precision@5": 0.0,
+          "query": "How does the system determine when a web page or terminal session has finished updating and is ready to snapshot?",
+          "gold_files": [
+            "crates/teasr-core/src/capture/mod.rs"
+          ],
+          "top5": [
+            "crates/teasr-core/src/capture/chrome.rs",
+            "crates/teasr-core/src/types.rs",
+            "crates/teasr-core/README.md",
+            "README.md",
+            "crates/teasr-core/benches/capture.rs"
+          ]
+        }
+      ]
+    }
+  ]
+}
