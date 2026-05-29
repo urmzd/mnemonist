@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.10.0 (2026-05-29)
+
+### Features
+
+- end-to-end RAG/LongMemEval benchmarks, fixes, and doc accuracy (#11) ([250de8a](https://github.com/urmzd/mnemonist/commit/250de8a1d5bb60cff9cb3f1679f313b22c7bd97d))
+
+### Misc
+
+- **ci**: bump sr to v8, convert post_release hook to typed cargo workspace publisher ([f68c13a](https://github.com/urmzd/mnemonist/commit/f68c13a3d311b783bf101cb8c783bacc464de616))
+- **ci**: remove unused force input from release workflow ([f6c6f63](https://github.com/urmzd/mnemonist/commit/f6c6f63916da120be296fb7226b2d561ce52f31b))
+- **community**: add GitHub community-health files ([b1ada18](https://github.com/urmzd/mnemonist/commit/b1ada186223ad419592d89b75ee78c70ca8800f9))
+- **fix**: standardize README format ([17f83f8](https://github.com/urmzd/mnemonist/commit/17f83f8ea70e5a028c013d8aaa6595f3a27f2b48))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.9.1...v0.10.0)
+
+
 ## 0.9.1 (2026-04-19)
 
 ### Bug Fixes
