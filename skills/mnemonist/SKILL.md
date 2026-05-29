@@ -108,7 +108,7 @@ mnemonist learn .                           # ingest entire project
 mnemonist learn src/ --attend "**/*.rs"     # only Rust files in src/
 ```
 
-This extracts code chunks via tree-sitter (Rust, Python, JS/TS, Go) with plain-text fallback, embeds them into `.code-index.hnsw`, and promotes high-attention chunks to the inbox.
+This extracts code chunks via the `ChunkingStrategy` trait (default `ParagraphChunking` — blank-line boundaries, language-agnostic; no tree-sitter dependency), embeds them into `.code-index.hnsw`, and promotes high-attention chunks to the inbox.
 
 ### 4. Recalling
 

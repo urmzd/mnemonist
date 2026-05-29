@@ -6,15 +6,15 @@
 
 - [README](https://github.com/urmzd/mnemonist/blob/main/README.md): Quick start, cognitive CLI usage, and memory types
 - [AGENTS.md](https://github.com/urmzd/mnemonist/blob/main/AGENTS.md): Architecture and development guide
-- [Specification](https://github.com/urmzd/mnemonist/blob/main/SPECIFICATION.md): Full specification (levels, file format, dynamic loading, integration)
+- [Specification](https://github.com/urmzd/mnemonist/blob/main/spec/mnemonist.md): Full specification (levels, file format, dynamic loading, integration)
 
 ## API / Key Files
 
-- [SPECIFICATION.md](https://github.com/urmzd/mnemonist/blob/main/SPECIFICATION.md): The formal mnemonist specification
+- [spec/mnemonist.md](https://github.com/urmzd/mnemonist/blob/main/spec/mnemonist.md): The formal mnemonist specification
 - [crates/mnemonist-core/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-core/): Core types, inbox, config, embeddings
 - [crates/mnemonist-cli/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-cli/): Cognitive CLI binary
-- [crates/mnemonist-index/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-index/): ANN indices and tree-sitter code indexing
-- [crates/mnemonist-quant/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-quant/): TurboQuant vector quantization
+- [crates/mnemonist-core/src/ann/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-core/src/ann/): ANN indices (HNSW, IVF) and code indexing — submodule of mnemonist-core
+- [crates/mnemonist-core/src/quant/](https://github.com/urmzd/mnemonist/blob/main/crates/mnemonist-core/src/quant/): TurboQuant vector quantization — submodule of mnemonist-core
 - [skills/mnemonist/SKILL.md](https://github.com/urmzd/mnemonist/blob/main/skills/mnemonist/SKILL.md): Portable agent skill
 
 ## Optional

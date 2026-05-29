@@ -20,6 +20,12 @@ dataset/
     generated/                # LLM-generated JSONL training data for memory embeddings
     raw/                      # Optional real memory file samples
     processed/                # Preprocessed with temporal metadata
+  models/                     # (see "Planned outputs" below)
+```
+
+### Planned outputs (not yet generated)
+
+```
   models/
     code_embed_v1.onnx        # Exported code embedding model
     memory_embed_v1.onnx      # Exported memory embedding model
@@ -47,4 +53,4 @@ Training data is generated via LLM prompts (see `training/prompts/`). This gives
 
 ## Quantization
 
-Both models' output embeddings are compressed with TurboQuant (implemented in `crates/mnemonist-quant/`) for efficient storage. At 384 dimensions and 2-bit quantization, each embedding is just 96 bytes (16x reduction from f32).
+Both models' output embeddings are compressed with TurboQuant (implemented in `crates/mnemonist-quant/`) for efficient storage. Theoretical (not yet active in the CLI; embeddings are stored as full f32 today): at 384 dimensions and 2-bit quantization, each embedding is just 96 bytes (16x reduction from f32).

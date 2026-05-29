@@ -1,6 +1,8 @@
 # mnemonist Specification
 
 > Version 0.2.0
+>
+> Spec v0.2.0 describes the data model; crate releases version independently (currently 0.9.1).
 
 ## Abstract
 
@@ -43,7 +45,7 @@ Draft — seeking community feedback.
 |------|-------------|
 | **memorize** | Direct write to long-term memory, bypassing the inbox. Embeds immediately. Sets `strength: 1.0`. |
 | **note** | Adds raw text to the inbox with `attention_score: 0.5`. No embedding. |
-| **learn** | Tree-sitter code extraction → embed chunks → build code HNSW → score and push top chunks to inbox. |
+| **learn** | Code chunk extraction via the `ChunkingStrategy` trait → embed chunks → build code HNSW → score and push top chunks to inbox. |
 | **consolidate** | Promote inbox → associate similar memories → decay stale ones → re-embed all. |
 | **remember** | Semantic search (HNSW + brute-force fallback) → temporal re-ranking → ref expansion → budget-trimmed output. |
 
@@ -459,40 +461,32 @@ Stored as `.inbox.json`:
 
 ### 10.3 Attention Scoring for Code
 
-When `learn` ingests code via tree-sitter, chunks are scored by construct type:
+When `learn` ingests code, each chunk is scored by a simple content heuristic:
 
-| Node Kind | Score |
-|-----------|-------|
-| `struct_item`, `class_definition` | 0.9 |
-| `impl_item`, `trait_item` | 0.85 |
-| `function_item`, `function_definition` | 0.8 |
-| `enum_item` | 0.75 |
-| Other | 0.5 |
+- Base score of `0.5`.
+- `+0.2` if the chunk contains a public/exported item (`pub ` or `export `).
+- `+0.2` for chunk length (`(end_line - start_line) / 100`, capped at `0.2`).
 
-Public items (`pub`, `export`) receive a +0.1 bonus.
+There is no per-construct (struct/impl/trait) scoring.
 
 ## 11. Code Indexing
 
-The `learn` command extracts semantic code chunks using tree-sitter.
+The `learn` command extracts code chunks via the `ChunkingStrategy` trait. There is no tree-sitter dependency; chunking is line/paragraph based and language-agnostic, so it works uniformly across all text files.
 
-### 11.1 Supported Languages
+### 11.1 Chunking Strategies
 
-| Language | Feature Flag |
-|----------|-------------|
-| Rust | `lang-rust` (default) |
-| Python | `lang-python` (default) |
-| JavaScript | `lang-javascript` (default) |
-| TypeScript | `lang-javascript` (shared) |
-| Go | `lang-go` (default) |
+| Strategy | Behavior |
+|----------|----------|
+| `ParagraphChunking` (default) | Splits on blank-line boundaries (paragraphs / function gaps). Adjacent small paragraphs are merged up to `max_lines`; oversized paragraphs are split with `overlap`. |
+| `FixedLineChunking` | Fixed-size sliding window of `chunk_size` lines with `overlap` between consecutive chunks. |
 
-### 11.2 Chunking Strategy
+### 11.2 Chunking Process
 
 1. Walk the project directory respecting `.gitignore` (via the `ignore` crate)
-2. Parse each file with tree-sitter
-3. Extract nodes matching semantic boundary kinds (functions, structs, classes, impls, traits, enums, etc.)
-4. Skip nodes smaller than 3 lines
-5. Split nodes larger than `max_chunk_lines` (default 100)
-6. Fall back to plain text 100-line chunks for unsupported languages
+2. Read each text file (binary files are skipped)
+3. Apply the configured `ChunkingStrategy` to split the file into chunks
+4. Skip chunks smaller than `min_lines` (default 3)
+5. Split chunks larger than `max_lines` (default 100), with `overlap` (default 10) between the resulting pieces
 
 ### 11.3 Chunk Identity
 
@@ -604,7 +598,7 @@ Evaluation uses clustered Gaussian vectors with graded relevance judgments: grad
 | `memorize <text>` | Write directly to long-term memory (strength=1.0, bypasses inbox). Memory directories auto-create on first use |
 | `note <text>` | Add to inbox (attention_score=0.5) |
 | `remember <query>` | Cue-based retrieval through the full pipeline |
-| `learn <path>` | Tree-sitter code extraction -> embed -> score -> populate inbox |
+| `learn <path>` | Code chunk extraction (via `ChunkingStrategy`) -> embed -> score -> populate inbox |
 | `consolidate` | Run the four-phase consolidation cycle (supports `--dry-run`) |
 | `reflect` | List all memories with cognitive metadata and inbox summary |
 | `forget <file>` | Remove a memory file, its index entry, and its embedding |

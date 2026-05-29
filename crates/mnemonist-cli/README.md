@@ -22,6 +22,8 @@ Memory directories are created automatically on first use — `mnemonist learn .
 | `mnemonist reflect [--all] [--global]` | Review memories and inbox contents |
 | `mnemonist forget <file>` | Forget a memory |
 | `mnemonist config show\|get\|set\|init\|path` | Manage configuration |
+| `mnemonist update` | Self-update to the latest GitHub release (SHA256-validated) |
+| `mnemonist version` | Print the current version |
 
 All commands output JSON to stdout (`{"ok": true, "data": {...}}`).
 
