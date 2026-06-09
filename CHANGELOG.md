@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.1 (2026-06-09)
+
+### Bug Fixes
+
+- **bench**: temporal-baseline artifact, install path, config truth, statistical rigor (#12) ([b0410a1](https://github.com/urmzd/mnemonist/commit/b0410a15fb6771de917e630c8bd8b360f6f31ac5))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.10.0...v0.10.1)
+
+
 ## 0.10.0 (2026-05-29)
 
 ### Features
