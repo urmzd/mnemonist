@@ -139,7 +139,19 @@ impl MemoryFile {
     }
 
     /// Write this memory file to disk.
+    ///
+    /// Rejects paths containing `..` components: filenames are derived from
+    /// the frontmatter name, so an attacker-controlled name like `../evil`
+    /// would otherwise resolve outside the memory directory.
     pub fn write(&self, path: &Path) -> Result<(), Error> {
+        if path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(Error::PathEscape {
+                path: path.display().to_string(),
+            });
+        }
         fs::write(path, self.to_markdown())?;
         Ok(())
     }
@@ -198,6 +210,23 @@ Use open standards.
     fn missing_frontmatter() {
         let result = MemoryFile::parse("no frontmatter here", "bad.md");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn write_rejects_parent_dir_components() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mem = MemoryFile {
+            frontmatter: Frontmatter {
+                name: "../../../tmp/evil".to_string(),
+                description: "traversal attempt".to_string(),
+                memory_type: MemoryType::Feedback,
+                ..Default::default()
+            },
+            body: String::new(),
+        };
+        let path = tmp.path().join(mem.filename());
+        let err = mem.write(&path).unwrap_err();
+        assert!(matches!(err, Error::PathEscape { .. }));
     }
 
     #[test]

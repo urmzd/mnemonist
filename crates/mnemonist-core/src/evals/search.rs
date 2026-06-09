@@ -98,6 +98,78 @@ pub fn ndcg_at_k(retrieved: &[String], judgments: &HashMap<String, u32>, k: usiz
     if ideal == 0.0 { 0.0 } else { actual / ideal }
 }
 
+/// Wilson score interval for a binomial proportion.
+///
+/// Returns `(lo, hi)` bounds for the true success rate given `successes` out of
+/// `n` trials at critical value `z` (1.96 for 95%). Unlike the normal
+/// approximation it behaves sensibly near 0%/100% and at small n. With `n == 0`
+/// there is no information, so the interval is the full `(0, 1)`.
+pub fn wilson_interval(successes: usize, n: usize, z: f64) -> (f64, f64) {
+    if n == 0 {
+        return (0.0, 1.0);
+    }
+    let n_f = n as f64;
+    let p = successes as f64 / n_f;
+    let z2 = z * z;
+    let denom = 1.0 + z2 / n_f;
+    let center = (p + z2 / (2.0 * n_f)) / denom;
+    let margin = (z / denom) * (p * (1.0 - p) / n_f + z2 / (4.0 * n_f * n_f)).sqrt();
+    ((center - margin).max(0.0), (center + margin).min(1.0))
+}
+
+/// 95% Wilson interval as a `[lo, hi]` pair for embedding in serialized reports.
+pub fn wilson95(successes: usize, n: usize) -> [f64; 2] {
+    let (lo, hi) = wilson_interval(successes, n, 1.96);
+    [lo, hi]
+}
+
+/// Exact McNemar test on paired binary outcomes.
+///
+/// `b` and `c` are the discordant pair counts (arm A hit where arm B missed,
+/// and vice versa). Concordant pairs carry no information about the difference.
+/// Returns the two-sided p-value from the exact binomial reference
+/// distribution `min(b, c) ~ Binomial(b + c, 0.5)` — no chi-square
+/// approximation, so it is valid at any count. `b + c == 0` returns 1.0.
+pub fn mcnemar_exact_p(b: usize, c: usize) -> f64 {
+    let n = b + c;
+    if n == 0 {
+        return 1.0;
+    }
+    let k = b.min(c);
+    // P(X <= k) for X ~ Binomial(n, 0.5), accumulating pmf iteratively:
+    // pmf(0) = 0.5^n, pmf(i+1) = pmf(i) * (n - i) / (i + 1).
+    let mut pmf = 0.5f64.powi(n as i32);
+    let mut cdf = pmf;
+    for i in 0..k {
+        pmf *= (n - i) as f64 / (i + 1) as f64;
+        cdf += pmf;
+    }
+    (2.0 * cdf).min(1.0)
+}
+
+/// Count discordant pairs between two paired hit vectors.
+///
+/// Returns `(b, c)`: `b` = hits in `a` that miss in `other`, `c` = the reverse.
+/// Panics if the vectors are not the same length — they must be paired
+/// per-query outcomes over the identical query population.
+pub fn discordant_pairs(a: &[bool], other: &[bool]) -> (usize, usize) {
+    assert_eq!(
+        a.len(),
+        other.len(),
+        "paired hit vectors must cover the same query population"
+    );
+    let mut b = 0;
+    let mut c = 0;
+    for (&x, &y) in a.iter().zip(other) {
+        match (x, y) {
+            (true, false) => b += 1,
+            (false, true) => c += 1,
+            _ => {}
+        }
+    }
+    (b, c)
+}
+
 /// Recall-any at k: fraction of queries where **at least one** gold document appears in top-k.
 ///
 /// This is the metric MemPalace headlines as "recall@5" — a lenient measure
@@ -360,5 +432,87 @@ mod tests {
     #[test]
     fn recall_all_empty() {
         assert_eq!(recall_all_at_k(&[], 5), 0.0);
+    }
+
+    #[test]
+    fn wilson_known_value() {
+        // 3/30 at 95%: the textbook Wilson interval is [0.0346, 0.2562].
+        let (lo, hi) = wilson_interval(3, 30, 1.96);
+        assert!((lo - 0.0346).abs() < 1e-3, "lo = {lo}");
+        assert!((hi - 0.2562).abs() < 1e-3, "hi = {hi}");
+    }
+
+    #[test]
+    fn wilson_bounds_contain_proportion() {
+        for &(s, n) in &[(0usize, 10usize), (5, 10), (10, 10), (186, 500), (1, 2)] {
+            let (lo, hi) = wilson_interval(s, n, 1.96);
+            let p = s as f64 / n as f64;
+            assert!((0.0..=1.0).contains(&lo));
+            assert!((0.0..=1.0).contains(&hi));
+            assert!(lo <= p && p <= hi, "({s}, {n}): [{lo}, {hi}] vs {p}");
+        }
+    }
+
+    #[test]
+    fn wilson_zero_successes_starts_at_zero() {
+        let (lo, hi) = wilson_interval(0, 20, 1.96);
+        assert_eq!(lo, 0.0);
+        assert!(hi > 0.0 && hi < 0.25);
+    }
+
+    #[test]
+    fn wilson_all_successes_ends_at_one() {
+        let (lo, hi) = wilson_interval(20, 20, 1.96);
+        assert_eq!(hi, 1.0);
+        assert!(lo > 0.75 && lo < 1.0);
+    }
+
+    #[test]
+    fn wilson_empty_sample_is_uninformative() {
+        assert_eq!(wilson_interval(0, 0, 1.96), (0.0, 1.0));
+    }
+
+    #[test]
+    fn wilson_narrows_with_n() {
+        let (lo_small, hi_small) = wilson_interval(10, 100, 1.96);
+        let (lo_big, hi_big) = wilson_interval(100, 1000, 1.96);
+        assert!(hi_big - lo_big < hi_small - lo_small);
+    }
+
+    #[test]
+    fn mcnemar_no_discordance_is_one() {
+        assert_eq!(mcnemar_exact_p(0, 0), 1.0);
+    }
+
+    #[test]
+    fn mcnemar_balanced_discordance_is_one() {
+        assert_eq!(mcnemar_exact_p(7, 7), 1.0);
+    }
+
+    #[test]
+    fn mcnemar_one_sided_extreme() {
+        // 10 vs 0 discordant pairs: p = 2 * 0.5^10 = 0.001953125 exactly.
+        let p = mcnemar_exact_p(10, 0);
+        assert!((p - 0.001953125).abs() < 1e-12, "p = {p}");
+    }
+
+    #[test]
+    fn mcnemar_symmetric_in_args() {
+        assert_eq!(mcnemar_exact_p(3, 9), mcnemar_exact_p(9, 3));
+    }
+
+    #[test]
+    fn mcnemar_known_value() {
+        // b=2, c=8: p = 2 * P(X <= 2), X ~ Bin(10, 0.5)
+        //         = 2 * (1 + 10 + 45) / 1024 = 0.109375 exactly.
+        let p = mcnemar_exact_p(2, 8);
+        assert!((p - 0.109375).abs() < 1e-12, "p = {p}");
+    }
+
+    #[test]
+    fn discordant_pairs_counts() {
+        let a = [true, true, false, false, true];
+        let b = [true, false, true, false, false];
+        assert_eq!(discordant_pairs(&a, &b), (2, 1));
     }
 }

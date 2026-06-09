@@ -42,5 +42,5 @@ python -m src.export.onnx_export --checkpoint checkpoints/memory_latest.pt --out
 ## Reference
 
 - TurboQuant paper: `../dataset/turboquant.pdf`
-- Quantization implementation: `../crates/mnemonist-quant/`
+- Quantization implementation: `../crates/mnemonist-core/src/quant/`
 - ONNX inference in Rust: `../crates/mnemonist-embed/` (future / not implemented)

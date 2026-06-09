@@ -61,33 +61,42 @@ impl BenchReport {
                 "  sessions: {}  queries: {}  avg haystack: {:.0}",
                 r.n_sessions, r.n_queries, r.avg_haystack_size
             ));
+            let pct_ci = |v: f64, ci: [f64; 2]| {
+                format!(
+                    "{:.4} ({:.1}% [95% CI {:.1}–{:.1}])",
+                    v,
+                    v * 100.0,
+                    ci[0] * 100.0,
+                    ci[1] * 100.0
+                )
+            };
             lines.push(format!(
-                "  recall_any@5:  {:.4} ({:.1}%)",
-                r.recall_any_at_5,
-                r.recall_any_at_5 * 100.0
+                "  recall_any@5:  {}",
+                pct_ci(r.recall_any_at_5, r.recall_any_at_5_ci95)
             ));
             lines.push(format!(
-                "  recall_all@5:  {:.4} ({:.1}%)",
-                r.recall_all_at_5,
-                r.recall_all_at_5 * 100.0
+                "  recall_all@5:  {}",
+                pct_ci(r.recall_all_at_5, r.recall_all_at_5_ci95)
             ));
             lines.push(format!(
-                "  recall_any@10: {:.4} ({:.1}%)",
-                r.recall_any_at_10,
-                r.recall_any_at_10 * 100.0
+                "  recall_any@10: {}",
+                pct_ci(r.recall_any_at_10, r.recall_any_at_10_ci95)
             ));
             lines.push(format!(
-                "  recall_all@10: {:.4} ({:.1}%)",
-                r.recall_all_at_10,
-                r.recall_all_at_10 * 100.0
+                "  recall_all@10: {}",
+                pct_ci(r.recall_all_at_10, r.recall_all_at_10_ci95)
             ));
             lines.push(format!(
                 "  mrr: {:.4}  precision@5: {:.4}",
                 r.mrr, r.precision_at_5
             ));
             lines.push(format!(
-                "  embed: {}ms  build: {}ms  query: {}ms (avg {:.0}µs)",
-                r.embed_time_ms, r.index_build_time_ms, r.total_query_time_ms, r.avg_query_time_us
+                "  embed (haystack): {}ms  build: {}ms  query: {}ms (avg {:.0}µs)  total: {}ms",
+                r.embed_time_ms,
+                r.index_build_time_ms,
+                r.total_query_time_ms,
+                r.avg_query_time_us,
+                r.total_time_ms
             ));
         }
 
@@ -135,18 +144,19 @@ impl BenchReport {
                     .to_string(),
             );
             lines.push(format!(
-                "  {:>4}  {:>10}  {:>6}  {:>12}  {:>10}  {:>11}",
-                "bits", "bytes", "ratio", "cos_dist", "recall@5", "recall@10"
+                "  {:>4}  {:>10}  {:>6}  {:>12}  {:>10}  {:>11}  {:>12}",
+                "bits", "bytes", "ratio", "cos_dist", "recall@5", "recall@10", "p@5_vs_raw"
             ));
             for q in &s.quantized {
                 lines.push(format!(
-                    "  {:>4}  {:>10}  {:>5.1}x  {:>12.6}  {:>9.1}%  {:>10.1}%",
+                    "  {:>4}  {:>10}  {:>5.1}x  {:>12.6}  {:>9.1}%  {:>10.1}%  {:>12.4}",
                     q.bits,
                     q.compressed_bytes,
                     q.compression_ratio,
                     q.cosine_distortion,
                     q.recall_any_at_5 * 100.0,
-                    q.recall_any_at_10 * 100.0
+                    q.recall_any_at_10 * 100.0,
+                    q.mcnemar_p_vs_raw_at_5
                 ));
             }
         }
@@ -164,14 +174,26 @@ impl BenchReport {
                 t.baseline_recall_any_at_5 * 100.0
             ));
             lines.push(format!(
+                "  control recall_any@5:     {:.4} ({:.1}%)  [rerank path, no reinforcement]",
+                t.control_recall_any_at_5,
+                t.control_recall_any_at_5 * 100.0
+            ));
+            lines.push(format!(
                 "  reinforced recall_any@5:  {:.4} ({:.1}%)",
                 t.reinforced_recall_any_at_5,
                 t.reinforced_recall_any_at_5 * 100.0
             ));
             lines.push(format!(
-                "  delta: {:+.4} ({:+.1}%)",
+                "  delta (reinforced vs control): {:+.4} ({:+.1}%)",
                 t.recall_delta,
                 t.recall_delta * 100.0
+            ));
+            lines.push(format!(
+                "  McNemar reinforced vs control: p={:.4} (discordant {}+{}, n={})",
+                t.mcnemar_p_reinforced_vs_control,
+                t.n_discordant_reinforced_vs_control[0],
+                t.n_discordant_reinforced_vs_control[1],
+                t.n_eval_queries
             ));
         }
 
@@ -212,7 +234,15 @@ impl BenchReport {
                 lines.push(format!("  avg time/question: {:.0}ms", avg_ms));
             }
             if let Some(acc) = q.overall_accuracy {
-                lines.push(format!("  overall accuracy: {:.1}%", acc * 100.0));
+                match q.overall_accuracy_ci95 {
+                    Some(ci) => lines.push(format!(
+                        "  overall accuracy: {:.1}% [95% CI {:.1}–{:.1}]",
+                        acc * 100.0,
+                        ci[0] * 100.0,
+                        ci[1] * 100.0
+                    )),
+                    None => lines.push(format!("  overall accuracy: {:.1}%", acc * 100.0)),
+                }
             }
             if let Some(n) = q.n_questions {
                 lines.push(format!("  questions: {}", n));

@@ -315,7 +315,7 @@ mod tests {
             QuantType::Prod => bits - 1,
         };
         let indices_size = pack::packed_byte_size(dim, mse_bits);
-        let qjl_size = (dim + 7) / 8;
+        let qjl_size = dim.div_ceil(8);
 
         let mut store = CompressedEmbeddingStore::new(
             dim,

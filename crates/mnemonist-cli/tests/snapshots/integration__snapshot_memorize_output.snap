@@ -5,7 +5,7 @@ expression: json
 {
   "data": {
     "action": "created",
-    "embedded": "[env-dependent]",
+    "embedded": false,
     "file": "feedback_write-tests.md"
   },
   "ok": true

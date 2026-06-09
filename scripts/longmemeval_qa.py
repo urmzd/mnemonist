@@ -252,6 +252,21 @@ def write_jsonl(path, records):
             f.write(json.dumps(r) + "\n")
 
 
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> list[float]:
+    """Wilson score interval [lo, hi] for a binomial proportion.
+
+    Mirrors mnemonist-core evals::search::wilson_interval; n == 0 returns the
+    uninformative [0, 1]."""
+    if n == 0:
+        return [0.0, 1.0]
+    p = successes / n
+    z2 = z * z
+    denom = 1.0 + z2 / n
+    center = (p + z2 / (2 * n)) / denom
+    margin = (z / denom) * (p * (1 - p) / n + z2 / (4 * n * n)) ** 0.5
+    return [max(center - margin, 0.0), min(center + margin, 1.0)]
+
+
 def report(records: list[dict]) -> dict:
     per_type = defaultdict(lambda: {"correct": 0, "graded": 0, "total": 0, "retrieval_hit": 0})
     total_correct = 0
@@ -278,7 +293,9 @@ def report(records: list[dict]) -> dict:
         "n_questions": n,
         "n_graded": total_graded,
         "n_ungraded": ungraded,
+        "n_correct": total_correct,
         "overall_accuracy": total_correct / total_graded if total_graded else 0.0,
+        "overall_accuracy_ci95": wilson_interval(total_correct, total_graded),
         "retrieval_recall_any_at_k": total_hit / n if n else 0.0,
         "scoring_method": "llm_judge",
         "per_type": sorted(
@@ -286,6 +303,7 @@ def report(records: list[dict]) -> dict:
                 {
                     "question_type": t,
                     "accuracy": v["correct"] / v["graded"] if v["graded"] else 0.0,
+                    "accuracy_ci95": wilson_interval(v["correct"], v["graded"]),
                     "retrieval_recall": v["retrieval_hit"] / v["total"] if v["total"] else 0.0,
                     "count": v["total"],
                 }
@@ -299,12 +317,18 @@ def report(records: list[dict]) -> dict:
 def print_report(rep: dict):
     print("\n═══ LongMemEval QA — LLM-judge results ═══")
     print(f"  questions:        {rep['n_questions']} ({rep.get('n_graded', rep['n_questions'])} graded, {rep.get('n_ungraded', 0)} ungraded)")
-    print(f"  overall accuracy: {rep['overall_accuracy'] * 100:.1f}%  (of graded)")
+    ci = rep.get("overall_accuracy_ci95", [0.0, 1.0])
+    print(
+        f"  overall accuracy: {rep['overall_accuracy'] * 100:.1f}%  "
+        f"[95% CI {ci[0] * 100:.1f}–{ci[1] * 100:.1f}]  (of graded)"
+    )
     print(f"  retrieval recall: {rep['retrieval_recall_any_at_k'] * 100:.1f}%")
-    print(f"  {'type':<28} {'acc':>7} {'recall':>8} {'n':>5}")
+    print(f"  {'type':<28} {'acc':>7} {'95% CI':>14} {'recall':>8} {'n':>5}")
     for t in rep["per_type"]:
+        tci = t.get("accuracy_ci95", [0.0, 1.0])
         print(
             f"  {t['question_type']:<28} {t['accuracy']*100:>6.1f}% "
+            f"[{tci[0]*100:>5.1f}–{tci[1]*100:>5.1f}] "
             f"{t['retrieval_recall']*100:>7.1f}% {t['count']:>5}"
         )
 

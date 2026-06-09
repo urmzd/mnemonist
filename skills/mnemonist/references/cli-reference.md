@@ -8,7 +8,14 @@ All commands output JSON to stdout (`{"ok": true, "data": {...}}`). Stderr carri
 |------|-------------|
 | `--root <path>` | Project root (default: current directory). Determines storage at `~/.mnemonist/{basename}/` |
 | `--global` | Target global memory (`~/.mnemonist/global/`) instead of project |
-| `--json` | Force JSON output even when not piping |
+| `--format <json\|human>` | stdout format: `json` (compact, default) or `human` (pretty-printed JSON) |
+| `-q, --quiet` | Suppress elapsed-time output on stderr |
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `MNEMONIST_OFFLINE` | Set to `1` to disable embedding entirely (same degradation as `embedding.provider = "none"`): no embedding-model resolution over the network, semantic search falls back to text search. Used by the test suite and air-gapped environments. |
 
 ## Commands
 
@@ -41,7 +48,7 @@ Recall memories by semantic cue. Searches two layers in parallel:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--budget` | `2000` | Output character limit |
+| `--budget` | `recall.budget` config (2000) | Output character limit |
 | `--level` | `both` | `project`, `global`, or `both` |
 | `--stdin` | off | Read JSON query from stdin |
 
@@ -102,8 +109,8 @@ Remove a memory file and its embedding. Argument is the filename (e.g., `feedbac
 
 ### `mnemonist update`
 
-Self-update to the latest release published on GitHub (`urmzd/mnemonist`). Downloads the binary asset for the current platform and validates it against the published `.sha256` checksum before replacing the running binary. Reports the current version, then either `already up to date` or the upgraded version range.
+Self-update to the latest release published on GitHub (`urmzd/mnemonist`). Downloads the binary asset for the current platform and validates it against the published `.sha256` checksum before replacing the running binary. Progress goes to stderr; stdout reports either `{"already_up_to_date": true}` or `{"from": ..., "to": ...}` in the standard envelope.
 
 ### `mnemonist version`
 
-Print the current version (e.g., `mnemonist v0.9.1`).
+Print the current version as JSON (e.g., `{"ok": true, "data": {"version": "0.10.0"}}`).

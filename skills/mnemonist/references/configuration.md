@@ -12,41 +12,39 @@ Legacy `~/.mnemonist/config.toml` is still read as a fallback when `mnemonist.to
 root = "~/.mnemonist"
 
 [embedding]
-provider = "candle"
-model = "all-MiniLM-L6-v2"    # 384-dim, downloads from HuggingFace Hub on first use
+provider = "candle"            # "candle" or "none" (disables embedding; text search still works)
+model = "sentence-transformers/all-MiniLM-L6-v2"  # 384-dim, downloads from HuggingFace Hub on first use
 
 [recall]
-budget = 2000                  # output character limit
-priority = ["feedback", "project", "user", "reference"]
+budget = 2000                  # output character limit (default for `remember --budget`)
 expand_refs = true             # follow inter-layer edges on recall
 max_ref_expansions = 3         # how many ref hops to follow
-min_similarity = 0.35          # discard hits below this cosine floor
 min_results = 2                # always return at least N results even past the char budget
 
 [index]
 max_lines = 200                # MEMORY.md line limit
 
 [code]
-languages = ["rust", "python", "javascript", "go"]
-max_chunk_lines = 100          # max lines per code chunk
-exclude_patterns = ["dist", "node_modules", "target", "package-lock", ".min.js"]  # filename prefixes/substrings to skip (case-insensitive)
-
-[inbox]
-capacity = 7                   # working memory limit (Miller's 7+/-2)
+# filename prefixes/substrings to skip (case-insensitive); trimmed here —
+# `mnemonist config show` prints the full default list
+exclude_patterns = ["dist", "node_modules", "target", "package-lock", ".min.js"]
 
 [consolidation]
 decay_days = 90                # days before a memory can be pruned
 merge_threshold = 0.85         # cosine similarity for associative linking
 protected_access_count = 5     # access count that shields from decay
-max_memories = 200             # hard cap per level
 max_memory_tokens = 120        # token limit per memory body
 
-[quantization]
-enabled = false                # TurboQuant vector compression
-bits = 2                       # 1-4 bit quantization
-algorithm = "mse"              # "mse" or "prod"
-temporal_weight = 0.2          # recency bias in quantized search
+[inbox]
+capacity = 7                   # working memory limit (Miller's 7+/-2)
+
+[output]
+quiet = false                  # suppress elapsed-time reporting on stderr
 ```
+
+Every key listed is consumed by the CLI; keys without consumers are removed
+rather than documented. A config file that fails to parse is ignored with a
+stderr warning and defaults are used.
 
 All values are accessible via dot-notation:
 

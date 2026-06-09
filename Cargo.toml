@@ -27,15 +27,6 @@ clap = { version = "4", features = ["derive", "env"] }
 thiserror = "2"
 anyhow = "1"
 
-# Async runtime
-tokio = { version = "1", features = ["full"] }
-
-# HTTP
-axum = "0.8"
-hyper = { version = "1", features = ["http1", "server"] }
-hyper-util = { version = "0.1", features = ["tokio", "http1"] }
-tower = { version = "0.5", features = ["util"] }
-
 # Filesystem
 dirs = "6"
 ignore = "0.4"

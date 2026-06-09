@@ -15,9 +15,12 @@ Use `tree` and `ripgrep` to discover project layout. Do not rely on static listi
 ## Commands
 
 ```bash
-cargo build              # build all crates
-cargo test               # run all tests
-cargo run -p mnemonist-cli   # run the CLI
+just build           # build all crates
+just test            # run all tests
+just lint            # clippy (all targets, -D warnings)
+just check           # quality gate: format + lint + test
+just longmemeval     # LongMemEval benchmark suite
+cargo run -p mnemonist   # run the CLI
 ```
 
 ## Code Style
@@ -29,7 +32,7 @@ cargo run -p mnemonist-cli   # run the CLI
 
 ## Commit Guidelines
 
-Conventional commits via `sr commit`:
+Conventional commits (generate the message with the `ship` skill):
 - `feat(core):` / `feat(cli):` / `feat(quant):` — scoped by crate
 - `docs(spec):` — specification changes
 - `docs(readme):` — documentation changes
@@ -39,5 +42,5 @@ Conventional commits via `sr commit`:
 To add a new memory type:
 1. Add variant to `MemoryType` enum in `crates/mnemonist-core/src/memory.rs`
 2. Update `Display` and `FromStr` implementations
-3. Add the type to Section 5 of `spec/mnemonist.md`
+3. Add the type to Section 4 of `spec/mnemonist.md`
 4. Update the README memory types table

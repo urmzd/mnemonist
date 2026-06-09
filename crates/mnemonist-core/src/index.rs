@@ -24,7 +24,7 @@ impl IndexEntry {
             return None;
         }
 
-        let title_end = line.find("](").unwrap_or(0);
+        let title_end = line.find("](")?;
         let title = line[3..title_end].to_string();
 
         let file_start = title_end + 2;
@@ -160,6 +160,13 @@ mod tests {
         assert_eq!(entry.title, "Open Standards");
         assert_eq!(entry.file, "feedback_open_standards.md");
         assert!(entry.summary.contains("open specs"));
+    }
+
+    #[test]
+    fn parse_malformed_lines() {
+        assert!(IndexEntry::parse("- [truncated").is_none());
+        assert!(IndexEntry::parse("- [no closing paren](file.md").is_none());
+        assert!(IndexEntry::parse("plain text line").is_none());
     }
 
     #[test]

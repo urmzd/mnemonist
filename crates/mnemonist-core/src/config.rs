@@ -14,7 +14,6 @@ pub struct Config {
     pub recall: RecallConfig,
     pub index: IndexConfig,
     pub code: CodeConfig,
-    pub quantization: QuantizationConfig,
     pub consolidation: ConsolidationConfig,
     pub inbox: InboxConfig,
     pub output: OutputConfig,
@@ -36,36 +35,17 @@ pub struct EmbeddingConfig {
     pub model: String,
 }
 
-/// Configuration for TurboQuant vector quantization.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct QuantizationConfig {
-    /// Enable quantized embedding storage.
-    pub enabled: bool,
-    /// Bit-width per coordinate (1-4).
-    pub bits: u8,
-    /// Quantization algorithm: "mse" or "prod".
-    pub algorithm: String,
-    /// Temporal re-ranking weight λ ∈ [0, 1]. 0 = pure cosine, 1 = pure temporal.
-    pub temporal_weight: f32,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RecallConfig {
-    /// Max output chars for recall.
+    /// Max output chars for recall (default for `remember --budget`).
     pub budget: usize,
-    /// Type priority order for recall (highest first).
-    pub priority: Vec<String>,
     /// Follow inter-layer refs edges during recall.
     #[serde(default = "default_true")]
     pub expand_refs: bool,
     /// Max code chunks to include via ref expansion per memory hit.
     #[serde(default = "default_max_ref_expansions")]
     pub max_ref_expansions: usize,
-    /// Minimum cosine similarity threshold (0.0-1.0). Results below this are discarded.
-    #[serde(default = "default_min_similarity")]
-    pub min_similarity: f32,
     /// Minimum number of results to return, even if budget is exceeded.
     #[serde(default = "default_min_results")]
     pub min_results: usize,
@@ -77,10 +57,6 @@ fn default_true() -> bool {
 
 fn default_max_ref_expansions() -> usize {
     3
-}
-
-fn default_min_similarity() -> f32 {
-    0.35
 }
 
 fn default_min_results() -> usize {
@@ -97,12 +73,7 @@ pub struct IndexConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CodeConfig {
-    /// Supported languages for code indexing.
-    pub languages: Vec<String>,
-    /// Max lines per code chunk.
-    pub max_chunk_lines: usize,
     /// File name patterns to exclude from code indexing (case-insensitive prefix match).
-    /// Empty by default — rely on `recall.min_similarity` to filter irrelevant results.
     pub exclude_patterns: Vec<String>,
 }
 
@@ -116,8 +87,6 @@ pub struct ConsolidationConfig {
     pub merge_threshold: f32,
     /// Minimum access count to protect a memory from decay.
     pub protected_access_count: u32,
-    /// Maximum memories per level before pruning is forced.
-    pub max_memories: usize,
     /// Max tokens per memory body. Memories are cues, not copies.
     pub max_memory_tokens: usize,
 }
@@ -144,7 +113,6 @@ impl Default for ConsolidationConfig {
             decay_days: 90,
             merge_threshold: 0.85,
             protected_access_count: 5,
-            max_memories: 200,
             max_memory_tokens: 120,
         }
     }
@@ -169,18 +137,7 @@ impl Default for EmbeddingConfig {
     fn default() -> Self {
         Self {
             provider: "candle".to_string(),
-            model: "all-MiniLM-L6-v2".to_string(),
-        }
-    }
-}
-
-impl Default for QuantizationConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            bits: 2,
-            algorithm: "mse".to_string(),
-            temporal_weight: 0.2,
+            model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
         }
     }
 }
@@ -189,15 +146,8 @@ impl Default for RecallConfig {
     fn default() -> Self {
         Self {
             budget: 2000,
-            priority: vec![
-                "feedback".to_string(),
-                "project".to_string(),
-                "user".to_string(),
-                "reference".to_string(),
-            ],
             expand_refs: true,
             max_ref_expansions: 3,
-            min_similarity: 0.35,
             min_results: 2,
         }
     }
@@ -212,13 +162,6 @@ impl Default for IndexConfig {
 impl Default for CodeConfig {
     fn default() -> Self {
         Self {
-            languages: vec![
-                "rust".to_string(),
-                "python".to_string(),
-                "javascript".to_string(),
-                "go".to_string(),
-            ],
-            max_chunk_lines: 100,
             exclude_patterns: vec![
                 // Build output / bundles
                 "dist".to_string(),
@@ -275,8 +218,12 @@ impl Config {
             return base;
         };
 
-        let Ok(project_table) = project_content.parse::<toml::Value>() else {
-            return base;
+        let project_table = match project_content.parse::<toml::Value>() {
+            Ok(table) => table,
+            Err(e) => {
+                warn_unparseable(&project_path, &e.to_string());
+                return base;
+            }
         };
 
         // Serialize base config to a TOML Value, deep-merge project on top, deserialize back.
@@ -286,7 +233,13 @@ impl Config {
 
         deep_merge(&mut base_val, &project_table);
 
-        base_val.try_into().unwrap_or(base)
+        match base_val.try_into() {
+            Ok(merged) => merged,
+            Err(e) => {
+                warn_unparseable(&project_path, &e.to_string());
+                base
+            }
+        }
     }
 
     fn load_global() -> Self {
@@ -301,11 +254,15 @@ impl Config {
         ];
 
         for config_path in &candidates {
-            if config_path.exists()
-                && let Ok(content) = fs::read_to_string(config_path)
-                && let Ok(config) = toml::from_str::<Config>(&content)
-            {
-                return config;
+            if !config_path.exists() {
+                continue;
+            }
+            let Ok(content) = fs::read_to_string(config_path) else {
+                continue;
+            };
+            match toml::from_str::<Config>(&content) {
+                Ok(config) => return config,
+                Err(e) => warn_unparseable(config_path, &e.to_string()),
             }
         }
 
@@ -437,6 +394,19 @@ impl Config {
     }
 }
 
+/// Warn (once per process — `Config::load` runs several times per command)
+/// when a config file exists but cannot be used, instead of silently falling
+/// back to defaults.
+fn warn_unparseable(path: &Path, err: &str) {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    WARNED.call_once(|| {
+        eprintln!(
+            "warning: ignoring unparseable config {}: {err}",
+            path.display()
+        );
+    });
+}
+
 /// Recursively merge `overlay` into `base`. Tables are merged key-by-key;
 /// all other values in `overlay` replace those in `base`.
 fn deep_merge(base: &mut toml::Value, overlay: &toml::Value) {
@@ -472,7 +442,10 @@ mod tests {
         let config = Config::default();
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: Config = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.embedding.model, "all-MiniLM-L6-v2");
+        assert_eq!(
+            parsed.embedding.model,
+            "sentence-transformers/all-MiniLM-L6-v2"
+        );
         assert_eq!(parsed.index.max_lines, 200);
         assert_eq!(parsed.recall.budget, 2000);
     }
@@ -482,7 +455,7 @@ mod tests {
         let config = Config::default();
         assert_eq!(
             config.get("embedding.model"),
-            Some("all-MiniLM-L6-v2".to_string())
+            Some("sentence-transformers/all-MiniLM-L6-v2".to_string())
         );
         assert_eq!(config.get("index.max_lines"), Some("200".to_string()));
         assert_eq!(config.get("nonexistent.key"), None);
@@ -511,5 +484,63 @@ mod tests {
         config.storage.root = "~/.mnemonist".to_string();
         let toml_str = toml::to_string_pretty(&config).unwrap();
         insta::assert_snapshot!(toml_str);
+    }
+
+    /// Every key accepted by `config set` must be read somewhere in non-test
+    /// code: a settable key nobody consumes is a lying API surface.
+    /// Consumers are detected by the `.section.key` field-access pattern.
+    #[test]
+    fn every_config_key_has_a_consumer() {
+        fn collect_keys(val: &toml::Value, prefix: &str, out: &mut Vec<String>) {
+            if let Some(table) = val.as_table() {
+                for (k, v) in table {
+                    let path = if prefix.is_empty() {
+                        k.clone()
+                    } else {
+                        format!("{prefix}.{k}")
+                    };
+                    if v.is_table() {
+                        collect_keys(v, &path, out);
+                    } else {
+                        out.push(path);
+                    }
+                }
+            }
+        }
+
+        fn collect_sources(dir: &Path, out: &mut String) {
+            for entry in fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    collect_sources(&path, out);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    let content = fs::read_to_string(&path).unwrap();
+                    // Everything from the first unit-test marker on is ignored:
+                    // a consumer that only exists in tests doesn't count.
+                    let code = content.split("#[cfg(test)]").next().unwrap_or("");
+                    out.push_str(code);
+                }
+            }
+        }
+
+        let val = toml::Value::try_from(Config::default()).unwrap();
+        let mut keys = Vec::new();
+        collect_keys(&val, "", &mut keys);
+        assert!(!keys.is_empty());
+
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut sources = String::new();
+        collect_sources(&manifest.join("src"), &mut sources);
+        collect_sources(&manifest.join("../mnemonist-cli/src"), &mut sources);
+
+        let missing: Vec<String> = keys
+            .into_iter()
+            .filter(|key| !sources.contains(&format!(".{key}")))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "config keys accepted by `config set` but never read: {missing:?} — wire them up or delete them"
+        );
     }
 }

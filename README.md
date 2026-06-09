@@ -3,7 +3,7 @@
   <p align="center">
     An open ecosystem for tool-agnostic AI agent memory.
     <br /><br />
-    <a href="#quick-start">Quick Start</a>
+    <a href="https://github.com/urmzd/mnemonist/releases">Download</a>
     &middot;
     <a href="https://github.com/urmzd/mnemonist/issues">Report Bug</a>
     &middot;
@@ -12,6 +12,8 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/urmzd/mnemonist/actions/workflows/ci.yml"><img src="https://github.com/urmzd/mnemonist/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  &nbsp;
   <a href="https://crates.io/crates/mnemonist"><img src="https://img.shields.io/crates/v/mnemonist" alt="crates.io"></a>
   &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/github/license/urmzd/mnemonist" alt="License"></a>
@@ -57,7 +59,7 @@
 curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | sh
 ```
 
-<!-- Rust developers can also install from source with `cargo install mnemonist-cli`. -->
+<!-- Rust developers can also install from source with `cargo install mnemonist`. -->
 
 ### Hardware acceleration
 
@@ -65,10 +67,10 @@ Pre-built binaries run on CPU with pure Rust matmuls — functional, but large b
 
 ```bash
 # macOS — Apple's Accelerate BLAS (~2x faster embedding throughput)
-cargo install mnemonist-cli --features accelerate
+cargo install mnemonist --features accelerate
 
 # Linux/Windows with an NVIDIA GPU
-cargo install mnemonist-cli --features cuda
+cargo install mnemonist --features cuda
 ```
 
 ## Quick Start
@@ -76,7 +78,7 @@ cargo install mnemonist-cli --features cuda
 ```bash
 # 1. Install
 curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | sh
-# Or, if you have a Rust toolchain: cargo install mnemonist-cli
+# Or, if you have a Rust toolchain: cargo install mnemonist
 
 # 2. Ingest the codebase — auto-creates ~/.mnemonist/{project}/ and embeds source files
 mnemonist learn .
@@ -189,38 +191,35 @@ root = "~/.mnemonist"
 
 [embedding]
 provider = "candle"
-model = "all-MiniLM-L6-v2"
+model = "sentence-transformers/all-MiniLM-L6-v2"
 
 [recall]
 budget = 2000
-priority = ["feedback", "project", "user", "reference"]
 expand_refs = true
 max_ref_expansions = 3
+min_results = 2
 
 [index]
 max_lines = 200
 
 [code]
-languages = ["rust", "python", "javascript", "go"]
-max_chunk_lines = 100
-
-[inbox]
-capacity = 7
+# Trimmed here; `mnemonist config show` prints the full default list.
+exclude_patterns = ["dist", "node_modules", "target", "package-lock", ".min.js"]
 
 [consolidation]
 decay_days = 90
 merge_threshold = 0.85
 protected_access_count = 5
-max_memories = 200
+max_memory_tokens = 120
 
-[quantization]
-enabled = false
-bits = 2
-algorithm = "mse"
-temporal_weight = 0.2
+[inbox]
+capacity = 7
+
+[output]
+quiet = false
 ```
 
-Use `mnemonist config set embedding.model all-MiniLM-L6-v2` to change values.
+Use `mnemonist config set recall.budget 3000` to change values. Every key shown above is read by the CLI; a test enforces that no dead keys are accepted.
 
 See the full [Specification](spec/mnemonist.md) for details on file format, dynamic loading, precedence rules, and integration guides.
 
@@ -260,7 +259,7 @@ For ~3 in 4 natural-language queries a relevant file lands in the top 5 (recall@
 and 4 in 5 by top 10. `recall@1` (34%) is lower — the single best chunk is often a
 sibling of the true answer. Retrieval is file-level strong; exact top-chunk ranking has
 headroom (a code-tuned embedder or reranker would lift it). Gold sets are in
-[`benchmarks/rag_gold/`](benchmarks/rag_gold/) — intent-based queries with verified gold
+[`docs/benchmarks/rag_gold/`](/docs/benchmarks/rag_gold/) — intent-based queries with verified gold
 paths. Each repo is learned into an **isolated storage root** (`HOME` override) so the
 real `~/.mnemonist` is never touched.
 
@@ -292,16 +291,18 @@ just longmemeval-select 2,4     # specific experiments
 #### Vector retrieval recall (Exp 1 / 5)
 
 Per question, an HNSW index is built from that question's ~48-session haystack and
-queried. **This is retrieval recall, not QA accuracy.**
+queried. **This is retrieval recall, not QA accuracy.** Intervals are 95% Wilson,
+computed from the committed proportions and n=500 in `docs/benchmarks/results.json`;
+the harness now emits them directly on every run.
 
-| metric | value |
-|---|---|
-| recall_any@5 | **96.4%** |
-| recall_all@5 | 84.8% |
-| recall_any@10 | 98.2% |
-| recall_all@10 | 93.2% |
-| MRR | 0.873 |
-| avg query | 4.3 ms (incl. embedding) |
+| metric | value | 95% CI |
+|---|---|---|
+| recall_any@5 | **96.4%** | [94.4, 97.7] |
+| recall_all@5 | 84.8% | [81.4, 87.7] |
+| recall_any@10 | 98.2% | [96.6, 99.1] |
+| recall_all@10 | 93.2% | [90.6, 95.1] |
+| MRR | 0.873 | — |
+| avg query | 4.3 ms (incl. embedding) | — |
 
 > MemPalace's quoted "82.8% LongMemEval score" is *retrieval recall*, not QA accuracy;
 > its 96.6% figure was never independently reproduced. mnemonist's 96.4% above is the
@@ -321,17 +322,20 @@ uv run scripts/longmemeval_qa.py all --context context.jsonl \
 
 Configuration: reader `gpt-4o-mini`, judge `gpt-4o`, `top_k=5`, embedder all-MiniLM-L6-v2,
 500 questions. (LongMemEval scores are configuration-dependent; a stronger reader raises
-them.)
+them.) Accuracy intervals are 95% Wilson, computed from the committed per-type counts in
+`docs/benchmarks/results.json`; both the judge script and the substring scorer now emit
+them on every run. The small-n rows are wide — single-session-preference at n=30 is
+consistent with anything from 3.5% to 25.6%.
 
-| question type | accuracy | retrieval recall | n |
-|---|---|---|---|
-| single-session-assistant | **87.5%** | 96.4% | 56 |
-| single-session-user | 74.3% | 91.4% | 70 |
-| knowledge-update | 39.7% | 100% | 78 |
-| multi-session | 19.5% | 99.2% | 133 |
-| temporal-reasoning | 18.8% | 94.0% | 133 |
-| single-session-preference | 10.0% | 96.7% | 30 |
-| **overall** | **37.2%** | **96.4%** | **500** |
+| question type | accuracy | 95% CI | retrieval recall | n |
+|---|---|---|---|---|
+| single-session-assistant | **87.5%** | [76.4, 93.8] | 96.4% | 56 |
+| single-session-user | 74.3% | [63.0, 83.1] | 91.4% | 70 |
+| knowledge-update | 39.7% | [29.6, 50.8] | 100% | 78 |
+| multi-session | 19.5% | [13.7, 27.1] | 99.2% | 133 |
+| temporal-reasoning | 18.8% | [13.1, 26.3] | 94.0% | 133 |
+| single-session-preference | 10.0% | [3.5, 25.6] | 96.7% | 30 |
+| **overall** | **37.2%** | **[33.1, 41.5]** | **96.4%** | **500** |
 
 Retrieval is strong everywhere (91–100%) — the gap to QA accuracy is the *reader's*
 reasoning, not the *memory's* recall. Factual single-session recall is high (74–88%);
@@ -345,6 +349,13 @@ the remembered preference — recall there is 96.7%).
 #### Latency scaling (Exp 2)
 
 Per-query latency over the HNSW index at increasing corpus sizes (M4 Pro, 384-dim):
+
+> **Under revision** (methodology corrected 2026-06-09: the numbers below came from a
+> single cold pass over the query set; the harness now runs a 50-query warmup, repeats
+> each scale point 5 times reporting median-of-runs percentiles, propagates search errors
+> instead of discarding them, and sorts session IDs before subsetting so each scale point
+> measures the same documents on every run). The numbers below predate the fix and will
+> be republished after a rerun.
 
 | n_docs | build | p50 | p95 | p99 |
 |---|---|---|---|---|
@@ -360,6 +371,14 @@ Query latency stays **sub-millisecond even at 10k documents** and scales sub-lin
 
 Does recall improve as memories are *used*? Over 10 consolidation cycles with Hebbian
 reinforcement (access strengthens frequently-retrieved memories), global-retrieval setting:
+
+> **Under revision** (methodology corrected 2026-06-09: baseline recall was computed over
+> all 500 queries while reinforced recall used only the held-out second half; the harness
+> now scores both arms on the same eval slice, adds a no-reinforcement control that
+> runs the identical retrieve-20/rerank/take-5 path with zero access counts to isolate
+> the reinforcement signal, and reports an exact McNemar p-value on the paired per-query
+> hits of the reinforced and control arms). The numbers below predate the fix and will be
+> republished after a rerun.
 
 | | recall_any@5 |
 |---|---|
@@ -388,7 +407,12 @@ raw*).
 
 At 3–4 bits, cosine distortion is <0.02 and recall **matches the raw baseline within
 noise** (4-bit recall@10 37.0% vs raw 37.2%) — **quantization is effectively lossless for
-retrieval at 8–10× compression**. TurboQuant is currently a research/eval module and is
+retrieval at 8–10× compression**. The 1-bit recall@5 cell *exceeding* raw (28.6% vs
+26.6%) is sampling noise, not signal: at n=500 the 95% Wilson intervals are raw
+[22.9, 30.6] and 1-bit [24.8, 32.7], overlapping heavily. The per-query hit vectors
+needed for a paired test were not recorded in this run; the harness now computes an
+exact McNemar p-value against the raw baseline at each bit-width, so the next rerun
+will settle each delta directly. TurboQuant is currently a research/eval module and is
 **not** wired into `learn`/`remember` (which store full f32); this benchmark is the basis
 for deciding whether to integrate it.
 
@@ -477,7 +501,7 @@ Run `just bench` (all) or `cargo bench -p mnemonist-core --features evals,ann,qu
 | `discrimination_gap` | 16.0 µs | — | — |
 
 > Measured on Apple Silicon (M4 Pro) with `cargo bench`. Run `just bench` to reproduce.
-> Raw results in [`docs/benchmarks/`](benchmarks/).
+> Raw results in [`docs/benchmarks/`](/docs/benchmarks/).
 <!-- /fsrc -->
 
 ## Testing

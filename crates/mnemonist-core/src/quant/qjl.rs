@@ -162,7 +162,7 @@ mod tests {
 
         let result = qjl.quantize(&x);
         assert_eq!(result.dimension, dim);
-        assert_eq!(result.packed_signs.len(), (dim + 7) / 8);
+        assert_eq!(result.packed_signs.len(), dim.div_ceil(8));
     }
 
     #[test]
