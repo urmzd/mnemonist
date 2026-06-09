@@ -234,10 +234,16 @@ Two kinds of benchmark live here:
 2. **Microbenchmarks** — how fast are the individual primitives (distance kernels,
    HNSW, quantization)? Measured with `cargo bench` (criterion).
 
-> **Provenance.** Measured on an **Apple M4 Pro** (macOS), commit `f68c13a` + working-tree
-> eval improvements, embedder **all-MiniLM-L6-v2** (384-dim, candle + accelerate), HNSW
-> `m=16, m0=32, ef_construction=200, ef_search=100`, dataset `longmemeval_s_cleaned.json`
-> (19,195 sessions / 500 questions), 2026-05. Reproduce with the commands in each section.
+> **Provenance.** LongMemEval experiments 1–6 (retrieval side): commit `b25e88e` (clean
+> working tree), 2026-06-09, via `just longmemeval-json` (`mnemonist-bench --dataset
+> data/longmemeval_s_cleaned.json --temporal-cycles 10 --format json`) on an
+> **Apple M4 Pro** (CPU, candle embeddings, default features + `bench-cli`), embedder
+> **all-MiniLM-L6-v2** (384-dim, candle + accelerate), HNSW `m=16, m0=32,
+> ef_construction=200, ef_search=100`, dataset `longmemeval_s_cleaned.json`
+> (19,195 sessions / 500 questions, sha256
+> `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`). The code-RAG
+> results and the gpt-4o-judged QA accuracy are from the earlier 2026-05 run at `f68c13a`
+> and were not rerun. Reproduce with the commands in each section.
 
 ### Code retrieval — RAG over real repositories
 
@@ -291,9 +297,8 @@ just longmemeval-select 2,4     # specific experiments
 #### Vector retrieval recall (Exp 1 / 5)
 
 Per question, an HNSW index is built from that question's ~48-session haystack and
-queried. **This is retrieval recall, not QA accuracy.** Intervals are 95% Wilson,
-computed from the committed proportions and n=500 in `docs/benchmarks/results.json`;
-the harness now emits them directly on every run.
+queried. **This is retrieval recall, not QA accuracy.** Intervals are 95% Wilson (n=500),
+emitted by the harness and committed in `docs/benchmarks/results.json`.
 
 | metric | value | 95% CI |
 |---|---|---|
@@ -302,7 +307,12 @@ the harness now emits them directly on every run.
 | recall_any@10 | 98.2% | [96.6, 99.1] |
 | recall_all@10 | 93.2% | [90.6, 95.1] |
 | MRR | 0.873 | — |
-| avg query | 4.3 ms (incl. embedding) | — |
+| avg query | 9.7 ms (incl. embedding) | — |
+
+> Timing scope (corrected 2026-06-09): `embed_time_ms` (1,583,789 ms) now measures
+> haystack embedding alone, and the experiment loop's wall time is reported separately
+> as `total_time_ms` (1,590,953 ms); the previously committed value timed the whole
+> loop. The recall numbers were reproduced exactly under the fix (96.4% / 84.8%).
 
 > MemPalace's quoted "82.8% LongMemEval score" is *retrieval recall*, not QA accuracy;
 > its 96.6% figure was never independently reproduced. mnemonist's 96.4% above is the
@@ -322,7 +332,10 @@ uv run scripts/longmemeval_qa.py all --context context.jsonl \
 
 Configuration: reader `gpt-4o-mini`, judge `gpt-4o`, `top_k=5`, embedder all-MiniLM-L6-v2,
 500 questions. (LongMemEval scores are configuration-dependent; a stronger reader raises
-them.) Accuracy intervals are 95% Wilson, computed from the committed per-type counts in
+them.) Accuracy comes from the 2026-05 judged run at `f68c13a`; the LLM-judge pipeline
+was not rerun for the 2026-06-09 update and is unaffected by the retrieval-side fixes.
+The retrieval-recall column was reproduced exactly by the 2026-06-09 rerun.
+Accuracy intervals are 95% Wilson, computed from the committed per-type counts in
 `docs/benchmarks/results.json`; both the judge script and the substring scorer now emit
 them on every run. The small-n rows are wide — single-session-preference at n=30 is
 consistent with anything from 3.5% to 25.6%.
@@ -348,47 +361,44 @@ the remembered preference — recall there is 96.7%).
 
 #### Latency scaling (Exp 2)
 
-Per-query latency over the HNSW index at increasing corpus sizes (M4 Pro, 384-dim):
-
-> **Under revision** (methodology corrected 2026-06-09: the numbers below came from a
-> single cold pass over the query set; the harness now runs a 50-query warmup, repeats
-> each scale point 5 times reporting median-of-runs percentiles, propagates search errors
-> instead of discarding them, and sorts session IDs before subsetting so each scale point
-> measures the same documents on every run). The numbers below predate the fix and will
-> be republished after a rerun.
+Per-query latency over the HNSW index at increasing corpus sizes (M4 Pro, 384-dim).
+Methodology: 50 warmup queries per scale point, percentiles are the median of 5 runs,
+and session subsets are deterministic (sorted session IDs) so every run measures the
+same documents.
 
 | n_docs | build | p50 | p95 | p99 |
 |---|---|---|---|---|
-| 100 | 21 ms | 52 µs | 57 µs | 78 µs |
-| 500 | 199 ms | 139 µs | 169 µs | 204 µs |
-| 1,000 | 432 ms | 156 µs | 200 µs | 226 µs |
-| 5,000 | 3.4 s | 175 µs | 263 µs | 302 µs |
-| 10,000 | 7.1 s | 192 µs | 338 µs | **406 µs** |
+| 100 | 18 ms | 44 µs | 46 µs | 48 µs |
+| 500 | 167 ms | 111 µs | 131 µs | 137 µs |
+| 1,000 | 407 ms | 130 µs | 167 µs | 179 µs |
+| 5,000 | 2.8 s | 148 µs | 221 µs | 253 µs |
+| 10,000 | 6.0 s | 156 µs | 244 µs | **295 µs** |
 
 Query latency stays **sub-millisecond even at 10k documents** and scales sub-linearly.
 
 #### Temporal reinforcement (Exp 4) — performance over time
 
 Does recall improve as memories are *used*? Over 10 consolidation cycles with Hebbian
-reinforcement (access strengthens frequently-retrieved memories), global-retrieval setting:
+reinforcement (access strengthens frequently-retrieved memories), global-retrieval
+setting. Both arms are scored on the same held-out eval slice (n=250), and a
+no-reinforcement control runs the identical retrieve-20/rerank/take-5 path with zero
+access counts, so the reported delta isolates the reinforcement signal itself.
 
-> **Under revision** (methodology corrected 2026-06-09: baseline recall was computed over
-> all 500 queries while reinforced recall used only the held-out second half; the harness
-> now scores both arms on the same eval slice, adds a no-reinforcement control that
-> runs the identical retrieve-20/rerank/take-5 path with zero access counts to isolate
-> the reinforcement signal, and reports an exact McNemar p-value on the paired per-query
-> hits of the reinforced and control arms). The numbers below predate the fix and will be
-> republished after a rerun.
-
-| | recall_any@5 |
+| arm | recall_any@5 |
 |---|---|
-| baseline (static) | 26.6% |
-| reinforced (10 cycles) | **36.0%** |
-| **delta** | **+9.4 pp** |
+| baseline (static) | 37.2% |
+| control (rerank, no reinforcement) | 37.2% |
+| reinforced (10 cycles) | 37.2% |
+| **delta vs control** | **+0.0 pp** |
 
-Reinforcement lifts recall by **+9.4 points** — the system gets better at surfacing what
-you actually use. (Access patterns are synthetic repeated queries, not real logs — a
-controlled demonstration of the mechanism.)
+All three arms sit at 37.2% (95% Wilson [31.4, 43.3], n=250); the exact McNemar test on
+the paired reinforced-vs-control hits gives p = 1.0000 with 0/0 discordant pairs — the
+two arms retrieve identical top-5 sets for every eval query. The previously published
++9.4 pp compared arms over different query populations (all 500 queries vs the held-out
+250) and subtracted the pure-cosine baseline, which credited the reranker's own
+contribution to reinforcement; under the corrected design the reinforcement signal
+contributes nothing on this dataset. (Access patterns are synthetic repeated queries,
+not real logs — a controlled demonstration of the mechanism.)
 
 #### Storage & quantization (Exp 3)
 
@@ -397,22 +407,23 @@ Raw vs TurboQuant (MSE) at 1–4 bits over 19,195 × 384-dim embeddings. Recall 
 per-question haystack above, hence lower absolute numbers; the point is *degradation vs
 raw*).
 
-| storage | bytes/vector | total | compression | recall@5 | recall@10 | cosine distortion |
-|---|---|---|---|---|---|---|
-| raw f32 | 1536 B | 29.5 MB | 1.0× | 26.6% | 37.2% | 0 |
-| 4-bit | 196 B | 3.76 MB | 7.8× | 27.2% | 37.0% | 0.0047 |
-| 3-bit | 148 B | 2.84 MB | 10.4× | 26.4% | 35.8% | 0.0173 |
-| 2-bit | 100 B | 1.92 MB | 15.4× | 25.8% | 34.6% | 0.0602 |
-| 1-bit | 52 B | 1.00 MB | 29.5× | 28.6% | 35.4% | 0.2017 |
+| storage | bytes/vector | total | compression | recall@5 | recall@10 | McNemar p vs raw (@5 / @10) | cosine distortion |
+|---|---|---|---|---|---|---|---|
+| raw f32 | 1536 B | 29.5 MB | 1.0× | 26.8% | 37.0% | — | 0 |
+| 4-bit | 196 B | 3.76 MB | 7.8× | 27.0% | 36.8% | 1.000 / 1.000 | 0.0047 |
+| 3-bit | 148 B | 2.84 MB | 10.4× | 26.2% | 35.6% | 0.581 / 0.092 | 0.0173 |
+| 2-bit | 100 B | 1.92 MB | 15.4× | 26.0% | 34.6% | 0.523 / 0.017 | 0.0603 |
+| 1-bit | 52 B | 1.00 MB | 29.5× | 28.8% | 35.2% | 0.121 / 0.262 | 0.2017 |
 
 At 3–4 bits, cosine distortion is <0.02 and recall **matches the raw baseline within
-noise** (4-bit recall@10 37.0% vs raw 37.2%) — **quantization is effectively lossless for
-retrieval at 8–10× compression**. The 1-bit recall@5 cell *exceeding* raw (28.6% vs
-26.6%) is sampling noise, not signal: at n=500 the 95% Wilson intervals are raw
-[22.9, 30.6] and 1-bit [24.8, 32.7], overlapping heavily. The per-query hit vectors
-needed for a paired test were not recorded in this run; the harness now computes an
-exact McNemar p-value against the raw baseline at each bit-width, so the next rerun
-will settle each delta directly. TurboQuant is currently a research/eval module and is
+noise** (4-bit recall@10 36.8% vs raw 37.0%, exact McNemar p = 1.0 at both cutoffs) —
+**quantization is effectively lossless for retrieval at 8–10× compression**. The 1-bit
+recall@5 cell *exceeding* raw (28.8% vs 26.8%) is sampling noise, not signal: the paired
+exact McNemar test gives p = 0.121, and at n=500 the 95% Wilson intervals are raw
+[23.1, 30.8] and 1-bit [25.0, 32.9], overlapping heavily. The only cell that clears
+p < 0.05 is 2-bit recall@10 (34.6% vs raw 37.0%, p = 0.017, uncorrected for the eight
+comparisons), consistent with a small real degradation at 2 bits. TurboQuant is
+currently a research/eval module and is
 **not** wired into `learn`/`remember` (which store full f32); this benchmark is the basis
 for deciding whether to integrate it.
 
