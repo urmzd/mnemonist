@@ -5,7 +5,7 @@ CLI tool for [mnemonist](https://github.com/urmzd/mnemonist) — the open ecosys
 ## Install
 
 ```bash
-cargo install mnemonist-cli
+cargo install mnemonist
 ```
 
 ## Commands

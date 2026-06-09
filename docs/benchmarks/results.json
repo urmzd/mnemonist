@@ -1,8 +1,10 @@
 {
   "meta": {
-    "git_commit": "f68c13a (+ working-tree eval improvements)",
-    "generated": "2026-05",
-    "hardware": "Apple M4 Pro (macOS)",
+    "git_commit": "b25e88e",
+    "git_tree": "clean",
+    "generated": "2026-06-09",
+    "command": "just longmemeval-json (= mnemonist-bench --dataset data/longmemeval_s_cleaned.json --temporal-cycles 10 --format json)",
+    "hardware": "Apple M4 Pro (CPU, candle embeddings, MNEMONIST default features + bench-cli)",
     "embedder": "all-MiniLM-L6-v2",
     "embedder_dim": 384,
     "embedder_backend": "candle + accelerate",
@@ -13,122 +15,167 @@
       "ef_search": 100
     },
     "dataset": "longmemeval_s_cleaned.json",
+    "dataset_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
     "n_sessions": 19195,
     "n_questions": 500,
     "qa_reader_model": "gpt-4o-mini",
     "qa_judge_model": "gpt-4o",
-    "qa_top_k": 5
+    "qa_top_k": 5,
+    "qa_judged_run": "2026-05 at f68c13a; the gpt-4o-judged QA pipeline was not rerun for this report"
   },
   "retrieval": {
     "recall_any_at_5": 0.964,
+    "recall_any_at_5_ci95": [
+      0.943815226738503,
+      0.9771091272648186
+    ],
     "recall_all_at_5": 0.848,
+    "recall_all_at_5_ci95": [
+      0.8138851771600609,
+      0.8768080883424302
+    ],
     "recall_any_at_10": 0.982,
+    "recall_any_at_10_ci95": [
+      0.9661479527879661,
+      0.9905019149482431
+    ],
     "recall_all_at_10": 0.932,
+    "recall_all_at_10_ci95": [
+      0.9064785429161282,
+      0.9509337866731715
+    ],
     "mrr": 0.8729341269841269,
     "precision_at_5": 0.3396000000000009,
     "n_sessions": 19195,
     "n_queries": 500,
     "avg_haystack_size": 47.734,
-    "embed_time_ms": 754108,
-    "index_build_time_ms": 1700,
-    "total_query_time_ms": 2159,
-    "avg_query_time_us": 4318.08
+    "embed_time_ms": 1583789,
+    "index_build_time_ms": 2050,
+    "total_query_time_ms": 4849,
+    "avg_query_time_us": 9699.576,
+    "total_time_ms": 1590953
   },
   "latency": {
     "scale_points": [
       {
         "n_documents": 100,
-        "index_build_time_ms": 21,
-        "query_latency_p50_us": 52.292,
-        "query_latency_p95_us": 57.375,
-        "query_latency_p99_us": 77.875,
-        "avg_query_time_us": 53.46169999999992,
-        "n_queries": 500
+        "index_build_time_ms": 18,
+        "query_latency_p50_us": 43.792,
+        "query_latency_p95_us": 46.292,
+        "query_latency_p99_us": 47.708,
+        "avg_query_time_us": 44.095602000000035,
+        "n_queries": 500,
+        "n_runs": 5,
+        "n_warmup_queries": 50
       },
       {
         "n_documents": 500,
-        "index_build_time_ms": 199,
-        "query_latency_p50_us": 139.291,
-        "query_latency_p95_us": 168.584,
-        "query_latency_p99_us": 203.583,
-        "avg_query_time_us": 139.842426,
-        "n_queries": 500
+        "index_build_time_ms": 167,
+        "query_latency_p50_us": 111.0,
+        "query_latency_p95_us": 131.208,
+        "query_latency_p99_us": 137.292,
+        "avg_query_time_us": 110.47190199999996,
+        "n_queries": 500,
+        "n_runs": 5,
+        "n_warmup_queries": 50
       },
       {
         "n_documents": 1000,
-        "index_build_time_ms": 432,
-        "query_latency_p50_us": 155.75,
-        "query_latency_p95_us": 200.084,
-        "query_latency_p99_us": 225.75,
-        "avg_query_time_us": 153.67741599999997,
-        "n_queries": 500
+        "index_build_time_ms": 407,
+        "query_latency_p50_us": 130.208,
+        "query_latency_p95_us": 167.333,
+        "query_latency_p99_us": 179.375,
+        "avg_query_time_us": 131.54208799999995,
+        "n_queries": 500,
+        "n_runs": 5,
+        "n_warmup_queries": 50
       },
       {
         "n_documents": 5000,
-        "index_build_time_ms": 3430,
-        "query_latency_p50_us": 174.791,
-        "query_latency_p95_us": 262.916,
-        "query_latency_p99_us": 302.125,
-        "avg_query_time_us": 180.54011400000007,
-        "n_queries": 500
+        "index_build_time_ms": 2781,
+        "query_latency_p50_us": 147.916,
+        "query_latency_p95_us": 221.292,
+        "query_latency_p99_us": 253.0,
+        "avg_query_time_us": 150.06241799999998,
+        "n_queries": 500,
+        "n_runs": 5,
+        "n_warmup_queries": 50
       },
       {
         "n_documents": 10000,
-        "index_build_time_ms": 7094,
-        "query_latency_p50_us": 191.75,
-        "query_latency_p95_us": 337.875,
-        "query_latency_p99_us": 405.75,
-        "avg_query_time_us": 203.46632799999995,
-        "n_queries": 500
+        "index_build_time_ms": 5963,
+        "query_latency_p50_us": 156.5,
+        "query_latency_p95_us": 244.292,
+        "query_latency_p99_us": 295.25,
+        "avg_query_time_us": 160.361976,
+        "n_queries": 500,
+        "n_runs": 5,
+        "n_warmup_queries": 50
       }
     ]
   },
   "storage": {
     "n_vectors": 19195,
     "dimension": 384,
+    "n_queries": 500,
     "raw_embedding_bytes": 29483520,
     "hnsw_index_bytes": 32519621,
-    "raw_recall_any_at_5": 0.266,
-    "raw_recall_any_at_10": 0.372,
+    "raw_recall_any_at_5": 0.268,
+    "raw_recall_any_at_10": 0.37,
     "quantized": [
       {
         "bits": 1,
         "compressed_bytes": 998140,
         "compression_ratio": 29.53846153846154,
-        "recall_any_at_5": 0.286,
-        "recall_any_at_10": 0.354,
-        "cosine_distortion": 0.201740642707464
+        "recall_any_at_5": 0.288,
+        "recall_any_at_10": 0.352,
+        "mcnemar_p_vs_raw_at_5": 0.12144948495551944,
+        "mcnemar_p_vs_raw_at_10": 0.2624375357110438,
+        "cosine_distortion": 0.2017406445612787
       },
       {
         "bits": 2,
         "compressed_bytes": 1919500,
         "compression_ratio": 15.36,
-        "recall_any_at_5": 0.258,
+        "recall_any_at_5": 0.26,
         "recall_any_at_10": 0.346,
-        "cosine_distortion": 0.06025397866056064
+        "mcnemar_p_vs_raw_at_5": 0.5234670639038086,
+        "mcnemar_p_vs_raw_at_10": 0.01690053939819336,
+        "cosine_distortion": 0.060253979219499744
       },
       {
         "bits": 3,
         "compressed_bytes": 2840860,
         "compression_ratio": 10.378378378378379,
-        "recall_any_at_5": 0.264,
-        "recall_any_at_10": 0.358,
-        "cosine_distortion": 0.01729196689190359
+        "recall_any_at_5": 0.262,
+        "recall_any_at_10": 0.356,
+        "mcnemar_p_vs_raw_at_5": 0.5810546875,
+        "mcnemar_p_vs_raw_at_10": 0.09228515625,
+        "cosine_distortion": 0.017291968165042654
       },
       {
         "bits": 4,
         "compressed_bytes": 3762220,
         "compression_ratio": 7.836734693877551,
-        "recall_any_at_5": 0.272,
-        "recall_any_at_10": 0.37,
-        "cosine_distortion": 0.0047200758682622605
+        "recall_any_at_5": 0.27,
+        "recall_any_at_10": 0.368,
+        "mcnemar_p_vs_raw_at_5": 1.0,
+        "mcnemar_p_vs_raw_at_10": 1.0,
+        "cosine_distortion": 0.00472007759786826
       }
     ]
   },
   "temporal": {
-    "baseline_recall_any_at_5": 0.266,
-    "reinforced_recall_any_at_5": 0.36,
-    "recall_delta": 0.09399999999999997,
+    "baseline_recall_any_at_5": 0.372,
+    "control_recall_any_at_5": 0.372,
+    "reinforced_recall_any_at_5": 0.372,
+    "recall_delta": 0.0,
+    "n_eval_queries": 250,
+    "n_discordant_reinforced_vs_control": [
+      0,
+      0
+    ],
+    "mcnemar_p_reinforced_vs_control": 1.0,
     "n_consolidation_cycles": 10,
     "n_queries_per_cycle": 250,
     "n_documents": 19195
@@ -139,6 +186,8 @@
     "n_sessions": 19195,
     "n_queries": 500,
     "avg_haystack_size": 47.734,
+    "total_time_s": 1410.332562042,
+    "per_question_time_s": 2.820665124084,
     "note": "MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. This is NOT a QA accuracy score \u2014 it is raw vector retrieval recall. Their 96.6% number was never reproduced independently. See Experiment 6 for actual LongMemEval QA evaluation."
   },
   "qa": {

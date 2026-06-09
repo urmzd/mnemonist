@@ -18,7 +18,9 @@ use crate::embed::Embedder;
 
 use crate::evals::EvalError;
 use crate::evals::longmemeval::LongMemEvalDataset;
-use crate::evals::search::{QueryEval, evaluate_search, recall_all_at_k, recall_any_at_k};
+use crate::evals::search::{
+    QueryEval, evaluate_search, recall_all_at_k, recall_any_at_k, wilson95,
+};
 
 /// Results from the vector retrieval experiment.
 ///
@@ -27,18 +29,29 @@ use crate::evals::search::{QueryEval, evaluate_search, recall_all_at_k, recall_a
 #[derive(Debug, Clone, Serialize)]
 pub struct RetrievalResult {
     pub recall_any_at_5: f64,
+    /// 95% Wilson interval `[lo, hi]` for `recall_any_at_5`.
+    pub recall_any_at_5_ci95: [f64; 2],
     pub recall_all_at_5: f64,
+    pub recall_all_at_5_ci95: [f64; 2],
     pub recall_any_at_10: f64,
+    pub recall_any_at_10_ci95: [f64; 2],
     pub recall_all_at_10: f64,
+    pub recall_all_at_10_ci95: [f64; 2],
     pub mrr: f64,
     pub precision_at_5: f64,
     pub n_sessions: usize,
     pub n_queries: usize,
     pub avg_haystack_size: f64,
+    /// Time spent embedding haystack sessions only. Query embedding is counted
+    /// under `total_query_time_ms`/`avg_query_time_us` (documented as
+    /// "incl. embedding").
     pub embed_time_ms: u64,
     pub index_build_time_ms: u64,
     pub total_query_time_ms: u64,
     pub avg_query_time_us: f64,
+    /// Wall time for the whole experiment loop (embed + build + query +
+    /// bookkeeping).
+    pub total_time_ms: u64,
 }
 
 /// Run Experiment 1: Vector retrieval quality (per-question haystacks).
@@ -59,9 +72,10 @@ pub fn run(
         return Err(EvalError::InsufficientData { min: 1, got: 0 });
     }
 
-    let embed_start = Instant::now();
+    let total_start = Instant::now();
     let mut query_evals = Vec::with_capacity(total);
     let mut total_haystack = 0usize;
+    let mut total_embed_us = 0u64;
     let mut total_build_ms = 0u64;
     let mut total_query_us = 0u64;
 
@@ -92,9 +106,11 @@ pub fn run(
         }
 
         // Embed this question's haystack
+        let embed_start = Instant::now();
         let session_embeddings = embedder
             .embed_batch(&haystack_texts)
             .map_err(|e| EvalError::Other(e.to_string()))?;
+        total_embed_us += embed_start.elapsed().as_micros() as u64;
 
         // Build per-question HNSW
         let build_start = Instant::now();
@@ -142,22 +158,37 @@ pub fn run(
         }
     }
 
-    let embed_time = embed_start.elapsed();
+    let total_time = total_start.elapsed();
     let search_metrics = evaluate_search(&query_evals, 5);
 
+    // Recall metrics are proportions over the scored queries; recover the hit
+    // counts to attach Wilson intervals.
+    let n_scored = query_evals.len();
+    let ci = |recall: f64| wilson95((recall * n_scored as f64).round() as usize, n_scored);
+
+    let recall_any_5 = recall_any_at_k(&query_evals, 5);
+    let recall_all_5 = recall_all_at_k(&query_evals, 5);
+    let recall_any_10 = recall_any_at_k(&query_evals, 10);
+    let recall_all_10 = recall_all_at_k(&query_evals, 10);
+
     Ok(RetrievalResult {
-        recall_any_at_5: recall_any_at_k(&query_evals, 5),
-        recall_all_at_5: recall_all_at_k(&query_evals, 5),
-        recall_any_at_10: recall_any_at_k(&query_evals, 10),
-        recall_all_at_10: recall_all_at_k(&query_evals, 10),
+        recall_any_at_5: recall_any_5,
+        recall_any_at_5_ci95: ci(recall_any_5),
+        recall_all_at_5: recall_all_5,
+        recall_all_at_5_ci95: ci(recall_all_5),
+        recall_any_at_10: recall_any_10,
+        recall_any_at_10_ci95: ci(recall_any_10),
+        recall_all_at_10: recall_all_10,
+        recall_all_at_10_ci95: ci(recall_all_10),
         mrr: search_metrics.mrr,
         precision_at_5: search_metrics.precision_at_k,
         n_sessions: dataset.sessions.len(),
         n_queries: total,
         avg_haystack_size: total_haystack as f64 / total as f64,
-        embed_time_ms: embed_time.as_millis() as u64,
+        embed_time_ms: total_embed_us / 1000,
         index_build_time_ms: total_build_ms,
         total_query_time_ms: total_query_us / 1000,
         avg_query_time_us: total_query_us as f64 / total as f64,
+        total_time_ms: total_time.as_millis() as u64,
     })
 }

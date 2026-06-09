@@ -402,7 +402,7 @@ Results are re-ranked using a blended score:
 final_score = (1 - lambda) * cosine_similarity + lambda * temporal_score
 ```
 
-Where `lambda` is `temporal_weight` (default 0.2) and:
+Where `lambda` is the blend weight (0.2) and:
 
 ```
 temporal_score = recency * frequency_boost * type_weight
@@ -506,13 +506,11 @@ Optional vector quantization compresses embedding storage from 32-bit floats to 
 
 Binary format `LMCQ` with header (magic + version + dimension + count + bit-width + algorithm) followed by packed quantized entries.
 
-### 12.3 Configuration
+### 12.3 Status
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `quantization.enabled` | false | Enable quantized storage |
-| `quantization.bits` | 2 | Bit-width per coordinate (1-4) |
-| `quantization.algorithm` | "mse" | `mse` or `prod` |
+TurboQuant is a research/eval module: it is benchmarked (see `docs/benchmarks.md`)
+but not wired into `learn`/`remember`, which store full f32 vectors. It therefore
+exposes no configuration keys.
 
 See arXiv:2504.19874 for the underlying paper.
 
@@ -527,33 +525,27 @@ Configuration is layered: `~/.mnemonist/mnemonist.toml` is the global default an
 root = "~/.mnemonist"
 
 [embedding]
-provider = "candle"          # Embedding provider
-model = "all-MiniLM-L6-v2"  # Model identifier
+provider = "candle"          # Embedding provider: "candle" or "none"
+model = "sentence-transformers/all-MiniLM-L6-v2"  # HuggingFace model id
 
 [recall]
-budget = 2000                # Max output chars
-priority = ["feedback", "project", "user", "reference"]
+budget = 2000                # Max output chars (default for `remember --budget`)
 expand_refs = true           # Follow inter-layer ref edges
 max_ref_expansions = 3       # Max ref expansions per memory hit
+min_results = 2              # Always return at least N results, even past budget
 
 [index]
 max_lines = 200              # Max entries in MEMORY.md
 
 [code]
-languages = ["rust", "python", "javascript", "go"]
-max_chunk_lines = 100        # Max lines per code chunk
-
-[quantization]
-enabled = false
-bits = 2                     # 1-4
-algorithm = "mse"            # "mse" or "prod"
-temporal_weight = 0.2        # Blend factor: 0 = pure cosine, 1 = pure temporal
+# Filename patterns skipped during code indexing (case-insensitive).
+# Trimmed here; `mnemonist config show` prints the full default list.
+exclude_patterns = ["dist", "node_modules", "target", "package-lock", ".min.js"]
 
 [consolidation]
 decay_days = 90              # Days before decay eligibility
 merge_threshold = 0.85       # Cosine threshold for associative linking
 protected_access_count = 5   # Min accesses to protect from decay
-max_memories = 200           # Max memories per level
 max_memory_tokens = 120      # Max tokens per promoted memory body
 
 [inbox]
@@ -562,6 +554,9 @@ capacity = 7                 # Working memory size
 [output]
 quiet = false                # Suppress elapsed-time on stderr
 ```
+
+Every key above has a consumer in the implementation; keys without consumers
+are removed rather than documented.
 
 ## 15. Evaluation Harness
 

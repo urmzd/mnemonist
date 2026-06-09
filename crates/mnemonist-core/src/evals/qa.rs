@@ -20,6 +20,7 @@ use crate::embed::Embedder;
 
 use super::EvalError;
 use super::longmemeval::LongMemEvalDataset;
+use super::search::wilson95;
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -79,6 +80,10 @@ pub struct QaAnswerRecord {
 pub struct QaReport {
     /// Overall answer accuracy (fraction correct).
     pub overall_accuracy: f64,
+    /// 95% Wilson interval `[lo, hi]` for `overall_accuracy`.
+    pub overall_accuracy_ci95: [f64; 2],
+    /// Raw number of correct answers (the numerator of `overall_accuracy`).
+    pub n_correct: usize,
     /// Retrieval recall: fraction of questions where any gold session was in top-k.
     pub retrieval_recall_any_at_k: f64,
     /// Per question-type breakdown.
@@ -92,6 +97,8 @@ pub struct QaReport {
 pub struct QuestionTypeResult {
     pub question_type: String,
     pub accuracy: f64,
+    /// 95% Wilson interval `[lo, hi]` for `accuracy`.
+    pub accuracy_ci95: [f64; 2],
     pub retrieval_recall: f64,
     pub count: usize,
 }
@@ -355,6 +362,7 @@ pub fn score_answers(records: &[QaAnswerRecord]) -> QaReport {
             } else {
                 correct as f64 / total as f64
             },
+            accuracy_ci95: wilson95(correct, total),
             retrieval_recall: 0.0, // Not available in answer-only scoring
             count: total,
         })
@@ -367,9 +375,120 @@ pub fn score_answers(records: &[QaAnswerRecord]) -> QaReport {
         } else {
             total_correct as f64 / records.len() as f64
         },
+        overall_accuracy_ci95: wilson95(total_correct, records.len()),
+        n_correct: total_correct,
         retrieval_recall_any_at_k: 0.0, // Not available in answer-only scoring
         per_type,
         n_questions: records.len(),
         scoring_method: "string_match".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record(qtype: Option<&str>, gold: Option<&str>, answer: &str) -> QaAnswerRecord {
+        QaAnswerRecord {
+            question_id: "q".to_string(),
+            question_type: qtype.map(|s| s.to_string()),
+            question: "?".to_string(),
+            gold_answer: gold.map(|s| s.to_string()),
+            model_answer: answer.to_string(),
+        }
+    }
+
+    #[test]
+    fn substring_match_is_case_insensitive() {
+        let recs = vec![record(None, Some("Paris"), "The city is paris.")];
+        let report = score_answers(&recs);
+        assert_eq!(report.n_correct, 1);
+        assert_eq!(report.overall_accuracy, 1.0);
+    }
+
+    #[test]
+    fn miss_when_gold_absent() {
+        let recs = vec![record(None, Some("Paris"), "It was London.")];
+        let report = score_answers(&recs);
+        assert_eq!(report.n_correct, 0);
+        assert_eq!(report.overall_accuracy, 0.0);
+    }
+
+    #[test]
+    fn negation_is_scored_correct_by_design_limitation() {
+        // Substring matching cannot see polarity: "definitely not Paris" still
+        // contains "paris". This is the documented limitation of the baseline
+        // scorer — the LLM judge (scripts/longmemeval_qa.py) handles negation.
+        // If this assertion ever fails, the scorer changed semantics and every
+        // published string_match number must be regenerated.
+        let recs = vec![record(None, Some("Paris"), "It is definitely not Paris.")];
+        let report = score_answers(&recs);
+        assert_eq!(report.n_correct, 1);
+    }
+
+    #[test]
+    fn abstention_markers_count_as_correct_without_gold() {
+        for answer in [
+            "I don't know.",
+            "That is not mentioned in the context.",
+            "There is no information about that.",
+            "I cannot answer that question.",
+            "I don't have that information.",
+        ] {
+            let recs = vec![record(None, None, answer)];
+            let report = score_answers(&recs);
+            assert_eq!(report.n_correct, 1, "marker not recognized: {answer}");
+        }
+    }
+
+    #[test]
+    fn confident_answer_without_gold_is_incorrect() {
+        let recs = vec![record(None, None, "The answer is 42.")];
+        let report = score_answers(&recs);
+        assert_eq!(report.n_correct, 0);
+    }
+
+    #[test]
+    fn empty_records_yield_zero_report() {
+        let report = score_answers(&[]);
+        assert_eq!(report.n_questions, 0);
+        assert_eq!(report.n_correct, 0);
+        assert_eq!(report.overall_accuracy, 0.0);
+        assert!(report.per_type.is_empty());
+        // No data: the interval is uninformative, not falsely tight.
+        assert_eq!(report.overall_accuracy_ci95, [0.0, 1.0]);
+    }
+
+    #[test]
+    fn per_type_grouping_and_intervals() {
+        let recs = vec![
+            record(Some("temporal-reasoning"), Some("May 5"), "May 5"),
+            record(Some("temporal-reasoning"), Some("May 6"), "May 9"),
+            record(Some("multi-session"), Some("blue"), "blue"),
+            record(None, Some("red"), "red"),
+        ];
+        let report = score_answers(&recs);
+        assert_eq!(report.n_questions, 4);
+        assert_eq!(report.n_correct, 3);
+        assert!((report.overall_accuracy - 0.75).abs() < 1e-10);
+
+        // Sorted by type name: multi-session, temporal-reasoning, unknown.
+        let types: Vec<&str> = report
+            .per_type
+            .iter()
+            .map(|t| t.question_type.as_str())
+            .collect();
+        assert_eq!(types, ["multi-session", "temporal-reasoning", "unknown"]);
+
+        let temporal = &report.per_type[1];
+        assert_eq!(temporal.count, 2);
+        assert!((temporal.accuracy - 0.5).abs() < 1e-10);
+
+        for t in &report.per_type {
+            let [lo, hi] = t.accuracy_ci95;
+            assert!(lo <= t.accuracy && t.accuracy <= hi);
+        }
+        let [lo, hi] = report.overall_accuracy_ci95;
+        assert!(lo <= report.overall_accuracy && report.overall_accuracy <= hi);
     }
 }

@@ -1,0 +1,930 @@
+[
+ {
+  "question_id": "q0",
+  "question_type": "single-session-user",
+  "question_date": "2023/05/01",
+  "question": "apple orchard cider",
+  "answer": "cider",
+  "answer_session_ids": [
+   "s0"
+  ],
+  "haystack_dates": [
+   "2023/04/01",
+   "2023/04/02",
+   "2023/04/03",
+   "2023/04/11",
+   "2023/04/04",
+   "2023/04/05"
+  ],
+  "haystack_session_ids": [
+   "s0",
+   "s1",
+   "s2",
+   "d0",
+   "s3",
+   "s4"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "apple orchard harvest cider"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "rocket launch orbital telemetry"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "sourdough bread fermentation starter"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz drum"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "marathon training tempo intervals"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "watercolor pigment brush canvas"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q1",
+  "question_type": "multi-session",
+  "question_date": "2023/05/02",
+  "question": "rocket orbital telemetry",
+  "answer": "telemetry",
+  "answer_session_ids": [
+   "s1"
+  ],
+  "haystack_dates": [
+   "2023/04/02",
+   "2023/04/01",
+   "2023/04/03",
+   "2023/04/06",
+   "2023/04/12",
+   "2023/04/07"
+  ],
+  "haystack_session_ids": [
+   "s1",
+   "s0",
+   "s2",
+   "s5",
+   "d1",
+   "s6"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "rocket launch orbital telemetry"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "apple orchard harvest cider"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "sourdough bread fermentation starter"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "chess endgame rook sacrifice"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz horn"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "espresso grinder pressure crema"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q2",
+  "question_type": "temporal-reasoning",
+  "question_date": "2023/05/03",
+  "question": "sourdough fermentation starter",
+  "answer": "starter",
+  "answer_session_ids": [
+   "s2"
+  ],
+  "haystack_dates": [
+   "2023/04/03",
+   "2023/04/04",
+   "2023/04/05",
+   "2023/04/08",
+   "2023/04/13",
+   "2023/04/09"
+  ],
+  "haystack_session_ids": [
+   "s2",
+   "s3",
+   "s4",
+   "s7",
+   "d2",
+   "s8"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "sourdough bread fermentation starter"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "marathon training tempo intervals"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "watercolor pigment brush canvas"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "aquarium coral salinity reef"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz bass"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "volcano basalt eruption magma"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q3",
+  "question_type": "knowledge-update",
+  "question_date": "2023/05/04",
+  "question": "marathon tempo intervals",
+  "answer": "intervals",
+  "answer_session_ids": [
+   "s3"
+  ],
+  "haystack_dates": [
+   "2023/04/04",
+   "2023/04/02",
+   "2023/04/10",
+   "2023/04/14",
+   "2023/04/06",
+   "2023/04/01"
+  ],
+  "haystack_session_ids": [
+   "s3",
+   "s1",
+   "s9",
+   "d3",
+   "s5",
+   "s0"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "marathon training tempo intervals"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "rocket launch orbital telemetry"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "glacier moraine icefall crevasse"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz cello"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "chess endgame rook sacrifice"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "apple orchard harvest cider"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q4",
+  "question_type": "single-session-preference",
+  "question_date": "2023/05/05",
+  "question": "watercolor pigment canvas",
+  "answer": "canvas",
+  "answer_session_ids": [
+   "s4"
+  ],
+  "haystack_dates": [
+   "2023/04/05",
+   "2023/04/07",
+   "2023/04/08",
+   "2023/04/15",
+   "2023/04/03",
+   "2023/04/10"
+  ],
+  "haystack_session_ids": [
+   "s4",
+   "s6",
+   "s7",
+   "d4",
+   "s2",
+   "s9"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "watercolor pigment brush canvas"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "espresso grinder pressure crema"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "aquarium coral salinity reef"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz trumpet"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "sourdough bread fermentation starter"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "glacier moraine icefall crevasse"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q5",
+  "question_type": "single-session-assistant",
+  "question_date": "2023/05/06",
+  "question": "chess rook sacrifice",
+  "answer": "sacrifice",
+  "answer_session_ids": [
+   "s5"
+  ],
+  "haystack_dates": [
+   "2023/04/06",
+   "2023/04/09",
+   "2023/04/10",
+   "2023/04/16",
+   "2023/04/02",
+   "2023/04/04"
+  ],
+  "haystack_session_ids": [
+   "s5",
+   "s8",
+   "s9",
+   "d5",
+   "s1",
+   "s3"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "chess endgame rook sacrifice"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "volcano basalt eruption magma"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "glacier moraine icefall crevasse"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz flute"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "rocket launch orbital telemetry"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "marathon training tempo intervals"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q6",
+  "question_type": "single-session-user",
+  "question_date": "2023/05/07",
+  "question": "espresso grinder crema",
+  "answer": "crema",
+  "answer_session_ids": [
+   "s6"
+  ],
+  "haystack_dates": [
+   "2023/04/07",
+   "2023/04/01",
+   "2023/04/05",
+   "2023/04/08",
+   "2023/04/11",
+   "2023/04/03"
+  ],
+  "haystack_session_ids": [
+   "s6",
+   "s0",
+   "s4",
+   "s7",
+   "d0",
+   "s2"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "espresso grinder pressure crema"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "apple orchard harvest cider"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "watercolor pigment brush canvas"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "aquarium coral salinity reef"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz drum"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "sourdough bread fermentation starter"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q7_abs",
+  "question_type": "single-session-user",
+  "question_date": "2023/05/08",
+  "question": "aquarium coral salinity",
+  "answer": null,
+  "answer_session_ids": [
+   "s7"
+  ],
+  "haystack_dates": [
+   "2023/04/08",
+   "2023/04/06",
+   "2023/04/07",
+   "2023/04/09",
+   "2023/04/12",
+   "2023/04/10"
+  ],
+  "haystack_session_ids": [
+   "s7",
+   "s5",
+   "s6",
+   "s8",
+   "d1",
+   "s9"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "aquarium coral salinity reef"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "chess endgame rook sacrifice"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "espresso grinder pressure crema"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "volcano basalt eruption magma"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz horn"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "glacier moraine icefall crevasse"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q8",
+  "question_type": "multi-session",
+  "question_date": "2023/05/09",
+  "question": "zebra quantum jazz magma",
+  "answer": "magma",
+  "answer_session_ids": [
+   "s8"
+  ],
+  "haystack_dates": [
+   "2023/04/09",
+   "2023/04/11",
+   "2023/04/12",
+   "2023/04/13",
+   "2023/04/14",
+   "2023/04/15",
+   "2023/04/16",
+   "2023/04/01"
+  ],
+  "haystack_session_ids": [
+   "s8",
+   "d0",
+   "d1",
+   "d2",
+   "d3",
+   "d4",
+   "d5",
+   "s0"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "volcano basalt eruption magma"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz drum"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz horn"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz bass"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz cello"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz trumpet"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz flute"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "apple orchard harvest cider"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ },
+ {
+  "question_id": "q9",
+  "question_type": "temporal-reasoning",
+  "question_date": "2023/05/10",
+  "question": "zebra quantum jazz crevasse",
+  "answer": "crevasse",
+  "answer_session_ids": [
+   "s9"
+  ],
+  "haystack_dates": [
+   "2023/04/10",
+   "2023/04/11",
+   "2023/04/12",
+   "2023/04/13",
+   "2023/04/14",
+   "2023/04/15",
+   "2023/04/16",
+   "2023/04/02"
+  ],
+  "haystack_session_ids": [
+   "s9",
+   "d0",
+   "d1",
+   "d2",
+   "d3",
+   "d4",
+   "d5",
+   "s1"
+  ],
+  "haystack_sessions": [
+   [
+    {
+     "role": "user",
+     "content": "glacier moraine icefall crevasse"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz drum"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz horn"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz bass"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz cello"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz trumpet"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "zebra quantum jazz flute"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ],
+   [
+    {
+     "role": "user",
+     "content": "rocket launch orbital telemetry"
+    },
+    {
+     "role": "assistant",
+     "content": "noted"
+    }
+   ]
+  ]
+ }
+]

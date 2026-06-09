@@ -14,7 +14,7 @@ metadata:
 
 # mnemonist
 
-> This skill implements the [mnemonist specification](../../SPECIFICATION.md).
+> This skill implements the [mnemonist specification](https://github.com/urmzd/mnemonist/blob/main/spec/mnemonist.md).
 
 ## Purpose
 

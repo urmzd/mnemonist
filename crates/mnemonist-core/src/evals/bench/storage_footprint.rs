@@ -12,12 +12,14 @@ use crate::embed::Embedder;
 
 use crate::evals::EvalError;
 use crate::evals::longmemeval::LongMemEvalDataset;
+use crate::evals::search::{discordant_pairs, mcnemar_exact_p};
 
 /// Results from the storage footprint experiment.
 #[derive(Debug, Clone, Serialize)]
 pub struct StorageResult {
     pub n_vectors: usize,
     pub dimension: usize,
+    pub n_queries: usize,
     pub raw_embedding_bytes: usize,
     pub hnsw_index_bytes: usize,
     /// Raw (unquantized) recall baseline, so quantization degradation is
@@ -36,6 +38,10 @@ pub struct QuantizedStoragePoint {
     pub compression_ratio: f64,
     pub recall_any_at_5: f64,
     pub recall_any_at_10: f64,
+    /// Exact two-sided McNemar p-values vs the raw baseline on paired
+    /// per-query hits — small recall deltas at this n are usually noise.
+    pub mcnemar_p_vs_raw_at_5: f64,
+    pub mcnemar_p_vs_raw_at_10: f64,
     pub cosine_distortion: f64,
 }
 
@@ -79,10 +85,10 @@ pub fn run(
 
     // Raw (unquantized) recall baseline — the reference point for degradation.
     let raw_vecs: Vec<Vec<f32>> = embeddings.iter().map(|(_, v)| v.clone()).collect();
-    let raw_recall_5 =
-        compute_quantized_recall_any(&embeddings, &raw_vecs, &query_embeddings, &query_gold, 5);
-    let raw_recall_10 =
-        compute_quantized_recall_any(&embeddings, &raw_vecs, &query_embeddings, &query_gold, 10);
+    let raw_hits_5 = compute_hits(&embeddings, &raw_vecs, &query_embeddings, &query_gold, 5);
+    let raw_hits_10 = compute_hits(&embeddings, &raw_vecs, &query_embeddings, &query_gold, 10);
+    let raw_recall_5 = recall_from_hits(&raw_hits_5);
+    let raw_recall_10 = recall_from_hits(&raw_hits_10);
 
     let mut quantized = Vec::new();
 
@@ -107,14 +113,8 @@ pub fn run(
         let bytes_per_vec = (dim * bits as usize).div_ceil(8) + 4;
         let compressed_bytes = embeddings.len() * bytes_per_vec;
 
-        let recall_5 = compute_quantized_recall_any(
-            &embeddings,
-            &dequantized,
-            &query_embeddings,
-            &query_gold,
-            5,
-        );
-        let recall_10 = compute_quantized_recall_any(
+        let hits_5 = compute_hits(&embeddings, &dequantized, &query_embeddings, &query_gold, 5);
+        let hits_10 = compute_hits(
             &embeddings,
             &dequantized,
             &query_embeddings,
@@ -122,12 +122,17 @@ pub fn run(
             10,
         );
 
+        let (b5, c5) = discordant_pairs(&hits_5, &raw_hits_5);
+        let (b10, c10) = discordant_pairs(&hits_10, &raw_hits_10);
+
         quantized.push(QuantizedStoragePoint {
             bits,
             compressed_bytes,
             compression_ratio: raw_bytes as f64 / compressed_bytes as f64,
-            recall_any_at_5: recall_5,
-            recall_any_at_10: recall_10,
+            recall_any_at_5: recall_from_hits(&hits_5),
+            recall_any_at_10: recall_from_hits(&hits_10),
+            mcnemar_p_vs_raw_at_5: mcnemar_exact_p(b5, c5),
+            mcnemar_p_vs_raw_at_10: mcnemar_exact_p(b10, c10),
             cosine_distortion: cos_dist,
         });
     }
@@ -135,6 +140,7 @@ pub fn run(
     Ok(StorageResult {
         n_vectors: embeddings.len(),
         dimension: dim,
+        n_queries: query_embeddings.len(),
         raw_embedding_bytes: raw_bytes,
         hnsw_index_bytes: hnsw_bytes,
         raw_recall_any_at_5: raw_recall_5,
@@ -143,22 +149,27 @@ pub fn run(
     })
 }
 
-/// Brute-force recall_any on dequantized vectors.
+/// Fraction of hits in a per-query hit vector (0.0 for an empty vector).
 #[cfg(feature = "quant")]
-fn compute_quantized_recall_any(
+fn recall_from_hits(hits: &[bool]) -> f64 {
+    if hits.is_empty() {
+        return 0.0;
+    }
+    hits.iter().filter(|h| **h).count() as f64 / hits.len() as f64
+}
+
+/// Brute-force per-query recall_any hits on (de)quantized vectors.
+#[cfg(feature = "quant")]
+fn compute_hits(
     embeddings: &[(String, Vec<f32>)],
     dequantized: &[Vec<f32>],
     query_embeddings: &[Vec<f32>],
     query_gold: &[Vec<String>],
     k: usize,
-) -> f64 {
+) -> Vec<bool> {
     use std::collections::HashSet;
 
-    if query_embeddings.is_empty() {
-        return 0.0;
-    }
-
-    let mut total_hits = 0;
+    let mut per_query = Vec::with_capacity(query_embeddings.len());
 
     for (q_emb, gold_ids) in query_embeddings.iter().zip(query_gold) {
         let gold: HashSet<&str> = gold_ids.iter().map(|s| s.as_str()).collect();
@@ -171,12 +182,10 @@ fn compute_quantized_recall_any(
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         let top_k: HashSet<&str> = scored.iter().take(k).map(|(id, _)| *id).collect();
-        if gold.iter().any(|g| top_k.contains(g)) {
-            total_hits += 1;
-        }
+        per_query.push(gold.iter().any(|g| top_k.contains(g)));
     }
 
-    total_hits as f64 / query_embeddings.len() as f64
+    per_query
 }
 
 #[cfg(feature = "quant")]

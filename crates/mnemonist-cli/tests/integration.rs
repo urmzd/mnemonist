@@ -15,10 +15,14 @@ fn mnemonist_bin() -> PathBuf {
 
 /// Run mnemonist with the given args in an isolated HOME directory.
 /// Returns (stdout as JSON, exit code).
+///
+/// MNEMONIST_OFFLINE keeps the suite hermetic: no embedding-model resolution
+/// over the network, so `embedded` is deterministically false.
 fn run(home: &std::path::Path, args: &[&str]) -> (Value, i32) {
     let output = Command::new(mnemonist_bin())
         .args(args)
         .env("HOME", home)
+        .env("MNEMONIST_OFFLINE", "1")
         .output()
         .expect("failed to execute mnemonist");
 
@@ -296,7 +300,10 @@ fn config_init_and_get() {
     // Get a known key
     let (json, code) = run(&home, &["config", "get", "embedding.model"]);
     assert_eq!(code, 0);
-    assert_eq!(json["data"]["value"], "all-MiniLM-L6-v2");
+    assert_eq!(
+        json["data"]["value"],
+        "sentence-transformers/all-MiniLM-L6-v2"
+    );
 }
 
 #[test]
@@ -342,6 +349,7 @@ fn memorize_stdin_json() {
             project.to_str().unwrap(),
         ])
         .env("HOME", &home)
+        .env("MNEMONIST_OFFLINE", "1")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -361,6 +369,67 @@ fn memorize_stdin_json() {
     assert!(output.status.success());
     let json: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(json["data"]["file"], "user_stdin-test.md");
+}
+
+#[test]
+fn memorize_stdin_rejects_path_traversal() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let project = tmp.path().join("proj");
+    std::fs::create_dir_all(&project).unwrap();
+
+    let input = serde_json::json!({
+        "type": "user",
+        "name": "../../../tmp/evil",
+        "description": "traversal attempt",
+        "body": "should never be written",
+        "level": "project"
+    });
+
+    let output = Command::new(mnemonist_bin())
+        .args([
+            "memorize",
+            "ignored",
+            "--stdin",
+            "--root",
+            project.to_str().unwrap(),
+        ])
+        .env("HOME", &home)
+        .env("MNEMONIST_OFFLINE", "1")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut child| {
+            use std::io::Write;
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(input.to_string().as_bytes())
+                .unwrap();
+            child.wait_with_output()
+        })
+        .expect("failed to run with stdin");
+
+    assert_eq!(output.status.code(), Some(1));
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["ok"], false);
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("invalid memory name")
+    );
+    // Nothing escaped the memory root: the traversal target must not exist
+    // and no index entry may reference it.
+    assert!(!tmp.path().join("tmp/evil.md").exists());
+    let index = home.join(".mnemonist/proj/MEMORY.md");
+    if index.exists() {
+        let content = std::fs::read_to_string(&index).unwrap();
+        assert!(!content.contains("evil"));
+    }
 }
 
 #[test]
@@ -399,46 +468,41 @@ fn redact_cli_json(mut json: Value) -> Value {
                 data[key] = Value::String("[path]".to_string());
             }
         }
-        // Redact embedded field (depends on Ollama availability)
-        if data.get("embedded").is_some() {
-            data["embedded"] = Value::String("[env-dependent]".to_string());
-        }
         // Redact config show output (contains paths)
         if data.get("config").is_some_and(|v| v.is_string()) {
             data["config"] = Value::String("[toml]".to_string());
         }
         // Redact memories array timestamps
-        if let Some(memories) = data.get_mut("memories") {
-            if let Some(arr) = memories.as_array_mut() {
-                for mem in arr {
-                    for ts_key in ["last_accessed", "created_at", "indexed_at"] {
-                        if mem.get(ts_key).is_some_and(|v| v.is_string()) {
-                            mem[ts_key] = Value::String("[timestamp]".to_string());
-                        }
+        if let Some(memories) = data.get_mut("memories")
+            && let Some(arr) = memories.as_array_mut()
+        {
+            for mem in arr {
+                for ts_key in ["last_accessed", "created_at", "indexed_at"] {
+                    if mem.get(ts_key).is_some_and(|v| v.is_string()) {
+                        mem[ts_key] = Value::String("[timestamp]".to_string());
                     }
                 }
             }
         }
         // Redact inbox item timestamps
-        if let Some(inbox) = data.get_mut("inbox") {
-            if let Some(items) = inbox.get_mut("items") {
-                if let Some(arr) = items.as_array_mut() {
-                    for item in arr {
-                        if item.get("created_at").is_some_and(|v| v.is_string()) {
-                            item["created_at"] = Value::String("[timestamp]".to_string());
-                        }
-                    }
+        if let Some(inbox) = data.get_mut("inbox")
+            && let Some(items) = inbox.get_mut("items")
+            && let Some(arr) = items.as_array_mut()
+        {
+            for item in arr {
+                if item.get("created_at").is_some_and(|v| v.is_string()) {
+                    item["created_at"] = Value::String("[timestamp]".to_string());
                 }
             }
         }
         // Redact consolidation timestamps
-        if let Some(actions) = data.get_mut("actions") {
-            if let Some(arr) = actions.as_array_mut() {
-                for action in arr {
-                    for ts_key in ["created_at", "last_accessed"] {
-                        if action.get(ts_key).is_some_and(|v| v.is_string()) {
-                            action[ts_key] = Value::String("[timestamp]".to_string());
-                        }
+        if let Some(actions) = data.get_mut("actions")
+            && let Some(arr) = actions.as_array_mut()
+        {
+            for action in arr {
+                for ts_key in ["created_at", "last_accessed"] {
+                    if action.get(ts_key).is_some_and(|v| v.is_string()) {
+                        action[ts_key] = Value::String("[timestamp]".to_string());
                     }
                 }
             }

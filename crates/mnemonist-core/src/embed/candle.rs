@@ -32,8 +32,13 @@ unsafe impl Sync for CandleEmbedder {}
 impl CandleEmbedder {
     /// Create with default model (all-MiniLM-L6-v2) on the best available device.
     pub fn default_model() -> Result<Self, Error> {
+        Self::from_model(DEFAULT_MODEL_ID)
+    }
+
+    /// Create with the given HuggingFace model id on the best available device.
+    pub fn from_model(model_id: &str) -> Result<Self, Error> {
         let device = Self::best_device()?;
-        Self::load(DEFAULT_MODEL_ID, device)
+        Self::load(model_id, device)
     }
 
     /// Select the best available device (CUDA > CPU).

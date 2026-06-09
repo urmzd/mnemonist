@@ -36,6 +36,9 @@ pub struct QaExperimentResult {
     pub avg_time_per_question_ms: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub overall_accuracy: Option<f64>,
+    /// 95% Wilson interval `[lo, hi]` for `overall_accuracy` (scoring mode only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_accuracy_ci95: Option<[f64; 2]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub n_questions: Option<usize>,
 }
@@ -65,16 +68,20 @@ fn run_scoring(answers_path: &PathBuf) -> Result<QaExperimentResult, EvalError> 
 
     let qa_report = qa::score_answers(&records);
     eprintln!(
-        "  overall accuracy: {:.1}% ({}/{})",
+        "  overall accuracy: {:.1}% ({}/{}) [95% CI {:.1}–{:.1}%]",
         qa_report.overall_accuracy * 100.0,
-        (qa_report.overall_accuracy * qa_report.n_questions as f64) as usize,
-        qa_report.n_questions
+        qa_report.n_correct,
+        qa_report.n_questions,
+        qa_report.overall_accuracy_ci95[0] * 100.0,
+        qa_report.overall_accuracy_ci95[1] * 100.0
     );
     for t in &qa_report.per_type {
         eprintln!(
-            "    {}: {:.1}% ({} questions)",
+            "    {}: {:.1}% [{:.1}–{:.1}%] ({} questions)",
             t.question_type,
             t.accuracy * 100.0,
+            t.accuracy_ci95[0] * 100.0,
+            t.accuracy_ci95[1] * 100.0,
             t.count
         );
     }
@@ -84,6 +91,7 @@ fn run_scoring(answers_path: &PathBuf) -> Result<QaExperimentResult, EvalError> 
         retrieval_recall_any_at_k: None,
         avg_time_per_question_ms: None,
         overall_accuracy: Some(qa_report.overall_accuracy),
+        overall_accuracy_ci95: Some(qa_report.overall_accuracy_ci95),
         n_questions: Some(qa_report.n_questions),
     })
 }
@@ -134,6 +142,7 @@ fn run_retrieval(
         retrieval_recall_any_at_k: Some(summary.retrieval_recall_any_at_k),
         avg_time_per_question_ms: Some(summary.avg_time_per_question_ms),
         overall_accuracy: None,
+        overall_accuracy_ci95: None,
         n_questions: Some(records.len()),
     })
 }

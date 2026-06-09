@@ -17,6 +17,9 @@ pub enum Error {
     #[error("duplicate memory: {name}")]
     Duplicate { name: String },
 
+    #[error("refusing to write outside the memory directory: {path}")]
+    PathEscape { path: String },
+
     #[error("index too large ({lines} lines, max {max})")]
     IndexTooLarge { lines: usize, max: usize },
 

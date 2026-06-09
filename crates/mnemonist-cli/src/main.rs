@@ -222,9 +222,9 @@ enum Command {
         /// What to remember (search cue)
         ask: String,
 
-        /// Max output chars (approximate token budget)
-        #[arg(long, default_value = "2000")]
-        budget: usize,
+        /// Max output chars (defaults to the `recall.budget` config value)
+        #[arg(long)]
+        budget: Option<usize>,
 
         /// Search level: project, global, or both
         #[arg(long, short, default_value = "both")]
@@ -510,6 +510,18 @@ fn slugify(text: &str, max_words: usize) -> String {
         .collect::<String>()
 }
 
+/// Reject names that would resolve to a path outside the memory directory.
+/// Names become filenames verbatim, so `../` or `..` segments would escape it.
+fn validate_memory_name(name: &str) -> Result<()> {
+    if name.is_empty() {
+        anyhow::bail!("memory name must not be empty");
+    }
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        anyhow::bail!("invalid memory name {name:?}: must not contain path separators or '..'");
+    }
+    Ok(())
+}
+
 /// Get current timestamp as ISO 8601 string.
 fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -584,6 +596,8 @@ fn run(cli: Cli) -> Result<()> {
                 (mt, n, point.clone(), point, global, Vec::new())
             };
 
+            validate_memory_name(&n)?;
+
             let dir = resolve_dir(is_global, &root)?;
             let mut index = MemoryIndex::load(&dir)?;
 
@@ -613,7 +627,8 @@ fn run(cli: Cli) -> Result<()> {
             index.save()?;
 
             // Embed and rebuild memory HNSW
-            let embed_result = try_embed_single(&dir, &filename);
+            let config = Config::load_with_project(&root);
+            let embed_result = try_embed_single(&dir, &filename, &config);
             let _ = build_memory_hnsw(&dir);
 
             if is_tty() {
@@ -697,6 +712,7 @@ fn run(cli: Cli) -> Result<()> {
                 let mut total_chars = 0usize;
 
                 let recall_cfg = Config::load_with_project(&root);
+                let budget = budget.unwrap_or(recall_cfg.recall.budget);
                 let min_results = recall_cfg.recall.min_results;
 
                 let mut matched = semantic_search(&q, &dirs, &root);
@@ -1014,7 +1030,7 @@ fn run(cli: Cli) -> Result<()> {
             // Phase 2: embed chunks and build HNSW index
             let mut embedded_count = 0usize;
             let mut eval_json = json!(null);
-            match mnemonist_core::CandleEmbedder::default_model() {
+            match load_embedder(&config) {
                 Ok(embedder) => {
                     let dim = embedder.dimension()?;
                     let mut hnsw = mnemonist_core::ann::hnsw::HnswIndex::with_defaults(dim);
@@ -1378,7 +1394,7 @@ fn run(cli: Cli) -> Result<()> {
                 let progress = StderrProgress::new(is_tty() && !quiet);
 
                 // Re-embed all memories and rebuild memory HNSW
-                let embed_result = try_embed_all_with_progress(&dir, Some(&progress));
+                let embed_result = try_embed_all_with_progress(&dir, Some(&progress), &config);
                 if let Ok((synced, total)) = embed_result {
                     actions.push(json!({
                         "action": "embed",
@@ -1577,22 +1593,30 @@ fn run(cli: Cli) -> Result<()> {
 
         // -- update: self-update --
         Command::Update => {
-            eprintln!("current version: {}", env!("CARGO_PKG_VERSION"));
-            match self_update::self_update(
-                "urmzd/mnemonist",
-                env!("CARGO_PKG_VERSION"),
-                "mnemonist",
-            )? {
-                self_update::UpdateResult::AlreadyUpToDate => eprintln!("already up to date"),
+            let current = env!("CARGO_PKG_VERSION");
+            eprintln!("current version: {current}");
+            match self_update::self_update("urmzd/mnemonist", current, "mnemonist")? {
+                self_update::UpdateResult::AlreadyUpToDate => {
+                    info!("already up to date");
+                    output_ok(json!({
+                        "version": current,
+                        "already_up_to_date": true,
+                    }));
+                }
                 self_update::UpdateResult::Updated { from, to } => {
-                    eprintln!("updated: {from} → {to}")
+                    info!("updated: {from} → {to}");
+                    output_ok(json!({
+                        "from": from,
+                        "to": to,
+                        "already_up_to_date": false,
+                    }));
                 }
             }
         }
 
         // -- version: print version --
         Command::Version => {
-            println!("mnemonist v{}", env!("CARGO_PKG_VERSION"));
+            output_ok(json!({ "version": env!("CARGO_PKG_VERSION") }));
         }
 
         // -- config: manage configuration --
@@ -1675,9 +1699,10 @@ fn text_search(query: &str, dirs: &[PathBuf]) -> Vec<(PathBuf, IndexEntry, f32)>
 fn semantic_search(
     query: &str,
     dirs: &[PathBuf],
-    _root: &std::path::Path,
+    root: &std::path::Path,
 ) -> Vec<(PathBuf, IndexEntry, f32)> {
-    let embedder = match mnemonist_core::CandleEmbedder::default_model() {
+    let config = Config::load_with_project(root);
+    let embedder = match load_embedder(&config) {
         Ok(e) => e,
         Err(_) => return Vec::new(),
     };
@@ -1872,9 +1897,30 @@ fn extract_code_cue(content: &str, max_chars: usize) -> String {
     }
 }
 
+/// Build the embedder configured by `[embedding]`. `provider = "none"` disables
+/// embedding; callers already degrade gracefully (skip embed / text search).
+/// `MNEMONIST_OFFLINE=1` forces the same degradation regardless of config, so
+/// tests and air-gapped environments never resolve embedding models over the
+/// network.
+fn load_embedder(config: &Config) -> Result<mnemonist_core::CandleEmbedder> {
+    let offline = std::env::var("MNEMONIST_OFFLINE").is_ok_and(|v| !v.is_empty() && v != "0");
+    if offline {
+        anyhow::bail!("embedding disabled (MNEMONIST_OFFLINE is set)");
+    }
+    if config.embedding.provider == "none" {
+        anyhow::bail!("embedding disabled (embedding.provider = \"none\")");
+    }
+    // Pre-0.11 configs stored the bare model name without the HF org prefix.
+    let model = match config.embedding.model.as_str() {
+        "all-MiniLM-L6-v2" => "sentence-transformers/all-MiniLM-L6-v2",
+        m => m,
+    };
+    Ok(mnemonist_core::CandleEmbedder::from_model(model)?)
+}
+
 /// Try to embed a single file into the embedding store.
-fn try_embed_single(dir: &std::path::Path, filename: &str) -> Result<()> {
-    let embedder = mnemonist_core::CandleEmbedder::default_model()?;
+fn try_embed_single(dir: &std::path::Path, filename: &str, config: &Config) -> Result<()> {
+    let embedder = load_embedder(config)?;
     let store_path = dir.join(".embeddings.bin");
 
     let mut store = if store_path.exists() {
@@ -1939,15 +1985,16 @@ fn build_memory_hnsw_with_progress(
 
 /// Try to re-embed all memories in a directory. Returns (synced, total).
 #[allow(dead_code)]
-fn try_embed_all(dir: &std::path::Path) -> Result<(usize, usize)> {
-    try_embed_all_with_progress(dir, None)
+fn try_embed_all(dir: &std::path::Path, config: &Config) -> Result<(usize, usize)> {
+    try_embed_all_with_progress(dir, None, config)
 }
 
 fn try_embed_all_with_progress(
     dir: &std::path::Path,
     reporter: Option<&dyn mnemonist_core::Progress>,
+    config: &Config,
 ) -> Result<(usize, usize)> {
-    let embedder = mnemonist_core::CandleEmbedder::default_model()?;
+    let embedder = load_embedder(config)?;
     let store_path = dir.join(".embeddings.bin");
 
     let mut store = if store_path.exists() {

@@ -30,8 +30,8 @@ main() {
     case "$os" in
         Linux)
             case "$arch" in
-                x86_64)  target="x86_64-unknown-linux-musl" ;;
-                aarch64) target="aarch64-unknown-linux-musl" ;;
+                x86_64)  target="x86_64-unknown-linux-gnu" ;;
+                aarch64) target="aarch64-unknown-linux-gnu" ;;
                 *)       err "Unsupported Linux architecture: $arch" ;;
             esac
             ;;

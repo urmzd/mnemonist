@@ -51,7 +51,7 @@ struct Cli {
     quant_bits: String,
 
     /// Number of consolidation cycles for Experiment 4.
-    #[arg(long, default_value_t = 5)]
+    #[arg(long, default_value_t = 10)]
     temporal_cycles: usize,
 
     /// [Exp 6] Number of context sessions to retrieve per question.
@@ -183,10 +183,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match bench::temporal_retrieval::run(&dataset, &embedder, cli.temporal_cycles) {
             Ok(t) => {
                 eprintln!(
-                    "  baseline={:.1}%  reinforced={:.1}%  delta={:+.1}%",
+                    "  baseline={:.1}%  control={:.1}%  reinforced={:.1}%  delta_vs_control={:+.1}%  p(reinforced vs control)={:.4}",
                     t.baseline_recall_any_at_5 * 100.0,
+                    t.control_recall_any_at_5 * 100.0,
                     t.reinforced_recall_any_at_5 * 100.0,
-                    t.recall_delta * 100.0
+                    t.recall_delta * 100.0,
+                    t.mcnemar_p_reinforced_vs_control
                 );
                 report.temporal = Some(t);
             }
