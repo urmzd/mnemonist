@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: urmzd/fsrc@v4
         with:
           commit-message: "chore: sync embedded files [skip ci]"
@@ -42,13 +42,13 @@ jobs:
     steps:
       - name: Generate app token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.SR_RELEASER_APP_ID }}
+          client-id: Iv23liUsXGDICnIdo3Ev
           private-key: ${{ secrets.SR_RELEASER_PRIVATE_KEY }}
           repositories: ${{ github.event.repository.name }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
@@ -94,7 +94,7 @@ jobs:
             runner: windows-latest
             cross: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
 
