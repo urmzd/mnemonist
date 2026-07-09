@@ -5,7 +5,7 @@
 //! searches only its own ~48 sessions, not all 19K).
 //!
 //! **This is NOT LongMemEval QA accuracy.** For actual end-to-end question
-//! answering, see Experiment 6 (`qa.rs`).
+//! answering, see Experiment 5 (`qa.rs`).
 
 use std::collections::HashMap;
 use std::time::Instant;

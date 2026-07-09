@@ -1,0 +1,32 @@
+{
+  "method": "bm25_okapi",
+  "params": {
+    "k1": 1.5,
+    "b": 0.75,
+    "tokenizer": "\\w+ lowercase"
+  },
+  "construct": "per-question haystack, user-turns-only documents (matches Exp 1)",
+  "n_queries": 500,
+  "avg_haystack_size": 47.734,
+  "recall_any_at_5": 0.95,
+  "recall_any_at_5_ci95": [
+    0.9272318388284524,
+    0.9659062547561506
+  ],
+  "recall_all_at_5": 0.808,
+  "recall_all_at_5_ci95": [
+    0.771179624871567,
+    0.8401237814041169
+  ],
+  "recall_any_at_10": 0.968,
+  "recall_any_at_10_ci95": [
+    0.9486551309545582,
+    0.9802084863734289
+  ],
+  "recall_all_at_10": 0.882,
+  "recall_all_at_10_ci95": [
+    0.8507680121388806,
+    0.9074069917484936
+  ],
+  "mrr": 0.8793190476190477
+}

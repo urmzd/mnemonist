@@ -24,7 +24,7 @@ pub struct StorageResult {
     pub hnsw_index_bytes: usize,
     /// Raw (unquantized) recall baseline, so quantization degradation is
     /// measurable. NOTE: this is GLOBAL retrieval over every session (the
-    /// hardest setting), not the per-question haystack used in Exp 1/5/6.
+    /// hardest setting), not the per-question haystack used in Exp 1/5.
     pub raw_recall_any_at_5: f64,
     pub raw_recall_any_at_10: f64,
     pub quantized: Vec<QuantizedStoragePoint>,

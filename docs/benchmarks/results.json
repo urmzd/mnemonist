@@ -180,16 +180,6 @@
     "n_queries_per_cycle": 250,
     "n_documents": 19195
   },
-  "mempalace": {
-    "mnemonist_recall_any_at_5": 0.964,
-    "mnemonist_recall_all_at_5": 0.848,
-    "n_sessions": 19195,
-    "n_queries": 500,
-    "avg_haystack_size": 47.734,
-    "total_time_s": 1410.332562042,
-    "per_question_time_s": 2.820665124084,
-    "note": "MemPalace reported 82.8% recall@5 as a 'LongMemEval score'. This is NOT a QA accuracy score \u2014 it is raw vector retrieval recall. Their 96.6% number was never reproduced independently. See Experiment 6 for actual LongMemEval QA evaluation."
-  },
   "qa": {
     "overall_accuracy": 0.372,
     "retrieval_recall_any_at_k": 0.964,

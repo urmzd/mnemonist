@@ -172,8 +172,8 @@ pub fn discordant_pairs(a: &[bool], other: &[bool]) -> (usize, usize) {
 
 /// Recall-any at k: fraction of queries where **at least one** gold document appears in top-k.
 ///
-/// This is the metric MemPalace headlines as "recall@5" — a lenient measure
-/// that only requires one relevant hit per query.
+/// A lenient measure that only requires one relevant hit per query — it
+/// saturates quickly on easy constructs and should not be headlined alone.
 pub fn recall_any_at_k(queries: &[QueryEval], k: usize) -> f64 {
     if queries.is_empty() {
         return 0.0;
@@ -197,7 +197,7 @@ pub fn recall_any_at_k(queries: &[QueryEval], k: usize) -> f64 {
 /// Recall-all at k: fraction of queries where **all** gold documents appear in top-k.
 ///
 /// A strict measure — queries with multiple gold sessions must have *every* one
-/// in top-k. MemPalace conspicuously doesn't headline this metric.
+/// in top-k. This is the discriminating metric when recall-any saturates.
 pub fn recall_all_at_k(queries: &[QueryEval], k: usize) -> f64 {
     if queries.is_empty() {
         return 0.0;

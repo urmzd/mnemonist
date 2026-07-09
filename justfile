@@ -46,7 +46,7 @@ record:
 bench:
     cargo bench --workspace
 
-# Run LongMemEval benchmark suite (all 6 experiments)
+# Run LongMemEval benchmark suite (all 5 experiments)
 longmemeval dataset="data/longmemeval_s_cleaned.json":
     cargo run --release --bin mnemonist-bench --features bench-cli -- --dataset {{dataset}} --temporal-cycles 10
 

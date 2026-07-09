@@ -1,17 +1,15 @@
-//! Benchmark suite: 6 experiments comparing mnemonist retrieval infrastructure.
+//! Benchmark suite: 5 experiments comparing mnemonist retrieval infrastructure.
 //!
 //! Each experiment lives in its own module and is fully self-contained:
 //!
-//! 1. [`vector_retrieval`] — session retrieval recall@k (what MemPalace measured — NOT QA)
+//! 1. [`vector_retrieval`] — session retrieval recall@k (NOT QA)
 //! 2. [`latency_scaling`] — index build + p50/p95/p99 query latency at 100–10k docs
 //! 3. [`storage_footprint`] — raw vs TurboQuant compressed at 1–4 bits, with recall impact
 //! 4. [`temporal_retrieval`] — dynamic recall improvement via Hebbian access patterns
-//! 5. [`mempalace_comparison`] — apples-to-apples retrieval parity (NOT a LongMemEval QA score)
-//! 6. [`longmemeval_qa`] — real end-to-end QA (retrieval + LLM scoring)
+//! 5. [`longmemeval_qa`] — real end-to-end QA (retrieval + LLM scoring)
 
 pub mod latency_scaling;
 pub mod longmemeval_qa;
-pub mod mempalace_comparison;
 #[cfg(feature = "quant")]
 pub mod storage_footprint;
 pub mod temporal_retrieval;
@@ -22,7 +20,6 @@ use serde::Serialize;
 // Re-export result types for convenience.
 pub use latency_scaling::{LatencyResult, ScalePoint};
 pub use longmemeval_qa::QaExperimentResult;
-pub use mempalace_comparison::MemPalaceComparisonResult;
 #[cfg(feature = "quant")]
 pub use storage_footprint::{QuantizedStoragePoint, StorageResult};
 pub use temporal_retrieval::TemporalResult;
@@ -41,7 +38,6 @@ pub struct BenchReport {
     #[cfg(feature = "quant")]
     pub storage: Option<StorageResult>,
     pub temporal: Option<TemporalResult>,
-    pub mempalace: Option<MemPalaceComparisonResult>,
     pub qa: Option<QaExperimentResult>,
 }
 
@@ -140,7 +136,7 @@ impl BenchReport {
                 s.raw_recall_any_at_10 * 100.0
             ));
             lines.push(
-                "  (global retrieval over ALL sessions — NOT the per-question haystack used in Exp 1/5/6)"
+                "  (global retrieval over ALL sessions — NOT the per-question haystack used in Exp 1/5)"
                     .to_string(),
             );
             lines.push(format!(
@@ -197,35 +193,9 @@ impl BenchReport {
             ));
         }
 
-        if let Some(ref m) = self.mempalace {
-            lines.push(String::new());
-            lines.push(
-                "═══ Experiment 5: MemPalace Comparison (Retrieval Only — NOT QA) ═══".to_string(),
-            );
-            lines.push(format!(
-                "  sessions: {}  queries: {}  avg haystack: {:.0}",
-                m.n_sessions, m.n_queries, m.avg_haystack_size
-            ));
-            lines.push(format!(
-                "  mnemonist recall_any@5:  {:.4} ({:.1}%)",
-                m.mnemonist_recall_any_at_5,
-                m.mnemonist_recall_any_at_5 * 100.0
-            ));
-            lines.push(format!(
-                "  mnemonist recall_all@5:  {:.4} ({:.1}%)",
-                m.mnemonist_recall_all_at_5,
-                m.mnemonist_recall_all_at_5 * 100.0
-            ));
-            lines.push(format!(
-                "  time: {:.1}s ({:.2}s per question)",
-                m.total_time_s, m.per_question_time_s
-            ));
-            lines.push(format!("  note: {}", m.note));
-        }
-
         if let Some(ref q) = self.qa {
             lines.push(String::new());
-            lines.push("═══ Experiment 6: LongMemEval QA ═══".to_string());
+            lines.push("═══ Experiment 5: LongMemEval QA ═══".to_string());
             lines.push(format!("  mode: {}", q.mode));
             if let Some(recall) = q.retrieval_recall_any_at_k {
                 lines.push(format!("  retrieval recall_any@k: {:.1}%", recall * 100.0));

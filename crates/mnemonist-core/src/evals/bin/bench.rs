@@ -1,12 +1,11 @@
 //! mnemonist-bench: Benchmark suite comparing mnemonist retrieval infrastructure.
 //!
-//! Runs up to 6 independent experiments against a LongMemEval dataset:
+//! Runs up to 5 independent experiments against a LongMemEval dataset:
 //!   1. Vector retrieval (recall_any@5, recall_all@5) — raw session retrieval, NOT QA
 //!   2. Latency scaling (index build + p50/p95/p99 query latency at 100–10k docs)
 //!   3. Storage footprint (raw vs TurboQuant at 1–4 bits, with recall degradation)
 //!   4. Temporal retrieval (Hebbian reinforcement vs static baseline)
-//!   5. MemPalace comparison — apples-to-apples retrieval parity (NOT a LongMemEval QA score)
-//!   6. LongMemEval QA — real end-to-end evaluation (see qa.rs)
+//!   5. LongMemEval QA — real end-to-end evaluation (see qa.rs)
 //!
 //! Each experiment is self-contained: it handles its own embedding and setup.
 //!
@@ -23,14 +22,14 @@ use mnemonist_core::evals::longmemeval;
 #[derive(Parser)]
 #[command(
     name = "mnemonist-bench",
-    about = "Benchmark suite for mnemonist — 6 experiments comparing retrieval infrastructure"
+    about = "Benchmark suite for mnemonist — 5 experiments comparing retrieval infrastructure"
 )]
 struct Cli {
     /// Path to LongMemEval JSON dataset.
     #[arg(long)]
     dataset: PathBuf,
 
-    /// Which experiments to run (comma-separated: 1,2,3,4,5,6 or "all").
+    /// Which experiments to run (comma-separated: 1,2,3,4,5 or "all").
     #[arg(long, default_value = "all")]
     experiments: String,
 
@@ -54,15 +53,15 @@ struct Cli {
     #[arg(long, default_value_t = 10)]
     temporal_cycles: usize,
 
-    /// [Exp 6] Number of context sessions to retrieve per question.
+    /// [Exp 5] Number of context sessions to retrieve per question.
     #[arg(long, default_value_t = 5)]
     qa_top_k: usize,
 
-    /// [Exp 6] Output path for QA context JSONL (default: stdout).
+    /// [Exp 5] Output path for QA context JSONL (default: stdout).
     #[arg(long)]
     qa_output: Option<PathBuf>,
 
-    /// [Exp 6] Path to LLM-generated answers JSONL for scoring.
+    /// [Exp 5] Path to LLM-generated answers JSONL for scoring.
     /// If provided, scores answers instead of running retrieval.
     #[arg(long)]
     qa_answers: Option<PathBuf>,
@@ -72,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let experiments: Vec<usize> = if cli.experiments == "all" {
-        vec![1, 2, 3, 4, 5, 6]
+        vec![1, 2, 3, 4, 5]
     } else {
         cli.experiments
             .split(',')
@@ -121,7 +120,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(feature = "quant")]
         storage: None,
         temporal: None,
-        mempalace: None,
         qa: None,
     };
 
@@ -197,27 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if experiments.contains(&5) {
-        eprintln!("Running Experiment 5: MemPalace Comparison (Retrieval Only)...");
-        match bench::mempalace_comparison::run(&dataset, &embedder) {
-            Ok(m) => {
-                eprintln!(
-                    "  mnemonist recall_any@5={:.1}%  recall_all@5={:.1}%",
-                    m.mnemonist_recall_any_at_5 * 100.0,
-                    m.mnemonist_recall_all_at_5 * 100.0
-                );
-                eprintln!(
-                    "  time: {:.1}s ({:.2}s per question)",
-                    m.total_time_s, m.per_question_time_s
-                );
-                eprintln!("  note: {}", m.note);
-                report.mempalace = Some(m);
-            }
-            Err(e) => eprintln!("  ERROR: {e}"),
-        }
-    }
-
-    if experiments.contains(&6) {
-        eprintln!("Running Experiment 6: LongMemEval QA...");
+        eprintln!("Running Experiment 5: LongMemEval QA...");
         let qa_config = bench::longmemeval_qa::QaExperimentConfig {
             top_k: cli.qa_top_k,
             output_path: cli.qa_output.clone(),

@@ -20,8 +20,7 @@ use std::path::PathBuf;
 use mnemonist_core::Error;
 use mnemonist_core::embed::Embedder;
 use mnemonist_core::evals::bench::{
-    self, latency_scaling, longmemeval_qa, mempalace_comparison, storage_footprint,
-    temporal_retrieval, vector_retrieval,
+    self, latency_scaling, longmemeval_qa, storage_footprint, temporal_retrieval, vector_retrieval,
 };
 use mnemonist_core::evals::longmemeval::{LongMemEvalDataset, load_dataset};
 use mnemonist_core::evals::qa;
@@ -174,16 +173,6 @@ fn temporal_baseline_uses_eval_slice_denominator() {
 }
 
 #[test]
-fn mempalace_comparison_denominators() {
-    let ds = fixture();
-    let m = mempalace_comparison::run(&ds, &HashEmbedder).unwrap();
-
-    assert_eq!(m.n_queries, 10);
-    assert_eq!(m.n_sessions, 16);
-    assert!((m.mnemonist_recall_any_at_5 - 0.8).abs() < 1e-9);
-}
-
-#[test]
 fn qa_retrieval_emits_one_record_per_question() {
     let ds = fixture();
     let dir = tempfile::tempdir().unwrap();
@@ -264,7 +253,6 @@ fn full_report_serializes_to_json() {
         latency: Some(latency_scaling::run(&ds, &HashEmbedder, &[8]).unwrap()),
         storage: Some(storage_footprint::run(&ds, &HashEmbedder, &[2], 42).unwrap()),
         temporal: Some(temporal_retrieval::run(&ds, &HashEmbedder, 2).unwrap()),
-        mempalace: Some(mempalace_comparison::run(&ds, &HashEmbedder).unwrap()),
         qa: None,
     };
 

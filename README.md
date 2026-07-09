@@ -234,7 +234,7 @@ Two kinds of benchmark live here:
 2. **Microbenchmarks** — how fast are the individual primitives (distance kernels,
    HNSW, quantization)? Measured with `cargo bench` (criterion).
 
-> **Provenance.** LongMemEval experiments 1–6 (retrieval side): commit `b25e88e` (clean
+> **Provenance.** LongMemEval retrieval-side experiments: commit `b25e88e` (clean
 > working tree), 2026-06-09, via `just longmemeval-json` (`mnemonist-bench --dataset
 > data/longmemeval_s_cleaned.json --temporal-cycles 10 --format json`) on an
 > **Apple M4 Pro** (CPU, candle embeddings, default features + `bench-cli`), embedder
@@ -243,7 +243,9 @@ Two kinds of benchmark live here:
 > (19,195 sessions / 500 questions, sha256
 > `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`). The code-RAG
 > results and the gpt-4o-judged QA accuracy are from the earlier 2026-05 run at `f68c13a`
-> and were not rerun. Reproduce with the commands in each section.
+> and were not rerun. The BM25 baseline: `scripts/bm25_baseline.py` (Okapi, k1=1.5,
+> b=0.75, lowercase `\w+` tokens), 2026-07-08, same dataset and construct as Exp 1.
+> Reproduce with the commands in each section.
 
 ### Code retrieval — RAG over real repositories
 
@@ -277,8 +279,11 @@ uv run scripts/rag_eval.py \
 
 ### LongMemEval — conversational memory
 
-Six experiments in `crates/mnemonist-core/src/evals/bench/` run against a LongMemEval
-dataset:
+Five experiments in `crates/mnemonist-core/src/evals/bench/` run against a LongMemEval
+dataset. The number to care about is the **end-to-end QA accuracy (37.2%)** in Exp 5:
+retrieval recall on this dataset is nearly saturated — a plain BM25 baseline with no
+embeddings reaches 95% recall_any@5 — so the interesting signal is the gap between
+finding the right session and actually answering from it.
 
 ```bash
 just longmemeval                # all experiments
@@ -291,40 +296,52 @@ just longmemeval-select 2,4     # specific experiments
 | 2 | Latency scaling | index build + p50/p95/p99 query latency, 100–10k docs |
 | 3 | Storage footprint | raw vs TurboQuant size + recall, 1–4 bits |
 | 4 | Temporal retrieval | recall lift from Hebbian reinforcement over time |
-| 5 | MemPalace comparison | apples-to-apples retrieval parity (NOT a QA score) |
-| 6 | LongMemEval QA | real end-to-end QA accuracy (retrieve → LLM → judge) |
+| 5 | LongMemEval QA | real end-to-end QA accuracy (retrieve → LLM → judge) |
 
-#### Vector retrieval recall (Exp 1 / 5)
+#### Vector retrieval recall (Exp 1) — with a BM25 reality check
 
 Per question, an HNSW index is built from that question's ~48-session haystack and
-queried. **This is retrieval recall, not QA accuracy.** Intervals are 95% Wilson (n=500),
-emitted by the harness and committed in `docs/benchmarks/results.json`.
+queried. **This is retrieval recall, not QA accuracy** — and with ~48 candidates per
+question it is a nearly saturated task, so the table includes a plain BM25 (Okapi,
+lexical, no embeddings) baseline run on the identical construct
+(`scripts/bm25_baseline.py`). Intervals are 95% Wilson (n=500); vector results are
+committed in `docs/benchmarks/results.json`, BM25 in
+`docs/benchmarks/bm25_baseline.json`.
 
-| metric | value | 95% CI |
+| metric | vector (HNSW + MiniLM) | BM25 baseline |
 |---|---|---|
-| recall_any@5 | **96.4%** | [94.4, 97.7] |
-| recall_all@5 | 84.8% | [81.4, 87.7] |
-| recall_any@10 | 98.2% | [96.6, 99.1] |
-| recall_all@10 | 93.2% | [90.6, 95.1] |
-| MRR | 0.873 | — |
+| recall_all@5 | **84.8%** [81.4, 87.7] | 80.8% [77.1, 84.0] |
+| recall_all@10 | **93.2%** [90.6, 95.1] | 88.2% [85.1, 90.7] |
+| recall_any@5 | 96.4% [94.4, 97.7] | 95.0% [92.7, 96.6] |
+| recall_any@10 | 98.2% [96.6, 99.1] | 96.8% [94.9, 98.0] |
+| MRR | 0.873 | 0.879 |
 | avg query | 9.7 ms (incl. embedding) | — |
+
+The lenient recall_any@k barely separates the two systems (96.4% vs 95.0% @5,
+overlapping CIs, and BM25's MRR is nominally *higher*): almost any reasonable
+retriever finds *one* gold session in a 48-session haystack. Treat recall_any@5 as a
+sanity check, not a headline. The vector index earns its keep on the strict
+recall_all@k — every gold session in top-k — where it leads BM25 by +4.0 pp @5 and
++5.0 pp @10. And retrieval at 96% does not mean answers at 96%: the end-to-end QA
+number below is the one that matters.
+
+```bash
+uv run scripts/bm25_baseline.py --dataset data/longmemeval_s_cleaned.json \
+  --out docs/benchmarks/bm25_baseline.json
+```
 
 > Timing scope (corrected 2026-06-09): `embed_time_ms` (1,583,789 ms) now measures
 > haystack embedding alone, and the experiment loop's wall time is reported separately
 > as `total_time_ms` (1,590,953 ms); the previously committed value timed the whole
 > loop. The recall numbers were reproduced exactly under the fix (96.4% / 84.8%).
 
-> MemPalace's quoted "82.8% LongMemEval score" is *retrieval recall*, not QA accuracy;
-> its 96.6% figure was never independently reproduced. mnemonist's 96.4% above is the
-> comparable retrieval number. The *QA* number is below.
-
-#### End-to-end QA accuracy (Exp 6) — "LongMemEval for real"
+#### End-to-end QA accuracy (Exp 5) — "LongMemEval for real"
 
 Full pipeline: retrieve top-5 sessions → a reader LLM answers from the retrieved
 **transcripts** → an LLM judge scores against the gold answer.
 
 ```bash
-just longmemeval-select 6        # Phase A: retrieve context (--qa-output)
+just longmemeval-select 5        # Phase A: retrieve context (--qa-output)
 # Phase B+C: generate answers, then judge (needs OPENAI_API_KEY)
 uv run scripts/longmemeval_qa.py all --context context.jsonl \
   --reader-model gpt-4o-mini --judge-model gpt-4o --report report.json

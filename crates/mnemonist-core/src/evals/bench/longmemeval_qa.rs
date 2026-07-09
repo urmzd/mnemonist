@@ -1,4 +1,4 @@
-//! Experiment 6: LongMemEval QA — End-to-End Evaluation
+//! Experiment 5: LongMemEval QA — End-to-End Evaluation
 //!
 //! Real end-to-end question answering: ingest sessions, retrieve context,
 //! output JSONL for LLM scoring, or score pre-generated LLM answers.
@@ -43,7 +43,7 @@ pub struct QaExperimentResult {
     pub n_questions: Option<usize>,
 }
 
-/// Run Experiment 6: LongMemEval QA.
+/// Run Experiment 5: LongMemEval QA.
 pub fn run(
     dataset: &LongMemEvalDataset,
     embedder: &dyn Embedder,

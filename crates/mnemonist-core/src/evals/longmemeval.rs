@@ -29,7 +29,8 @@
 //! ```
 //!
 //! In both cases, only **user turns** are concatenated to form the document
-//! for each session (matching the MemPalace methodology).
+//! for each session (questions are phrased from the user's perspective, so
+//! user turns are the retrieval signal).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -49,7 +50,7 @@ pub struct Turn {
 #[derive(Debug, Clone)]
 pub struct LongMemEvalDataset {
     /// All sessions keyed by ID. Value is the concatenated user-turn text.
-    /// This is the **retrieval** representation (matches MemPalace methodology).
+    /// This is the **retrieval** representation.
     pub sessions: HashMap<String, String>,
     /// Full role-tagged transcripts (user + assistant) keyed by session ID.
     /// This is the **reader-context** representation for QA: many gold answers

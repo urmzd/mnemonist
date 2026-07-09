@@ -1,4 +1,4 @@
-//! Experiment 6: End-to-end LongMemEval QA evaluation.
+//! Experiment 5: End-to-end LongMemEval QA evaluation.
 //!
 //! This is the **real** LongMemEval benchmark — not raw vector retrieval (Experiments 1/5),
 //! but actual question-answering accuracy.
