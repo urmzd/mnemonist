@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.2 (2026-07-09)
+
+### Bug Fixes
+
+- **bench**: remove MemPalace references, add BM25 baseline to Exp 1 ([408866e](https://github.com/urmzd/mnemonist/commit/408866eed1d1978b819285a229147f8d48079778))
+
+### Misc
+
+- bump GitHub Actions to Node 24 majors and switch app token to client-id ([ef63ebe](https://github.com/urmzd/mnemonist/commit/ef63ebe243ab9915e9747015e92663032b1940d0))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.10.1...v0.10.2)
+
+
 ## 0.10.1 (2026-06-09)
 
 ### Bug Fixes
