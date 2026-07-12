@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 (2026-07-12)
+
+### Breaking
+
+- consolidate CLI verbs into remember/recall, background consolidation (#13) ([31c38a6](https://github.com/urmzd/mnemonist/commit/31c38a62ec68cf89a7bcb28dbeac39609af26114))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.10.2...v0.11.0)
+
+
 ## 0.10.2 (2026-07-09)
 
 ### Bug Fixes
