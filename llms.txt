@@ -1,6 +1,6 @@
 # mnemonist
 
-> An open standard for tool-agnostic AI agent memory with a cognitive CLI. Defines a two-level memory convention — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`) — using typed markdown files with YAML frontmatter. CLI commands mirror memory processes: memorize, remember, note, learn, consolidate, reflect, forget. Features working memory inbox, attention scoring, Hebbian reinforcement, consolidation cycles, semantic search (HNSW/IVF-Flat), and TurboQuant vector quantization. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
+> An open standard for tool-agnostic AI agent memory with a cognitive CLI. Defines a two-level memory convention — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`) — using typed markdown files with YAML frontmatter. CLI commands mirror memory processes: remember, recall, learn, consolidate, reflect, forget. Features working memory inbox, attention scoring, Hebbian reinforcement, consolidation cycles, semantic search (HNSW/IVF-Flat), and TurboQuant vector quantization. Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool.
 
 ## Docs
 

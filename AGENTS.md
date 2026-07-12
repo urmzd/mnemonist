@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A specification and Rust implementation defining a convention for storing AI agent memory as plain markdown files. Two levels: project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`). Uses cognitive metaphors for its CLI: memorize, remember, note, learn, consolidate, reflect, forget.
+A specification and Rust implementation defining a convention for storing AI agent memory as plain markdown files. Two levels: project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`). Uses cognitive metaphors for its CLI: remember (store, `--defer` stages to the inbox), recall (retrieve), learn, consolidate, reflect, forget.
 
 ## Architecture
 

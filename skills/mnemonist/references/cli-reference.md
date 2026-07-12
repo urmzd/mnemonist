@@ -16,30 +16,28 @@ All commands output JSON to stdout (`{"ok": true, "data": {...}}`). Stderr carri
 | Variable | Description |
 |----------|-------------|
 | `MNEMONIST_OFFLINE` | Set to `1` to disable embedding entirely (same degradation as `embedding.provider = "none"`): no embedding-model resolution over the network, semantic search falls back to text search. Used by the test suite and air-gapped environments. |
+| `MNEMONIST_NO_AUTO_CONSOLIDATE` | Set to `1` to disable automatic background consolidation (kill switch; equivalent to `consolidation.auto = false`). |
 
 ## Commands
 
 Memory directories and `MEMORY.md` are created automatically on first use — no explicit init step is required. `mnemonist learn .` is typically the first command run in a new project.
 
-### `mnemonist memorize "<point>" [-t type] [-n name] [--global] [--stdin]`
+### `mnemonist remember "<point>" [-t type] [-n name] [--global] [--stdin] [--defer]`
 
-Encode a point directly into long-term memory. Auto-embeds immediately.
+Encode a point directly into long-term memory. Auto-embeds immediately (strength 1.0, frontmatter `source: remember`).
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-t, --memory-type` | `feedback` | One of: `user`, `feedback`, `project`, `reference` |
 | `-n, --name` | auto-slugified | Kebab-case identifier for the file |
 | `--stdin` | off | Read JSON input from stdin instead of positional arg |
+| `-d, --defer` | off | Stage in the working memory inbox instead of long-term memory. Cannot be combined with `--stdin` |
 
 Creates `{type}_{name}.md` and updates `MEMORY.md`, `.embeddings.bin`, and `.memory-index.hnsw`.
 
-### `mnemonist note "<point>" [--global]`
+With `--defer`, the point goes to the working memory inbox (`.inbox.json`) with attention score 0.95, and stays there until `consolidate` promotes it to long-term memory. Inbox writes may spawn an automatic background consolidation (see `consolidate`).
 
-Quick capture into the working memory inbox (`.inbox.json`). Default attention score: 0.5.
-
-Items stay in the inbox until `consolidate` promotes them to long-term memory.
-
-### `mnemonist remember "<ask>" [--budget N] [--level both] [--stdin]`
+### `mnemonist recall "<ask>" [--budget N] [--level both] [--stdin]`
 
 Recall memories by semantic cue. Searches two layers in parallel:
 
@@ -51,6 +49,8 @@ Recall memories by semantic cue. Searches two layers in parallel:
 | `--budget` | `recall.budget` config (2000) | Output character limit |
 | `--level` | `both` | `project`, `global`, or `both` |
 | `--stdin` | off | Read JSON query from stdin |
+
+Mental model: `remember "this"` = store, `recall "X"` = retrieve.
 
 Results are ranked by cosine similarity, then sorted by type priority: feedback > project > user > reference. Follows `refs` edges to surface related code chunks (up to `max_ref_expansions`).
 
@@ -71,7 +71,7 @@ Ingest a codebase as sensory experience. Phases:
 | `--attend` | none | Glob filter (e.g., `"src/**/*.rs"`) |
 | `--capacity` | inbox capacity | Max items to promote to inbox |
 
-Reports embedding quality metrics after indexing (anisotropy, similarity_range).
+Reports embedding quality metrics after indexing (anisotropy, similarity_range). Inbox writes may spawn an automatic background consolidation (see `consolidate`).
 
 ### `mnemonist consolidate [--dry-run] [--global]`
 
@@ -83,6 +83,8 @@ Run a sleep-like consolidation cycle:
 4. **Re-embed** — rebuild `.memory-index.hnsw` from all surviving memories
 
 Use `--dry-run` to preview changes without applying them.
+
+**Auto-consolidation.** Consolidation also runs automatically as a detached background job (like `git gc --auto`): after inbox writes (`remember --defer`, `learn`), a background `consolidate --quiet` is spawned when the inbox is >= 80% full or the last consolidation is older than `consolidation.auto_stale_days` (default 7 days). A `.consolidate.lock` file in the memory dir prevents concurrent runs; `.last-consolidated` records the last completed run. Manual `mnemonist consolidate` still works; it reports `{"skipped": "locked"}` if a run is already in progress. Disable with `consolidation.auto = false` or `MNEMONIST_NO_AUTO_CONSOLIDATE=1`.
 
 ### `mnemonist reflect [--all] [--global]`
 

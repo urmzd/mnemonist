@@ -50,7 +50,7 @@ Tests are colocated with their source in `#[cfg(test)]` modules, except for the 
 | `mnemonist-core` | 21 | Config TOML roundtrip and dot-notation get/set; embedding store binary format and hash-based change detection; inbox capacity eviction and JSON persistence; MEMORY.md index parsing, search, and save; memory file frontmatter parsing and markdown roundtrip; `FileBackend` store/get/remove/list |
 | `mnemonist-core` (`ann` module) | 21 | HNSW insert, remove (incl. entry-point removal preserving the top-layer invariant), save/load, and recall ≥ 90% on 200 vectors; IVF-Flat insert, remove, save/load, and recall ≥ 85% on 200 vectors; cosine similarity, dot product, L2 distance, and normalization; `ParagraphChunking`/`FixedLineChunking` and `--attend` include-glob filtering (no tree-sitter) |
 | `mnemonist-core` (`quant` module) | 39 | Lloyd-Max codebook structure and scalar quantize/dequantize at 1–4 bits; bit-packing roundtrip for 1–4 bits including non-byte-aligned counts; `TurboQuantMse` roundtrip MSE, norm preservation, zero vector, and empirical MSE against theoretical bound; `TurboQuantProd` unbiased inner-product property and fast estimate; QJL determinism and unbiased inner-product property; rotation orthogonality, forward/inverse roundtrip, and norm preservation; compressed embedding store save/load for MSE and Prod variants |
-| `mnemonist-cli` | 13 | End-to-end CLI tests that spawn the binary as a subprocess: `memorize` (with type, name, and stdin JSON), `note` (inbox capacity enforcement), `remember` (match and no-match), `reflect`, `consolidate` (dry-run and real), `forget` (success and nonexistent), `config init`/`get`/`set` |
+| `mnemonist-cli` | 22 | End-to-end CLI tests that spawn the binary as a subprocess: `remember` (with type, name, stdin JSON, and path-traversal rejection), `remember --defer` (inbox capacity enforcement, `--stdin` rejection), `recall` (match and no-match), `reflect`, `consolidate` (dry-run, real, and lock-skip), `forget` (success and nonexistent), `config init`/`get`/`set`, plus JSON output snapshots |
 
 ### End-to-end validation
 
@@ -61,7 +61,7 @@ cargo build --release
 bash scripts/validate.sh
 ```
 
-The script covers all command groups in order — `config`, `memorize`, `note`, `remember`, `reflect`, `learn`, `consolidate`, and `forget` — and exits with the number of failures as its exit code.
+The script covers all command groups in order — `config`, `remember`, `remember --defer`, `recall`, `reflect`, `learn`, `consolidate` (including the lock), and `forget` — and exits with the number of failures as its exit code.
 
 ## Pull Requests
 

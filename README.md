@@ -36,20 +36,20 @@
 
 ## Features
 
-- **Cognitive CLI** — commands named after memory processes: `memorize`, `remember`, `note`, `learn`, `consolidate`, `reflect`, `forget`
+- **Cognitive CLI** — commands named after memory processes: `remember`, `recall`, `learn`, `consolidate`, `reflect`, `forget`
 - **Two-level memory** — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`)
-- **Working memory inbox** — capacity-limited staging area (default 7 items) with attention scoring; items promoted to long-term memory via `consolidate`
+- **Working memory inbox** — capacity-limited staging area (default 10 items) with attention scoring; items promoted to long-term memory via `consolidate`
 - **Memory metadata** — strength, access count, last accessed, source tracking; Hebbian reinforcement on retrieval
 - **Plain markdown** with YAML frontmatter — human-readable, git-friendly
 - **Typed memories** — user, feedback, project, reference
 - **Local embedding** — `candle` crate with `all-MiniLM-L6-v2` (384-dim, CPU/CUDA); no external server needed; model downloads from HuggingFace Hub on first use
 - **Layered graph** — three HNSW layers: code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
 - **Pluggable code chunking** — `ChunkingStrategy` trait with built-in `ParagraphChunking` (blank-line boundaries) and `FixedLineChunking` (sliding window with overlap); no tree-sitter dependency
-- **Cross-layer recall** — `remember` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
-- **Consolidation** — `consolidate` promotes inbox items, decays stale memories, and re-embeds
+- **Cross-layer recall** — `recall` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
+- **Consolidation** — `consolidate` promotes inbox items, decays stale memories, and re-embeds; auto-runs as a detached background job (`git gc --auto` style) on inbox pressure or staleness
 - **Fuzzy forget** — `forget` resolves partial and suffix matches so you don't need the full filename
 - **Embedding quality metrics** — `learn` reports anisotropy and similarity_range after indexing
-- **TurboQuant** — vector quantization (1-4 bit) available as a research/eval module (see the storage-footprint benchmark); not yet wired into `learn`/`remember`, which store full f32 embeddings
+- **TurboQuant** — vector quantization (1-4 bit) available as a research/eval module (see the storage-footprint benchmark); not yet wired into `learn`/`recall`, which store full f32 embeddings
 - **JSON-first** — stdout for structured JSON, stderr for UX; pipe-friendly
 - Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool
 
@@ -83,19 +83,20 @@ curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | s
 # 2. Ingest the codebase — auto-creates ~/.mnemonist/{project}/ and embeds source files
 mnemonist learn .
 
-# 3. Memorize long-term knowledge
-mnemonist memorize "prefer Rust for CLI tools" -t feedback
-mnemonist memorize "deep Go expertise, new to React" -t user
+# 3. Remember long-term knowledge
+mnemonist remember "prefer Rust for CLI tools" -t feedback
+mnemonist remember "deep Go expertise, new to React" -t user
 
-# 4. Jot quick notes into the working memory inbox
-mnemonist note "look into async runtime choices"
-mnemonist note "check Linear project INGEST for pipeline bugs"
+# 4. Defer quick thoughts into the working memory inbox
+mnemonist remember --defer "look into async runtime choices"
+mnemonist remember --defer "check Linear project INGEST for pipeline bugs"
 
 # 5. Consolidate — promote inbox to long-term memory, decay stale items, re-embed
+# (also runs automatically in the background when the inbox fills up)
 mnemonist consolidate
 
 # 6. Recall — semantic + text search across memories and code
-mnemonist remember "rust async patterns"
+mnemonist recall "rust async patterns"
 
 # 7. Review everything
 mnemonist reflect --all
@@ -134,11 +135,11 @@ Project memory takes precedence over global when they conflict.
 
 | Command | Description |
 |---------|-------------|
-| `mnemonist memorize "<point>" [-t type] [-n name]` | Deliberately encode a point into long-term memory (auto-embeds) |
-| `mnemonist note "<point>"` | Jot a quick note into working memory inbox |
-| `mnemonist remember "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel with blended relevance scoring, follows refs |
+| `mnemonist remember "<point>" [-t type] [-n name]` | Commit a point to long-term memory (auto-embeds) |
+| `mnemonist remember --defer "<point>"` | Stage a quick thought in the working memory inbox; promoted by `consolidate` |
+| `mnemonist recall "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel with blended relevance scoring, follows refs |
 | `mnemonist learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; chunks files with `ParagraphChunking`, embeds into `.code-index.hnsw`, reports quality metrics. `--attend` only indexes files matching this glob |
-| `mnemonist consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw` |
+| `mnemonist consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw`. Auto-triggered in the background on inbox pressure/staleness |
 | `mnemonist reflect [--all] [--global]` | Introspect — review memories and inbox contents |
 | `mnemonist forget <file>` | Deliberately forget a memory (supports fuzzy/suffix name matching) |
 | `mnemonist config init` | Create default config file |
@@ -151,7 +152,7 @@ All commands output JSON to stdout (`{"ok": true, "data": {...}}`). stdout is al
 
 ### Working Memory (Inbox)
 
-The inbox is a capacity-limited staging area modeled after human working memory (default capacity: 7). Items enter via `note` (manual) or `learn` (code ingestion) and are scored by attention:
+The inbox is a capacity-limited staging area for working memory (default capacity: 10). Items enter via `remember --defer` (manual) or `learn` (code ingestion) and are scored by attention:
 
 - Items are sorted by attention score; lowest-scored items are evicted at capacity
 - `consolidate` promotes inbox items to long-term memory and clears the inbox
@@ -167,6 +168,8 @@ The inbox is a capacity-limited staging area modeled after human working memory 
 
 Use `--dry-run` to preview what would change.
 
+Consolidation also runs automatically as a detached background job (like `git gc --auto`): after an inbox write, a `consolidate --quiet` worker is spawned when the inbox is ≥ 80% full or the last run is older than `consolidation.auto_stale_days` (default 7 days). A `.consolidate.lock` file serializes concurrent runs. Disable with `consolidation.auto = false` or `MNEMONIST_NO_AUTO_CONSOLIDATE=1`.
+
 ### Memory Metadata
 
 Each memory file tracks cognitive metadata in its frontmatter:
@@ -177,7 +180,7 @@ Each memory file tracks cognitive metadata in its frontmatter:
 | `access_count` | Retrieval count (Hebbian reinforcement) |
 | `last_accessed` | ISO 8601 timestamp of last retrieval |
 | `created_at` | When the memory was first created |
-| `source` | How it was created: `memorize`, `note`, `learn`, `consolidation` |
+| `source` | How it was created: `remember`, `learn`, `consolidation` |
 | `consolidated_from` | Original files if created via merge |
 | `refs` | Inter-layer edges — code chunk IDs or memory filenames this memory links to |
 
@@ -211,9 +214,11 @@ decay_days = 90
 merge_threshold = 0.85
 protected_access_count = 5
 max_memory_tokens = 120
+auto = true            # background auto-consolidation (git gc --auto style)
+auto_stale_days = 7
 
 [inbox]
-capacity = 7
+capacity = 10
 
 [output]
 quiet = false
@@ -229,8 +234,8 @@ See the full [Specification](spec/mnemonist.md) for details on file format, dyna
 Two kinds of benchmark live here:
 
 1. **System-level evaluation** — does the memory/RAG pipeline retrieve the right thing
-   and answer correctly? Measured on real code (your repositories) and on the
-   LongMemEval conversational-memory dataset.
+   and answer correctly? Measured on the LongMemEval conversational-memory dataset,
+   an established public benchmark.
 2. **Microbenchmarks** — how fast are the individual primitives (distance kernels,
    HNSW, quantization)? Measured with `cargo bench` (criterion).
 
@@ -241,41 +246,20 @@ Two kinds of benchmark live here:
 > **all-MiniLM-L6-v2** (384-dim, candle + accelerate), HNSW `m=16, m0=32,
 > ef_construction=200, ef_search=100`, dataset `longmemeval_s_cleaned.json`
 > (19,195 sessions / 500 questions, sha256
-> `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`). The code-RAG
-> results and the gpt-4o-judged QA accuracy are from the earlier 2026-05 run at `f68c13a`
-> and were not rerun. The BM25 baseline: `scripts/bm25_baseline.py` (Okapi, k1=1.5,
+> `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`). The
+> gpt-4o-judged QA accuracy is from the earlier 2026-05 run at `f68c13a`
+> and was not rerun. The BM25 baseline: `scripts/bm25_baseline.py` (Okapi, k1=1.5,
 > b=0.75, lowercase `\w+` tokens), 2026-07-08, same dataset and construct as Exp 1.
 > Reproduce with the commands in each section.
 
-### Code retrieval — RAG over real repositories
+### Code retrieval — no in-house benchmark
 
-The product's headline use case: `mnemonist learn <repo>` ingests a codebase, then
-`mnemonist remember "<question>"` should surface the source files that answer it. This
-measures that directly with **natural-language, intent-based queries** mapped to gold
-target **files**, over five real repositories spanning Rust, Go, and Python.
-
-| repo | n | recall@1 | recall@3 | recall@5 | recall@10 | MRR | precision@5 |
-|---|---|---|---|---|---|---|---|
-| fsrc (Rust/Py) | 16 | 38% | 69% | 81% | 81% | 0.542 | 0.163 |
-| sr (Rust) | 16 | 31% | 50% | 56% | 88% | 0.441 | 0.125 |
-| teasr (Rust) | 16 | 62% | 75% | 81% | 81% | 0.703 | 0.163 |
-| saige (Go) | 14 | 21% | 57% | 86% | 93% | 0.461 | 0.186 |
-| mnemonist (Rust) | 16 | 19% | 38% | 56% | 62% | 0.332 | 0.125 |
-| **overall (macro)** | **78** | **34%** | **58%** | **72%** | **81%** | **0.496** | **0.152** |
-
-For ~3 in 4 natural-language queries a relevant file lands in the top 5 (recall@5 72%),
-and 4 in 5 by top 10. `recall@1` (34%) is lower — the single best chunk is often a
-sibling of the true answer. Retrieval is file-level strong; exact top-chunk ranking has
-headroom (a code-tuned embedder or reranker would lift it). Gold sets are in
-[`docs/benchmarks/rag_gold/`](/docs/benchmarks/rag_gold/) — intent-based queries with verified gold
-paths. Each repo is learned into an **isolated storage root** (`HOME` override) so the
-real `~/.mnemonist` is never touched.
-
-```bash
-uv run scripts/rag_eval.py \
-  --gold-dir docs/benchmarks/rag_gold --repos-root ~/github \
-  --out docs/benchmarks/rag_results.json --md docs/benchmarks/rag_results.md
-```
+There is deliberately no code-retrieval benchmark here. An earlier version measured
+recall over this project's own repositories with self-authored queries and gold
+labels — a construct with no external validity, so it was removed. Any future
+code-retrieval claim should come from an established public suite (e.g.
+[CoIR](https://github.com/CoIR-team/coir) or CodeSearchNet) run against the full
+`learn`/`recall` pipeline, with committed provenance like the LongMemEval runs below.
 
 ### LongMemEval — conversational memory
 
@@ -441,7 +425,7 @@ exact McNemar test gives p = 0.121, and at n=500 the 95% Wilson intervals are ra
 p < 0.05 is 2-bit recall@10 (34.6% vs raw 37.0%, p = 0.017, uncorrected for the eight
 comparisons), consistent with a small real degradation at 2 bits. TurboQuant is
 currently a research/eval module and is
-**not** wired into `learn`/`remember` (which store full f32); this benchmark is the basis
+**not** wired into `learn`/`recall` (which store full f32); this benchmark is the basis
 for deciding whether to integrate it.
 
 ### Microbenchmarks (`cargo bench`)
