@@ -12,7 +12,7 @@ pub struct InboxItem {
     pub id: String,
     /// The content of this observation.
     pub content: String,
-    /// How this item entered the inbox: "note" or "learn".
+    /// How this item entered the inbox: "remember" (deferred) or "learn".
     pub source: String,
     /// Attention score (0.0-1.0). Higher = more likely to survive consolidation.
     pub attention_score: f32,
@@ -38,7 +38,7 @@ pub struct FileSource {
 /// promotes them to long-term memory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Inbox {
-    /// Maximum number of items (default 7, like working memory capacity).
+    /// Maximum number of items (default 10).
     pub capacity: usize,
     /// Current items, ordered by attention score descending.
     pub items: Vec<InboxItem>,
@@ -114,7 +114,7 @@ mod tests {
         InboxItem {
             id: id.to_string(),
             content: format!("content for {id}"),
-            source: "note".to_string(),
+            source: "remember".to_string(),
             attention_score: score,
             created_at: "2026-03-27T00:00:00Z".to_string(),
             file_source: None,
@@ -175,7 +175,7 @@ mod tests {
         inbox.push(InboxItem {
             id: "prefer-rust".to_string(),
             content: "Always use Rust for CLI tools".to_string(),
-            source: "note".to_string(),
+            source: "remember".to_string(),
             attention_score: 0.9,
             created_at: "2026-03-29T10:00:00Z".to_string(),
             file_source: None,

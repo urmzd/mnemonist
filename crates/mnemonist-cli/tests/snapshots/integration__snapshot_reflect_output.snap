@@ -5,13 +5,13 @@ expression: redact_cli_json(json)
 {
   "data": {
     "inbox": {
-      "capacity": 7,
+      "capacity": 10,
       "items": [
         {
           "attention_score": 0.949999988079071,
           "created_at": "[timestamp]",
           "id": "check-logging",
-          "source": "note"
+          "source": "remember"
         }
       ],
       "size": 1
@@ -19,7 +19,7 @@ expression: redact_cli_json(json)
     "memories": [
       {
         "file": "feedback_prefer-rust.md",
-        "source": "memorize",
+        "source": "remember",
         "strength": 1.0,
         "summary": "prefer rust",
         "title": "prefer rust"

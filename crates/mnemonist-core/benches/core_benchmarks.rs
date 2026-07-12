@@ -13,7 +13,7 @@ fn make_item(id: usize, score: f32) -> InboxItem {
     InboxItem {
         id: format!("item_{id}"),
         content: format!("content for item {id}"),
-        source: "note".to_string(),
+        source: "remember".to_string(),
         attention_score: score,
         created_at: "2026-03-30T00:00:00Z".to_string(),
         file_source: None,

@@ -160,7 +160,7 @@ enum OutputFormat {
 #[derive(Parser)]
 #[command(
     name = "mnemonist",
-    about = "Memory for AI agents — learn, remember, consolidate"
+    about = "Memory for AI agents — learn, remember, recall, consolidate"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -177,9 +177,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Deliberately encode a point into long-term memory
-    Memorize {
-        /// What to memorize (free text)
+    /// Commit a point to memory — "remember this"
+    Remember {
+        /// What to remember (free text)
         point: String,
 
         /// Memory type: user, feedback, project, reference
@@ -194,6 +194,11 @@ enum Command {
         #[arg(long, short)]
         global: bool,
 
+        /// Stage in working memory (inbox) instead of long-term memory;
+        /// promoted on the next `consolidate`
+        #[arg(long, short = 'd')]
+        defer: bool,
+
         /// Read structured input from stdin (JSON)
         #[arg(long)]
         stdin: bool,
@@ -203,23 +208,9 @@ enum Command {
         root: PathBuf,
     },
 
-    /// Jot a quick note into working memory (inbox)
-    Note {
-        /// What to note down
-        point: String,
-
-        /// Project root (defaults to current directory)
-        #[arg(long, default_value = ".")]
-        root: PathBuf,
-
-        /// Store in global inbox instead of project
-        #[arg(long, short)]
-        global: bool,
-    },
-
     /// Recall memories by cue — "what do I know about X?"
-    Remember {
-        /// What to remember (search cue)
+    Recall {
+        /// What to recall (search cue)
         ask: String,
 
         /// Max output chars (defaults to the `recall.budget` config value)
@@ -447,7 +438,7 @@ impl Drop for CommandTimer {
 // -- Stdin JSON types --
 
 #[derive(Deserialize)]
-struct MemorizeInput {
+struct RememberInput {
     #[serde(rename = "type")]
     memory_type: String,
     name: String,
@@ -462,7 +453,7 @@ struct MemorizeInput {
 }
 
 #[derive(Deserialize)]
-struct RememberInput {
+struct RecallInput {
     query: String,
 }
 
@@ -527,6 +518,100 @@ fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
 }
 
+// -- Background consolidation (worker pattern, like `git gc --auto`) --
+
+/// Lock file guarding a memory directory against concurrent consolidation.
+/// Removed on drop; locks older than 10 minutes are treated as crashed
+/// holders and broken.
+struct ConsolidateLock {
+    path: PathBuf,
+}
+
+impl Drop for ConsolidateLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+fn try_lock_consolidate(dir: &std::path::Path) -> Option<ConsolidateLock> {
+    let path = dir.join(".consolidate.lock");
+    let create = || {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .ok()
+            .map(|mut f| {
+                use std::io::Write as _;
+                let _ = write!(f, "{}", std::process::id());
+                ConsolidateLock { path: path.clone() }
+            })
+    };
+    if let Some(lock) = create() {
+        return Some(lock);
+    }
+    let stale = std::fs::metadata(&path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.elapsed().ok())
+        .is_some_and(|age| age.as_secs() > 600);
+    if stale {
+        let _ = std::fs::remove_file(&path);
+        return create();
+    }
+    None
+}
+
+/// Marker file recording when consolidation last completed.
+fn touch_last_consolidated(dir: &std::path::Path) {
+    let _ = std::fs::write(dir.join(".last-consolidated"), now_iso());
+}
+
+/// Spawn a detached `consolidate --quiet` for this directory when working
+/// memory is under pressure (inbox >= 80% full) or consolidation is stale.
+/// The lock file makes redundant spawns harmless.
+fn maybe_auto_consolidate(root: &std::path::Path, global: bool, config: &Config, inbox_len: usize) {
+    if !config.consolidation.auto {
+        return;
+    }
+    let disabled =
+        std::env::var("MNEMONIST_NO_AUTO_CONSOLIDATE").is_ok_and(|v| !v.is_empty() && v != "0");
+    if disabled {
+        return;
+    }
+
+    let capacity = config.inbox.capacity.max(1);
+    let pressure = inbox_len * 10 >= capacity * 8;
+
+    let stale = resolve_dir(global, root)
+        .ok()
+        .and_then(|dir| std::fs::metadata(dir.join(".last-consolidated")).ok())
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.elapsed().ok())
+        .is_some_and(|age| age.as_secs() > config.consolidation.auto_stale_days * 86_400);
+
+    if !(pressure || stale) {
+        return;
+    }
+
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("consolidate")
+        .arg("--quiet")
+        .arg("--root")
+        .arg(root);
+    if global {
+        cmd.arg("--global");
+    }
+    let _ = cmd
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
 fn main() {
     let cli = Cli::parse();
     let _ = OUTPUT_FORMAT.set(cli.format);
@@ -534,9 +619,8 @@ fn main() {
     let quiet = cli.quiet || Config::load().output.quiet;
 
     let cmd_label = match &cli.command {
-        Command::Memorize { .. } => "memorize",
-        Command::Note { .. } => "note",
         Command::Remember { .. } => "remember",
+        Command::Recall { .. } => "recall",
         Command::Learn { .. } => "learn",
         Command::Consolidate { .. } => "consolidate",
         Command::Reflect { .. } => "reflect",
@@ -561,21 +645,56 @@ fn main() {
 fn run(cli: Cli) -> Result<()> {
     let quiet = cli.quiet;
     match cli.command {
-        // -- memorize: deliberate encoding into long-term memory --
-        Command::Memorize {
+        // -- remember: commit a point to memory --
+        Command::Remember {
             point,
             memory_type,
             name,
             global,
+            defer,
             stdin,
             root,
         } => {
+            // Deferred: stage in the working-memory inbox; `consolidate` promotes it.
+            if defer {
+                if stdin {
+                    anyhow::bail!("--defer cannot be combined with --stdin");
+                }
+                let config = Config::load_with_project(&root);
+                let dir = resolve_dir(global, &root)?;
+                std::fs::create_dir_all(&dir)?;
+
+                let mut inbox = Inbox::load(&dir, config.inbox.capacity)?;
+
+                let item = InboxItem {
+                    id: name.unwrap_or_else(|| slugify(&point, 4)),
+                    content: point,
+                    source: "remember".to_string(),
+                    attention_score: 0.95, // user intent > auto-learned heuristics
+                    created_at: now_iso(),
+                    file_source: None,
+                };
+
+                inbox.push(item);
+                inbox.last_updated = Some(now_iso());
+                inbox.save(&dir)?;
+
+                maybe_auto_consolidate(&root, global, &config, inbox.len());
+
+                info!("deferred ({}/{})", inbox.len(), inbox.capacity);
+                output_ok(json!({
+                    "inbox_size": inbox.len(),
+                    "capacity": inbox.capacity,
+                }));
+                return Ok(());
+            }
+
             let (mt, n, desc, body, is_global, refs) = if stdin {
                 let mut buf = String::new();
                 io::stdin()
                     .read_to_string(&mut buf)
                     .context("failed to read stdin")?;
-                let input: MemorizeInput =
+                let input: RememberInput =
                     serde_json::from_str(&buf).context("invalid JSON on stdin")?;
                 let mt: MemoryType = input
                     .memory_type
@@ -607,7 +726,7 @@ fn run(cli: Cli) -> Result<()> {
                     description: desc.clone(),
                     memory_type: mt,
                     created_at: Some(now_iso()),
-                    source: Some("memorize".to_string()),
+                    source: Some("remember".to_string()),
                     strength: 1.0,
                     refs,
                     ..Default::default()
@@ -650,40 +769,8 @@ fn run(cli: Cli) -> Result<()> {
             }));
         }
 
-        // -- note: quick capture into working memory inbox --
-        Command::Note {
-            point,
-            root,
-            global,
-        } => {
-            let config = Config::load_with_project(&root);
-            let dir = resolve_dir(global, &root)?;
-            std::fs::create_dir_all(&dir)?;
-
-            let mut inbox = Inbox::load(&dir, config.inbox.capacity)?;
-
-            let item = InboxItem {
-                id: slugify(&point, 4),
-                content: point,
-                source: "note".to_string(),
-                attention_score: 0.95, // user intent > auto-learned heuristics
-                created_at: now_iso(),
-                file_source: None,
-            };
-
-            inbox.push(item);
-            inbox.last_updated = Some(now_iso());
-            inbox.save(&dir)?;
-
-            info!("noted ({}/{})", inbox.len(), inbox.capacity);
-            output_ok(json!({
-                "inbox_size": inbox.len(),
-                "capacity": inbox.capacity,
-            }));
-        }
-
-        // -- remember: cue-based retrieval --
-        Command::Remember {
+        // -- recall: cue-based retrieval --
+        Command::Recall {
             ask,
             budget,
             level,
@@ -695,7 +782,7 @@ fn run(cli: Cli) -> Result<()> {
                 io::stdin()
                     .read_to_string(&mut buf)
                     .context("failed to read stdin")?;
-                let input: RememberInput = serde_json::from_str(&buf)
+                let input: RecallInput = serde_json::from_str(&buf)
                     .context("stdin must be JSON with a \"query\" field")?;
                 input.query
             } else {
@@ -918,7 +1005,7 @@ fn run(cli: Cli) -> Result<()> {
                 if is_tty() {
                     use tui::*;
                     eprintln!();
-                    eprintln!("  {BOLD}{CYAN}mnemonist remember{RESET}  {DIM}\"{q}\"{RESET}");
+                    eprintln!("  {BOLD}{CYAN}mnemonist recall{RESET}  {DIM}\"{q}\"{RESET}");
                     eprintln!("  {DIM}────────────────────────────────────────{RESET}");
                     for (i, m) in memories.iter().enumerate() {
                         let tc = match m.memory_type.as_str() {
@@ -1130,6 +1217,8 @@ fn run(cli: Cli) -> Result<()> {
             inbox.last_updated = Some(now.clone());
             inbox.save(&mem_dir)?;
 
+            maybe_auto_consolidate(&root, false, &config, inbox.len());
+
             if is_tty() {
                 use tui::*;
                 eprintln!();
@@ -1195,6 +1284,28 @@ fn run(cli: Cli) -> Result<()> {
         } => {
             let config = Config::load_with_project(&root);
             let dir = resolve_dir(global, &root)?;
+            std::fs::create_dir_all(&dir)?;
+
+            // Serialize consolidation runs: foreground invocations and
+            // auto-spawned background workers share this lock.
+            let _lock = if dry_run {
+                None
+            } else {
+                match try_lock_consolidate(&dir) {
+                    Some(lock) => Some(lock),
+                    None => {
+                        info!("skipped: another consolidation is running");
+                        output_ok(json!({
+                            "promoted": 0,
+                            "decayed": 0,
+                            "dry_run": false,
+                            "skipped": "locked",
+                            "actions": [],
+                        }));
+                        return Ok(());
+                    }
+                }
+            };
 
             let mut index = MemoryIndex::load(&dir)?;
             let mut actions: Vec<Value> = Vec::new();
@@ -1408,6 +1519,8 @@ fn run(cli: Cli) -> Result<()> {
                         "indexed": n,
                     }));
                 }
+
+                touch_last_consolidated(&dir);
             }
 
             let promoted = inbox_items.len();
@@ -1470,7 +1583,9 @@ fn run(cli: Cli) -> Result<()> {
         // -- reflect: introspection --
         Command::Reflect { global, all, root } => {
             let dirs = if all {
-                let mut v = vec![project_dir(&root)];
+                // Canonicalize so a default root of "." resolves to the real
+                // project name rather than "default".
+                let mut v = vec![project_dir(&resolve_root(&root))];
                 if let Some(g) = global_dir() {
                     v.push(g);
                 }
@@ -1520,8 +1635,9 @@ fn run(cli: Cli) -> Result<()> {
             }
 
             // Also show inbox contents
+            let capacity = Config::load_with_project(&root).inbox.capacity;
             let inbox_dir = resolve_dir(false, &root).unwrap_or_default();
-            let inbox = Inbox::load(&inbox_dir, 7).unwrap_or_else(|_| Inbox::new(7));
+            let inbox = Inbox::load(&inbox_dir, capacity).unwrap_or_else(|_| Inbox::new(capacity));
 
             output_ok(json!({
                 "memories": entries,
@@ -1550,12 +1666,20 @@ fn run(cli: Cli) -> Result<()> {
                 format!("{file}.md")
             } else {
                 let suffix = format!("_{file}.md");
-                let candidates: Vec<&str> = index
+                let mut candidates: Vec<&str> = index
                     .entries
                     .iter()
                     .filter(|e| e.file.ends_with(&suffix))
                     .map(|e| e.file.as_str())
                     .collect();
+                if candidates.is_empty() {
+                    candidates = index
+                        .entries
+                        .iter()
+                        .filter(|e| e.file.contains(&file))
+                        .map(|e| e.file.as_str())
+                        .collect();
+                }
                 match candidates.len() {
                     1 => candidates[0].to_string(),
                     0 => file.clone(), // fall through to "not found"
