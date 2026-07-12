@@ -49,10 +49,6 @@ struct Cli {
     #[arg(long, default_value = "1,2,3,4")]
     quant_bits: String,
 
-    /// Number of consolidation cycles for Experiment 4.
-    #[arg(long, default_value_t = 10)]
-    temporal_cycles: usize,
-
     /// [Exp 5] Number of context sessions to retrieve per question.
     #[arg(long, default_value_t = 5)]
     qa_top_k: usize,
@@ -177,16 +173,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if experiments.contains(&4) {
-        eprintln!("Running Experiment 4: Temporal Retrieval...");
-        match bench::temporal_retrieval::run(&dataset, &embedder, cli.temporal_cycles) {
+        eprintln!("Running Experiment 4: Staleness Disambiguation...");
+        match bench::temporal_retrieval::run(&dataset, &embedder) {
             Ok(t) => {
                 eprintln!(
-                    "  baseline={:.1}%  control={:.1}%  reinforced={:.1}%  delta_vs_control={:+.1}%  p(reinforced vs control)={:.4}",
-                    t.baseline_recall_any_at_5 * 100.0,
-                    t.control_recall_any_at_5 * 100.0,
-                    t.reinforced_recall_any_at_5 * 100.0,
-                    t.recall_delta * 100.0,
-                    t.mcnemar_p_reinforced_vs_control
+                    "  fresh-first with={:.1}%  without={:.1}%  delta={:+.1}pp  p={:.4} (discordant {}+{})",
+                    t.fresh_first_with_freshness * 100.0,
+                    t.fresh_first_without_freshness * 100.0,
+                    t.delta * 100.0,
+                    t.mcnemar_p,
+                    t.n_discordant[0],
+                    t.n_discordant[1]
                 );
                 report.temporal = Some(t);
             }

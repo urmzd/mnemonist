@@ -142,34 +142,26 @@ fn storage_footprint_baseline_and_paired_tests() {
     }
 }
 
-/// The denominator test that would have caught the published +9.4pp artifact:
-/// the baseline must be scored on the held-out eval slice (recall 3/5), not on
-/// all queries (recall 8/10). Both arms share that denominator.
+/// The staleness construct is paired and monotone: real version ages can only
+/// help the fresh version against its stale siblings, so the with-freshness
+/// arm must dominate the equal-ages control run through the same rerank path.
 #[test]
-fn temporal_baseline_uses_eval_slice_denominator() {
+fn temporal_staleness_arms_are_paired_and_monotone() {
     let ds = fixture();
-    let t = temporal_retrieval::run(&ds, &HashEmbedder, 2).unwrap();
+    let t = temporal_retrieval::run(&ds, &HashEmbedder).unwrap();
 
-    assert_eq!(t.n_documents, 16);
-    assert_eq!(t.n_queries_per_cycle, 5);
-    assert_eq!(t.n_eval_queries, 5);
+    assert_eq!(t.n_versions_per_topic, 3);
+    assert_eq!(t.n_documents, t.n_eval_queries * 3);
+    assert!(t.n_eval_queries >= 5);
     assert!(
-        (t.baseline_recall_any_at_5 - 0.6).abs() < 1e-9,
-        "baseline {} must be eval-slice recall (3/5), not all-query recall (8/10)",
-        t.baseline_recall_any_at_5
+        t.fresh_first_with_freshness >= t.fresh_first_without_freshness,
+        "freshness must not hurt fresh-first: with={} without={}",
+        t.fresh_first_with_freshness,
+        t.fresh_first_without_freshness
     );
-    // Zero-reinforcement control through the rerank path matches the baseline.
-    assert!((t.control_recall_any_at_5 - t.baseline_recall_any_at_5).abs() < 1e-9);
-    // Reinforcing s0–s4 cannot flip held-out outcomes in this fixture, so the
-    // arms agree on every query and the paired test is a clean null.
-    assert!((t.reinforced_recall_any_at_5 - t.control_recall_any_at_5).abs() < 1e-9);
-    assert_eq!(t.n_discordant_reinforced_vs_control, [0, 0]);
-    assert!((t.mcnemar_p_reinforced_vs_control - 1.0).abs() < 1e-12);
-    // The delta isolates the reinforcement signal: reinforced minus control,
-    // not minus the pure-cosine baseline (which would credit the reranker).
-    assert!(
-        (t.recall_delta - (t.reinforced_recall_any_at_5 - t.control_recall_any_at_5)).abs() < 1e-12
-    );
+    let expected_delta = t.fresh_first_with_freshness - t.fresh_first_without_freshness;
+    assert!((t.delta - expected_delta).abs() < 1e-9);
+    assert!(t.mcnemar_p > 0.0 && t.mcnemar_p <= 1.0);
 }
 
 #[test]
@@ -252,14 +244,14 @@ fn full_report_serializes_to_json() {
         retrieval: Some(vector_retrieval::run(&ds, &HashEmbedder).unwrap()),
         latency: Some(latency_scaling::run(&ds, &HashEmbedder, &[8]).unwrap()),
         storage: Some(storage_footprint::run(&ds, &HashEmbedder, &[2], 42).unwrap()),
-        temporal: Some(temporal_retrieval::run(&ds, &HashEmbedder, 2).unwrap()),
+        temporal: Some(temporal_retrieval::run(&ds, &HashEmbedder).unwrap()),
         qa: None,
     };
 
     let json: serde_json::Value = serde_json::from_str(&report.to_json()).unwrap();
     assert_eq!(json["retrieval"]["n_queries"], 10);
-    assert_eq!(json["temporal"]["n_eval_queries"], 5);
-    assert!(json["temporal"]["mcnemar_p_reinforced_vs_control"].is_number());
+    assert!(json["temporal"]["n_eval_queries"].is_number());
+    assert!(json["temporal"]["mcnemar_p"].is_number());
     assert!(json["storage"]["quantized"][0]["mcnemar_p_vs_raw_at_5"].is_number());
     assert!(json["retrieval"]["recall_any_at_5_ci95"].is_array());
     assert!(!report.to_summary().is_empty());
