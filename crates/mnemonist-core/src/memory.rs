@@ -77,7 +77,8 @@ pub struct Frontmatter {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consolidated_from: Option<Vec<String>>,
 
-    /// How this memory was created: "note", "memorize", "learn", "consolidation".
+    /// How this memory was created: "remember", "learn", "consolidation"
+    /// ("memorize" and "note" are legacy values from pre-0.11 files).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 
@@ -241,7 +242,7 @@ Use open standards.
                 access_count: 5,
                 strength: 1.5,
                 consolidated_from: None,
-                source: Some("memorize".to_string()),
+                source: Some("remember".to_string()),
                 refs: Vec::new(),
             },
             body: "Always prefer Rust for CLI tools.\n\n**Why:** Performance and safety.\n\n**How to apply:** Default to Rust for new CLIs.".to_string(),
@@ -271,7 +272,7 @@ Use open standards.
             memory_type: MemoryType::Project,
             created_at: Some("2026-03-25T00:00:00Z".to_string()),
             strength: 1.0,
-            source: Some("note".to_string()),
+            source: Some("remember".to_string()),
             ..Default::default()
         };
         insta::assert_yaml_snapshot!(fm);

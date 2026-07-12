@@ -8,7 +8,7 @@ expression: redact_cli_json(json)
       {
         "action": "promote",
         "file": "feedback_important-observation.md",
-        "source": "note"
+        "source": "remember"
       }
     ],
     "decayed": 0,

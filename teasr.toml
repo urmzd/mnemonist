@@ -38,10 +38,10 @@ key = "enter"
 type = "wait"
 duration = 2500
 
-# Step 2: Memorize long-term knowledge (typed memory)
+# Step 2: Remember long-term knowledge (typed memory)
 [[scenes.interactions]]
 type = "type"
-text = "mnemonist memorize \"prefer Rust for CLI tools\" -t feedback"
+text = "mnemonist remember \"prefer Rust for CLI tools\" -t feedback"
 speed = 35
 [[scenes.interactions]]
 type = "key"
@@ -50,10 +50,10 @@ key = "enter"
 type = "wait"
 duration = 2000
 
-# Step 3: Quick note into working memory inbox
+# Step 3: Defer a quick thought into the working memory inbox
 [[scenes.interactions]]
 type = "type"
-text = "mnemonist note \"check async runtime choices for the index crate\""
+text = "mnemonist remember --defer \"check async runtime choices for the index crate\""
 speed = 35
 [[scenes.interactions]]
 type = "key"
@@ -77,7 +77,7 @@ duration = 2500
 # Step 5: Semantic recall across memories
 [[scenes.interactions]]
 type = "type"
-text = "mnemonist remember \"what language should I use for CLIs?\""
+text = "mnemonist recall \"what language should I use for CLIs?\""
 speed = 35
 [[scenes.interactions]]
 type = "key"

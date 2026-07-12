@@ -90,15 +90,15 @@ mnemonist config init             # optional: create default ~/.mnemonist/mnemon
 
 **Deliberate encoding** — goes straight to long-term memory:
 ```bash
-mnemonist memorize "prefer Rust for CLI tools" -t feedback
-mnemonist memorize "user is a senior backend engineer" -t user -n senior-backend
-mnemonist memorize "deploy freeze until 2026-04-05" -t project --global
+mnemonist remember "prefer Rust for CLI tools" -t feedback
+mnemonist remember "user is a senior backend engineer" -t user -n senior-backend
+mnemonist remember "deploy freeze until 2026-04-05" -t project --global
 ```
 
-**Quick capture** — goes to working memory inbox:
+**Deferred capture** — goes to working memory inbox:
 ```bash
-mnemonist note "look into async runtime choices"
-mnemonist note "might need to refactor auth module"
+mnemonist remember --defer "look into async runtime choices"
+mnemonist remember -d "might need to refactor auth module"
 ```
 
 ### 3. Ingesting Code
@@ -113,9 +113,9 @@ This extracts code chunks via the `ChunkingStrategy` trait (default `ParagraphCh
 ### 4. Recalling
 
 ```bash
-mnemonist remember "authentication"               # search both levels
-mnemonist remember "rust patterns" --level project # project only
-mnemonist remember "user preferences" --budget 500 # compact output
+mnemonist recall "authentication"               # search both levels
+mnemonist recall "rust patterns" --level project # project only
+mnemonist recall "user preferences" --budget 500 # compact output
 ```
 
 Searches memory and code indices in parallel. Follows `refs` edges to surface related code chunks. Falls back to text search if no embeddings exist.
@@ -128,6 +128,8 @@ mnemonist consolidate             # run the full cycle
 ```
 
 Consolidation is a sleep-like cycle: promote inbox items to long-term memory, link similar memories via `refs`, decay stale memories, and rebuild embeddings.
+
+Consolidation also runs automatically as a detached background job (like `git gc --auto`): after inbox writes (`remember --defer`, `learn`), a background `consolidate --quiet` is spawned when the inbox is >= 80% full or the last consolidation is older than `consolidation.auto_stale_days` (default 7 days). Disable with `consolidation.auto = false` or `MNEMONIST_NO_AUTO_CONSOLIDATE=1`.
 
 ### 6. Review and Cleanup
 
@@ -150,28 +152,28 @@ Stderr carries colored UX text (only when TTY). This makes mnemonist pipe-friend
 
 ## Working Memory (Inbox)
 
-The inbox is a capacity-limited staging area (default: 7 items) modeled after human working memory:
+The inbox is a capacity-limited staging area (default: 10 items) modeled after human working memory:
 
-- Items enter via `note` (manual, attention=0.5) or `learn` (code ingestion, scored by construct type)
+- Items enter via `remember --defer` (manual, attention=0.95) or `learn` (code ingestion, scored by construct type)
 - Lowest-scored items are evicted when capacity is reached
-- `consolidate` promotes inbox items to long-term memory and clears the inbox
+- `consolidate` promotes inbox items to long-term memory and clears the inbox — spawned automatically in the background when the inbox is >= 80% full or the last run is stale
 - Stored in `.inbox.json`
 
 ## Two-Layer Semantic Search
 
-`remember` searches two HNSW indices in parallel:
+`recall` searches two HNSW indices in parallel:
 
 1. **Memory layer** — `.memory-index.hnsw` (all stored memories)
 2. **Code layer** — `.code-index.hnsw` (ingested source code chunks)
 
-Results are interleaved by relevance, then sorted by type priority. The `refs` frontmatter field stores inter-layer edges — when a memory references a code chunk or another memory, `remember` follows those edges (up to `max_ref_expansions` hops) to surface related content.
+Results are interleaved by relevance, then sorted by type priority. The `refs` frontmatter field stores inter-layer edges — when a memory references a code chunk or another memory, `recall` follows those edges (up to `max_ref_expansions` hops) to surface related content.
 
 ## Rules for Saving Memories
 
 1. **Observe before saving** — wait for a pattern or explicit instruction
 2. **Save corrections immediately** — "don't do X" is persisted now
 3. **Include why** — a rule without rationale can't handle edge cases
-4. **Update, don't duplicate** — check existing memories first via `reflect` or `remember`
+4. **Update, don't duplicate** — check existing memories first via `reflect` or `recall`
 5. **Verify before acting on memory** — memory is a snapshot; current code is truth
 6. **Prune stale memories** — contradictions with current state get removed via `forget`
 
@@ -185,12 +187,14 @@ Results are interleaved by relevance, then sorted by type priority. The `refs` f
 
 ## Gotchas
 
-- First `memorize` or `learn` downloads the embedding model from HuggingFace Hub
+- First `remember` or `learn` downloads the embedding model from HuggingFace Hub
 - `--root` determines which project directory under `~/.mnemonist/` is used — defaults to cwd basename
-- `memorize` auto-embeds; `note` does not (items embed during `consolidate`)
+- `remember` auto-embeds; `remember --defer` does not (items embed during `consolidate`)
+- `--defer` cannot be combined with `--stdin`
 - `learn` overwrites the code index entirely on each run — it's a full re-ingest
 - Feedback memories get 2x decay protection (180 days vs 90) during consolidation
-- `remember` falls back to text search when no `.memory-index.hnsw` exists yet
+- `recall` falls back to text search when no `.memory-index.hnsw` exists yet
+- Set `MNEMONIST_NO_AUTO_CONSOLIDATE=1` to disable background auto-consolidation
 
 ## Reference
 

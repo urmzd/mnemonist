@@ -38,7 +38,7 @@ pub struct EmbeddingConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RecallConfig {
-    /// Max output chars for recall (default for `remember --budget`).
+    /// Max output chars for recall (default for `recall --budget`).
     pub budget: usize,
     /// Follow inter-layer refs edges during recall.
     #[serde(default = "default_true")]
@@ -89,13 +89,20 @@ pub struct ConsolidationConfig {
     pub protected_access_count: u32,
     /// Max tokens per memory body. Memories are cues, not copies.
     pub max_memory_tokens: usize,
+    /// Run consolidation automatically as a detached background job after
+    /// inbox writes (like `git gc --auto`). Triggers on inbox pressure
+    /// (>= 80% full) or staleness. MNEMONIST_NO_AUTO_CONSOLIDATE=1 overrides.
+    pub auto: bool,
+    /// Days since the last consolidation before an inbox write also triggers
+    /// an automatic background run.
+    pub auto_stale_days: u64,
 }
 
 /// Configuration for the working memory inbox.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InboxConfig {
-    /// Maximum number of items in the inbox (default 7, like working memory capacity).
+    /// Maximum number of items in the inbox (default 10).
     pub capacity: usize,
 }
 
@@ -114,13 +121,15 @@ impl Default for ConsolidationConfig {
             merge_threshold: 0.85,
             protected_access_count: 5,
             max_memory_tokens: 120,
+            auto: true,
+            auto_stale_days: 7,
         }
     }
 }
 
 impl Default for InboxConfig {
     fn default() -> Self {
-        Self { capacity: 7 }
+        Self { capacity: 10 }
     }
 }
 

@@ -1,8 +1,8 @@
 Two kinds of benchmark live here:
 
 1. **System-level evaluation** — does the memory/RAG pipeline retrieve the right thing
-   and answer correctly? Measured on real code (your repositories) and on the
-   LongMemEval conversational-memory dataset.
+   and answer correctly? Measured on the LongMemEval conversational-memory dataset,
+   an established public benchmark.
 2. **Microbenchmarks** — how fast are the individual primitives (distance kernels,
    HNSW, quantization)? Measured with `cargo bench` (criterion).
 
@@ -13,41 +13,20 @@ Two kinds of benchmark live here:
 > **all-MiniLM-L6-v2** (384-dim, candle + accelerate), HNSW `m=16, m0=32,
 > ef_construction=200, ef_search=100`, dataset `longmemeval_s_cleaned.json`
 > (19,195 sessions / 500 questions, sha256
-> `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`). The code-RAG
-> results and the gpt-4o-judged QA accuracy are from the earlier 2026-05 run at `f68c13a`
-> and were not rerun. The BM25 baseline: `scripts/bm25_baseline.py` (Okapi, k1=1.5,
+> `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442`). The
+> gpt-4o-judged QA accuracy is from the earlier 2026-05 run at `f68c13a`
+> and was not rerun. The BM25 baseline: `scripts/bm25_baseline.py` (Okapi, k1=1.5,
 > b=0.75, lowercase `\w+` tokens), 2026-07-08, same dataset and construct as Exp 1.
 > Reproduce with the commands in each section.
 
-### Code retrieval — RAG over real repositories
+### Code retrieval — no in-house benchmark
 
-The product's headline use case: `mnemonist learn <repo>` ingests a codebase, then
-`mnemonist remember "<question>"` should surface the source files that answer it. This
-measures that directly with **natural-language, intent-based queries** mapped to gold
-target **files**, over five real repositories spanning Rust, Go, and Python.
-
-| repo | n | recall@1 | recall@3 | recall@5 | recall@10 | MRR | precision@5 |
-|---|---|---|---|---|---|---|---|
-| fsrc (Rust/Py) | 16 | 38% | 69% | 81% | 81% | 0.542 | 0.163 |
-| sr (Rust) | 16 | 31% | 50% | 56% | 88% | 0.441 | 0.125 |
-| teasr (Rust) | 16 | 62% | 75% | 81% | 81% | 0.703 | 0.163 |
-| saige (Go) | 14 | 21% | 57% | 86% | 93% | 0.461 | 0.186 |
-| mnemonist (Rust) | 16 | 19% | 38% | 56% | 62% | 0.332 | 0.125 |
-| **overall (macro)** | **78** | **34%** | **58%** | **72%** | **81%** | **0.496** | **0.152** |
-
-For ~3 in 4 natural-language queries a relevant file lands in the top 5 (recall@5 72%),
-and 4 in 5 by top 10. `recall@1` (34%) is lower — the single best chunk is often a
-sibling of the true answer. Retrieval is file-level strong; exact top-chunk ranking has
-headroom (a code-tuned embedder or reranker would lift it). Gold sets are in
-[`docs/benchmarks/rag_gold/`](/docs/benchmarks/rag_gold/) — intent-based queries with verified gold
-paths. Each repo is learned into an **isolated storage root** (`HOME` override) so the
-real `~/.mnemonist` is never touched.
-
-```bash
-uv run scripts/rag_eval.py \
-  --gold-dir docs/benchmarks/rag_gold --repos-root ~/github \
-  --out docs/benchmarks/rag_results.json --md docs/benchmarks/rag_results.md
-```
+There is deliberately no code-retrieval benchmark here. An earlier version measured
+recall over this project's own repositories with self-authored queries and gold
+labels — a construct with no external validity, so it was removed. Any future
+code-retrieval claim should come from an established public suite (e.g.
+[CoIR](https://github.com/CoIR-team/coir) or CodeSearchNet) run against the full
+`learn`/`recall` pipeline, with committed provenance like the LongMemEval runs below.
 
 ### LongMemEval — conversational memory
 
@@ -213,7 +192,7 @@ exact McNemar test gives p = 0.121, and at n=500 the 95% Wilson intervals are ra
 p < 0.05 is 2-bit recall@10 (34.6% vs raw 37.0%, p = 0.017, uncorrected for the eight
 comparisons), consistent with a small real degradation at 2 bits. TurboQuant is
 currently a research/eval module and is
-**not** wired into `learn`/`remember` (which store full f32); this benchmark is the basis
+**not** wired into `learn`/`recall` (which store full f32); this benchmark is the basis
 for deciding whether to integrate it.
 
 ### Microbenchmarks (`cargo bench`)

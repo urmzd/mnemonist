@@ -16,7 +16,7 @@ provider = "candle"            # "candle" or "none" (disables embedding; text se
 model = "sentence-transformers/all-MiniLM-L6-v2"  # 384-dim, downloads from HuggingFace Hub on first use
 
 [recall]
-budget = 2000                  # output character limit (default for `remember --budget`)
+budget = 2000                  # output character limit (default for `recall --budget`)
 expand_refs = true             # follow inter-layer edges on recall
 max_ref_expansions = 3         # how many ref hops to follow
 min_results = 2                # always return at least N results even past the char budget
@@ -34,9 +34,11 @@ decay_days = 90                # days before a memory can be pruned
 merge_threshold = 0.85         # cosine similarity for associative linking
 protected_access_count = 5     # access count that shields from decay
 max_memory_tokens = 120        # token limit per memory body
+auto = true                    # spawn background `consolidate --quiet` after inbox writes
+auto_stale_days = 7            # auto-consolidate when the last run is older than this
 
 [inbox]
-capacity = 7                   # working memory limit (Miller's 7+/-2)
+capacity = 10                  # working memory limit
 
 [output]
 quiet = false                  # suppress elapsed-time reporting on stderr

@@ -134,9 +134,18 @@ pub struct RankedResult {
     pub source_file: String,
 }
 
+/// Absolute cosine below which a candidate is junk regardless of calibration.
+/// The fallback path never resurrects candidates under this.
+const JUNK_FLOOR: f32 = 0.25;
+
+/// How many candidates the fallback path keeps when the calibrated floor
+/// eliminates everything.
+const FALLBACK_K: usize = 3;
+
 /// Rerank candidates using normalised multi-signal scoring.
 ///
-/// 1. Filter below similarity floor
+/// 1. Filter below similarity floor (falling back to the top few above the
+///    junk floor when calibration eliminates everything)
 /// 2. Normalise cosine scores within the batch (min-max)
 /// 3. Compute weighted signal combination
 /// 4. Apply diversity penalty (max 2 results per source file)
@@ -147,10 +156,28 @@ pub fn rerank(candidates: &[Candidate], profile: &RecallProfile) -> Vec<RankedRe
     }
 
     // Step 1: filter below floor
-    let above_floor: Vec<&Candidate> = candidates
+    let mut above_floor: Vec<&Candidate> = candidates
         .iter()
         .filter(|c| c.cosine_score >= profile.similarity_floor)
         .collect();
+
+    // A calibrated floor that eliminates every candidate is miscalibrated for
+    // this query — recall that returns nothing while plausible matches exist
+    // defeats the tool. Fall back to the best few by raw cosine, still
+    // refusing outright junk.
+    if above_floor.is_empty() {
+        let mut plausible: Vec<&Candidate> = candidates
+            .iter()
+            .filter(|c| c.cosine_score >= JUNK_FLOOR)
+            .collect();
+        plausible.sort_by(|a, b| {
+            b.cosine_score
+                .partial_cmp(&a.cosine_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        plausible.truncate(FALLBACK_K);
+        above_floor = plausible;
+    }
 
     if above_floor.is_empty() {
         return Vec::new();
@@ -187,9 +214,10 @@ pub fn rerank(candidates: &[Candidate], profile: &RecallProfile) -> Vec<RankedRe
                     // Strength bonus: memories that survived consolidation matter more
                     let strength_bonus = (ms.strength / 2.0).min(0.3);
 
-                    // Source bonus: user-created memories (memorize, note) > auto-learned
+                    // Source bonus: user-created memories > auto-learned.
+                    // "memorize" and "note" are legacy values from pre-0.11 memory files.
                     let source_bonus = match ms.source.as_deref() {
-                        Some("memorize") => 0.15,
+                        Some("remember") | Some("memorize") => 0.15,
                         Some("note") => 0.10,
                         Some("consolidation") => 0.05,
                         _ => 0.0,
@@ -267,7 +295,7 @@ mod tests {
                 strength: 1.0,
                 recency_days: 5.0,
                 age_days: 30.0,
-                source: Some("memorize".to_string()),
+                source: Some("remember".to_string()),
                 ref_count: 2,
             }),
             source_file: id.to_string(),
@@ -301,6 +329,26 @@ mod tests {
         ];
         let results = rerank(&candidates, &p);
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn below_calibrated_floor_falls_back_to_plausible() {
+        // Strict calibrated floor (collapsed embedding space) must not blank
+        // out plausible matches — the fallback keeps the best above JUNK_FLOOR.
+        let p = RecallProfile::calibrate(0.48, 0.34, 7);
+        let candidates = vec![
+            code_candidate("junk", 0.10, "LICENSE"),
+            code_candidate("plausible-low", 0.30, "a.rs"),
+            code_candidate("plausible-high", 0.40, "b.rs"),
+        ];
+        assert!(
+            candidates
+                .iter()
+                .all(|c| c.cosine_score < p.similarity_floor)
+        );
+        let results = rerank(&candidates, &p);
+        assert_eq!(results.len(), 2, "junk stays filtered, plausible survive");
+        assert_eq!(results[0].id, "plausible-high");
     }
 
     #[test]

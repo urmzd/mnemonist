@@ -96,6 +96,8 @@ trap cleanup EXIT
 
 TMPDIR=$(mktemp -d)
 export HOME="$TMPDIR/home"
+# Keep runs deterministic: no detached background consolidation mid-validation
+export MNEMONIST_NO_AUTO_CONSOLIDATE=1
 mkdir -p "$HOME"
 PROJECT="$TMPDIR/myproject"
 mkdir -p "$PROJECT"
@@ -114,7 +116,7 @@ run "config init" "$MNEMONIST" config init
 eq "d['data']['action']" '"created"' "config init: action is created"
 
 run "config get" "$MNEMONIST" config get embedding.model
-eq "d['data']['value']" '"nomic-embed-text"' "config get: default model"
+eq "d['data']['value']" '"sentence-transformers/all-MiniLM-L6-v2"' "config get: default model"
 
 run "config set" "$MNEMONIST" config set embedding.model "test-embed"
 eq "d['data']['value']" '"test-embed"' "config set: value updated"
@@ -123,7 +125,7 @@ run "config get verify" "$MNEMONIST" config get embedding.model
 eq "d['data']['value']" '"test-embed"' "config set: persisted"
 
 # Restore for embedding to work
-"$MNEMONIST" config set embedding.model "nomic-embed-text" >/dev/null 2>/dev/null
+"$MNEMONIST" config set embedding.model "sentence-transformers/all-MiniLM-L6-v2" >/dev/null 2>/dev/null
 
 run "config show" "$MNEMONIST" config show
 ok "len(d['data']['config']) > 100" "config show: non-empty"
@@ -131,55 +133,58 @@ ok "len(d['data']['config']) > 100" "config show: non-empty"
 run "config path" "$MNEMONIST" config path
 ok "'mnemonist.toml' in d['data']['path']" "config path: ends in mnemonist.toml"
 
-# ── 2. Memorize──────────────────────────────────────────────────────────────
-echo -e "${WHITE}  memorize${RESET}"
-
-run "memorize feedback" "$MNEMONIST" memorize "always write tests" --root "$PROJECT"
-eq "d['data']['action']" '"created"' "memorize: action is created"
-ok "d['data']['file'].startswith('feedback_')" "memorize: file prefix"
-
-run "memorize user" "$MNEMONIST" memorize "prefers rust" -t user --name "lang-pref" --root "$PROJECT"
-eq "d['data']['file']" '"user_lang-pref.md"' "memorize user: correct filename"
-
-run "memorize project" "$MNEMONIST" memorize "merge freeze march 5" -t project --name "freeze" --root "$PROJECT"
-eq "d['data']['file']" '"project_freeze.md"' "memorize project: correct filename"
-
-run "memorize reference" "$MNEMONIST" memorize "see Linear INGEST board" -t reference --name "linear-board" --root "$PROJECT"
-eq "d['data']['file']" '"reference_linear-board.md"' "memorize reference: correct filename"
-
-# Upsert same name
-run "memorize upsert" "$MNEMONIST" memorize "prefers rust and go" -t user --name "lang-pref" --root "$PROJECT"
-eq "d['data']['action']" '"updated"' "memorize upsert: action is updated"
-
-# Stdin
-run "memorize stdin" sh -c "echo '{\"type\":\"feedback\",\"name\":\"stdin-mem\",\"description\":\"from stdin\",\"body\":\"body content\",\"level\":\"project\"}' | '$MNEMONIST' memorize ignored --stdin --root '$PROJECT'"
-eq "d['data']['file']" '"feedback_stdin-mem.md"' "memorize stdin: correct file"
-
-# ── 3. Note──────────────────────────────────────────────────────────────────
-echo -e "${WHITE}  note${RESET}"
-
-run "note 1" "$MNEMONIST" note "check logging" --root "$PROJECT"
-eq "d['data']['inbox_size']" '1' "note: inbox_size is 1"
-
-run "note 2" "$MNEMONIST" note "review auth middleware" --root "$PROJECT"
-eq "d['data']['inbox_size']" '2' "note: inbox_size is 2"
-
-# Fill inbox beyond capacity
-for i in $(seq 3 10); do
-  "$MNEMONIST" note "note number $i" --root "$PROJECT" >/dev/null 2>/dev/null
-done
-run "note capacity" "$MNEMONIST" reflect --root "$PROJECT"
-ok "d['data']['inbox']['size'] <= 7" "note: respects capacity (<=7)"
-
-# ── 4. Remember──────────────────────────────────────────────────────────────
+# ── 2. Remember (store) ─────────────────────────────────────────────────────
 echo -e "${WHITE}  remember${RESET}"
 
-run "remember rust" "$MNEMONIST" remember "rust" --level project --root "$PROJECT"
-ok "len(d['data']['memories']) >= 1" "remember: finds rust memories"
-ok "d['data']['token_estimate'] >= 0" "remember: has token estimate"
+run "remember feedback" "$MNEMONIST" remember "always write tests" --root "$PROJECT"
+eq "d['data']['action']" '"created"' "remember: action is created"
+ok "d['data']['file'].startswith('feedback_')" "remember: file prefix"
 
-run "remember obscure" "$MNEMONIST" remember "xyzzy999" --level project --root "$PROJECT"
-ok "'memories' in d['data']" "remember: returns memories array"
+run "remember user" "$MNEMONIST" remember "prefers rust" -t user --name "lang-pref" --root "$PROJECT"
+eq "d['data']['file']" '"user_lang-pref.md"' "remember user: correct filename"
+
+run "remember project" "$MNEMONIST" remember "merge freeze march 5" -t project --name "freeze" --root "$PROJECT"
+eq "d['data']['file']" '"project_freeze.md"' "remember project: correct filename"
+
+run "remember reference" "$MNEMONIST" remember "see Linear INGEST board" -t reference --name "linear-board" --root "$PROJECT"
+eq "d['data']['file']" '"reference_linear-board.md"' "remember reference: correct filename"
+
+# Upsert same name
+run "remember upsert" "$MNEMONIST" remember "prefers rust and go" -t user --name "lang-pref" --root "$PROJECT"
+eq "d['data']['action']" '"updated"' "remember upsert: action is updated"
+
+# Stdin
+run "remember stdin" sh -c "echo '{\"type\":\"feedback\",\"name\":\"stdin-mem\",\"description\":\"from stdin\",\"body\":\"body content\",\"level\":\"project\"}' | '$MNEMONIST' remember ignored --stdin --root '$PROJECT'"
+eq "d['data']['file']" '"feedback_stdin-mem.md"' "remember stdin: correct file"
+
+# ── 3. Remember --defer (inbox) ──────────────────────────────────────────────
+echo -e "${WHITE}  remember --defer${RESET}"
+
+run "defer 1" "$MNEMONIST" remember --defer "check logging" --root "$PROJECT"
+eq "d['data']['inbox_size']" '1' "defer: inbox_size is 1"
+
+run "defer 2" "$MNEMONIST" remember --defer "review auth middleware" --root "$PROJECT"
+eq "d['data']['inbox_size']" '2' "defer: inbox_size is 2"
+
+# Fill inbox beyond capacity
+for i in $(seq 3 13); do
+  "$MNEMONIST" remember --defer "deferred item $i" --root "$PROJECT" >/dev/null 2>/dev/null
+done
+run "defer capacity" "$MNEMONIST" reflect --root "$PROJECT"
+ok "d['data']['inbox']['size'] <= 10" "defer: respects capacity (<=10)"
+
+run_fail "defer rejects stdin" "$MNEMONIST" remember --defer --stdin "point" --root "$PROJECT"
+eq "d['ok']" 'false' "defer --stdin: rejected"
+
+# ── 4. Recall ────────────────────────────────────────────────────────────────
+echo -e "${WHITE}  recall${RESET}"
+
+run "recall rust" "$MNEMONIST" recall "rust" --level project --root "$PROJECT"
+ok "len(d['data']['memories']) >= 1" "recall: finds rust memories"
+ok "d['data']['token_estimate'] >= 0" "recall: has token estimate"
+
+run "recall obscure" "$MNEMONIST" recall "xyzzy999" --level project --root "$PROJECT"
+ok "'memories' in d['data']" "recall: returns memories array"
 
 # ── 5. Reflect───────────────────────────────────────────────────────────────
 echo -e "${WHITE}  reflect${RESET}"
@@ -221,17 +226,14 @@ eq "d['data']['action']" '"forgotten"' "forget: action is forgotten"
 run_fail "forget nonexistent" "$MNEMONIST" forget nonexistent.md --root "$PROJECT"
 eq "d['ok']" 'false' "forget nonexistent: ok is false"
 
-# ── 9. Context──────────────────────────────────────────────────────────────
-echo -e "${WHITE}  context${RESET}"
+# ── 9. Consolidation lock ────────────────────────────────────────────────────
+echo -e "${WHITE}  lock${RESET}"
 
-run "ctx show (empty)" "$MNEMONIST" ctx show
-ok "d['data']['context'] is None" "ctx show: null before switch"
-
-run "ctx switch" "$MNEMONIST" ctx switch "$PROJECT"
-ok "'myproject' in d['data']['context']" "ctx switch: set to project"
-
-run "ctx show (after)" "$MNEMONIST" ctx show
-ok "d['data']['context'] is not None" "ctx show: non-null after switch"
+MEM_DIR="$HOME/.mnemonist/myproject"
+touch "$MEM_DIR/.consolidate.lock"
+run "consolidate while locked" "$MNEMONIST" consolidate --root "$PROJECT"
+eq "d['data']['skipped']" '"locked"' "lock: second run skips"
+rm -f "$MEM_DIR/.consolidate.lock"
 
 # ── Report ───────────────────────────────────────────────────────────────────
 

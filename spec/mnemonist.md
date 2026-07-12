@@ -1,8 +1,8 @@
 # mnemonist Specification
 
-> Version 0.2.0
+> Version 0.3.0
 >
-> Spec v0.2.0 describes the data model; crate releases version independently (currently 0.9.1).
+> Spec v0.3.0 describes the data model; crate releases version independently.
 
 ## Abstract
 
@@ -19,7 +19,7 @@ Draft — seeking community feedback.
                         │                   Agent / CLI                    │
                         └──────┬──────────────┬──────────────┬────────────┘
                                │              │              │
-                          memorize        note/learn     remember
+                          remember     --defer / learn     recall
                                │              │              │
                    ┌───────────▼──┐    ┌──────▼──────┐  ┌───▼────────────┐
                    │  Long-term   │    │   Inbox     │  │   Retrieval    │
@@ -43,11 +43,11 @@ Draft — seeking community feedback.
 
 | Path | Description |
 |------|-------------|
-| **memorize** | Direct write to long-term memory, bypassing the inbox. Embeds immediately. Sets `strength: 1.0`. |
-| **note** | Adds raw text to the inbox with `attention_score: 0.5`. No embedding. |
+| **remember** | Direct write to long-term memory, bypassing the inbox. Embeds immediately. Sets `strength: 1.0`. |
+| **remember --defer** | Adds raw text to the inbox with `attention_score: 0.95`. No embedding until promotion. |
 | **learn** | Code chunk extraction via the `ChunkingStrategy` trait → embed chunks → build code HNSW → score and push top chunks to inbox. |
-| **consolidate** | Promote inbox → associate similar memories → decay stale ones → re-embed all. |
-| **remember** | Semantic search (HNSW + brute-force fallback) → temporal re-ranking → ref expansion → budget-trimmed output. |
+| **consolidate** | Promote inbox → associate similar memories → decay stale ones → re-embed all. Runs automatically as a background job on inbox pressure or staleness (see [Section 8.5](#85-automatic-consolidation)). |
+| **recall** | Semantic search (HNSW + brute-force fallback) → temporal re-ranking → ref expansion → budget-trimmed output. |
 
 ## 2. Memory Levels
 
@@ -73,6 +73,8 @@ MEMORY.md                  # Index — always loaded at session start
 .code-index.hnsw           # Code-layer ANN index
 .code-index.json           # Code chunk manifest (learn output)
 .inbox.json                # Working memory staging area
+.consolidate.lock          # Present only while a consolidation run holds the lock
+.last-consolidated         # Timestamp of the last completed consolidation
 ```
 
 ### 3.1 Index File (MEMORY.md)
@@ -102,7 +104,7 @@ name: <kebab-case-identifier>
 description: <one-line summary — used for relevance matching>
 type: <user | feedback | project | reference>
 created_at: <ISO 8601 timestamp>
-source: <memorize | note | learn | consolidation>
+source: <remember | learn | consolidation>
 strength: <f32, consolidation strength>
 access_count: <u32, retrieval count>
 last_accessed: <ISO 8601 timestamp>
@@ -129,7 +131,7 @@ refs:
 | `last_accessed` | string | — | ISO 8601 timestamp of last retrieval |
 | `access_count` | u32 | 0 | Retrieval count (Hebbian reinforcement) |
 | `strength` | f32 | 0.0 | Consolidation strength; `>= 1.0` protects from decay |
-| `source` | string | — | Origin: `memorize`, `note`, `learn`, `consolidation` |
+| `source` | string | — | Origin: `remember`, `learn`, `consolidation` (`memorize`/`note` are legacy pre-0.3 values, still recognized) |
 | `consolidated_from` | string[] | — | Original filenames if created via merge |
 | `refs` | string[] | [] | Inter-layer edges (see [Section 7](#7-inter-layer-graph)) |
 
@@ -209,7 +211,7 @@ Entry (repeated):
 
 - Content hashes enable incremental sync — unchanged files skip re-embedding
 - Hash algorithm: `std::hash::DefaultHasher` (note: not stable across Rust versions or platforms)
-- Embeddings are auto-synced on `memorize` and `consolidate`
+- Embeddings are auto-synced on `remember` and `consolidate`
 
 ## 6. ANN Index Layer
 
@@ -231,7 +233,7 @@ The system maintains two separate HNSW indices per level:
 
 | Index | File | Built By | Contents |
 |-------|------|----------|----------|
-| Memory layer | `.memory-index.hnsw` | `memorize`, `consolidate` | Memory file embeddings |
+| Memory layer | `.memory-index.hnsw` | `remember`, `consolidate` | Memory file embeddings |
 | Code layer | `.code-index.hnsw` | `learn` | Source code chunk embeddings |
 
 This separation allows memories and code to be indexed independently while enabling cross-layer retrieval through hierarchical search and ref edges (see [Section 7](#7-inter-layer-graph)).
@@ -317,10 +319,10 @@ Inbox items are drained and written as long-term memory files:
 
 | Source | Assigned Type | Strength |
 |--------|--------------|----------|
-| `note` | `feedback` | attention_score |
+| `remember` (deferred) | `feedback` | attention_score |
 | `learn` | `reference` | attention_score |
 
-**Body compression:** Memory bodies are cues, not copies. For code items, `extract_code_cue()` extracts only signature lines (`pub fn`, `struct`, `class`, `impl`, `trait`, `def`, `function`, `export`) up to `max_memory_tokens * 4` characters. For notes, the body is truncated. Full content is accessible via ref edges.
+**Body compression:** Memory bodies are cues, not copies. For code items, `extract_code_cue()` extracts only signature lines (`pub fn`, `struct`, `class`, `impl`, `trait`, `def`, `function`, `export`) up to `max_memory_tokens * 4` characters. For deferred items, the body is truncated. Full content is accessible via ref edges.
 
 ### 8.2 Phase 1.5: Associate
 
@@ -334,15 +336,26 @@ A memory is pruned when ALL three conditions hold:
 2. `access_count < protected_access_count` (default 5)
 3. `strength < 1.0`
 
-Memories created via `memorize` are set to `strength: 1.0` and are therefore permanently protected from decay unless manually modified.
+Memories created via direct `remember` are set to `strength: 1.0` and are therefore permanently protected from decay unless manually modified.
 
 ### 8.4 Phase 3: Re-embed and Rebuild
 
 All surviving memories are re-embedded and the `.memory-index.hnsw` is rebuilt from scratch.
 
+### 8.5 Automatic Consolidation
+
+Consolidation runs as a detached background worker, modeled after `git gc --auto`. After an inbox write (`remember --defer`, `learn`), the CLI spawns `consolidate --quiet` in the background when either trigger fires:
+
+- **Pressure**: the inbox is >= 80% full
+- **Staleness**: the last completed consolidation is older than `consolidation.auto_stale_days` (default 7 days; measured via the `.last-consolidated` marker file)
+
+Concurrency is serialized through a `.consolidate.lock` file in the memory directory. A second invocation (manual or automatic) that finds a live lock exits successfully with `{"skipped": "locked"}`; locks older than 10 minutes are treated as crashed holders and broken. The marker file `.last-consolidated` is written after each completed non-dry run.
+
+Controls: `consolidation.auto = false` disables the trigger via config; the `MNEMONIST_NO_AUTO_CONSOLIDATE=1` environment variable disables it per-invocation (used by hermetic test suites).
+
 ## 9. Retrieval Pipeline
 
-The `remember` command implements a multi-stage retrieval pipeline:
+The `recall` command implements a multi-stage retrieval pipeline:
 
 ```
   Query
@@ -428,7 +441,7 @@ Each time a memory is retrieved, its `access_count` is incremented and `last_acc
 
 ## 10. Working Memory (Inbox)
 
-The inbox is a capacity-limited staging area modeled after human working memory (Miller's 7 +/- 2).
+The inbox is a capacity-limited staging area for working memory (default capacity: 10).
 
 ### 10.1 Structure
 
@@ -436,13 +449,13 @@ Stored as `.inbox.json`:
 
 ```json
 {
-  "capacity": 7,
+  "capacity": 10,
   "items": [
     {
       "id": "slugified-id",
       "content": "the observation",
-      "source": "note",
-      "attention_score": 0.5,
+      "source": "remember",
+      "attention_score": 0.95,
       "created_at": "2026-03-27T00:00:00Z",
       "file_source": null
     }
@@ -455,7 +468,7 @@ Stored as `.inbox.json`:
 
 - Items are sorted by `attention_score` descending
 - When at capacity, the lowest-scored item is evicted
-- `note` items receive a default attention score of 0.5
+- `remember --defer` items receive an attention score of 0.95 (user intent outranks auto-learned heuristics)
 - `learn` items are scored by code heuristics (see [Section 10.3](#103-attention-scoring-for-code))
 - `consolidate` drains the inbox, promoting items to long-term memory
 
@@ -509,7 +522,7 @@ Binary format `LMCQ` with header (magic + version + dimension + count + bit-widt
 ### 12.3 Status
 
 TurboQuant is a research/eval module: it is benchmarked (see `docs/benchmarks.md`)
-but not wired into `learn`/`remember`, which store full f32 vectors. It therefore
+but not wired into `learn`/`recall`, which store full f32 vectors. It therefore
 exposes no configuration keys.
 
 See arXiv:2504.19874 for the underlying paper.
@@ -529,7 +542,7 @@ provider = "candle"          # Embedding provider: "candle" or "none"
 model = "sentence-transformers/all-MiniLM-L6-v2"  # HuggingFace model id
 
 [recall]
-budget = 2000                # Max output chars (default for `remember --budget`)
+budget = 2000                # Max output chars (default for `recall --budget`)
 expand_refs = true           # Follow inter-layer ref edges
 max_ref_expansions = 3       # Max ref expansions per memory hit
 min_results = 2              # Always return at least N results, even past budget
@@ -547,9 +560,11 @@ decay_days = 90              # Days before decay eligibility
 merge_threshold = 0.85       # Cosine threshold for associative linking
 protected_access_count = 5   # Min accesses to protect from decay
 max_memory_tokens = 120      # Max tokens per promoted memory body
+auto = true                  # Auto-run consolidation in the background (git gc --auto style)
+auto_stale_days = 7          # Staleness trigger for the background run
 
 [inbox]
-capacity = 7                 # Working memory size
+capacity = 10                # Working memory size
 
 [output]
 quiet = false                # Suppress elapsed-time on stderr
@@ -590,11 +605,11 @@ Evaluation uses clustered Gaussian vectors with graded relevance judgments: grad
 
 | Command | Description |
 |---------|-------------|
-| `memorize <text>` | Write directly to long-term memory (strength=1.0, bypasses inbox). Memory directories auto-create on first use |
-| `note <text>` | Add to inbox (attention_score=0.5) |
-| `remember <query>` | Cue-based retrieval through the full pipeline |
+| `remember <text>` | Write directly to long-term memory (strength=1.0, bypasses inbox). Memory directories auto-create on first use |
+| `remember --defer <text>` | Stage in the inbox (attention_score=0.95); promoted by `consolidate` |
+| `recall <query>` | Cue-based retrieval through the full pipeline |
 | `learn <path>` | Code chunk extraction (via `ChunkingStrategy`) -> embed -> score -> populate inbox |
-| `consolidate` | Run the four-phase consolidation cycle (supports `--dry-run`) |
+| `consolidate` | Run the four-phase consolidation cycle (supports `--dry-run`); also auto-triggered in the background (see 8.5) |
 | `reflect` | List all memories with cognitive metadata and inbox summary |
 | `forget <file>` | Remove a memory file, its index entry, and its embedding |
 | `config <action>` | Show, get, set, init, or locate the config file |

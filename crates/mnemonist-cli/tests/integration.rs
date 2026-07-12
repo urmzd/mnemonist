@@ -18,11 +18,14 @@ fn mnemonist_bin() -> PathBuf {
 ///
 /// MNEMONIST_OFFLINE keeps the suite hermetic: no embedding-model resolution
 /// over the network, so `embedded` is deterministically false.
+/// MNEMONIST_NO_AUTO_CONSOLIDATE keeps runs deterministic: no detached
+/// background consolidation mutating the temp HOME mid-test.
 fn run(home: &std::path::Path, args: &[&str]) -> (Value, i32) {
     let output = Command::new(mnemonist_bin())
         .args(args)
         .env("HOME", home)
         .env("MNEMONIST_OFFLINE", "1")
+        .env("MNEMONIST_NO_AUTO_CONSOLIDATE", "1")
         .output()
         .expect("failed to execute mnemonist");
 
@@ -34,18 +37,17 @@ fn run(home: &std::path::Path, args: &[&str]) -> (Value, i32) {
 }
 
 #[test]
-fn memorize_creates_memory_file() {
+fn remember_creates_memory_file() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    // Memorize
     let (json, code) = run(
         &home,
         &[
-            "memorize",
+            "remember",
             "always use tests",
             "--root",
             project.to_str().unwrap(),
@@ -63,7 +65,7 @@ fn memorize_creates_memory_file() {
 }
 
 #[test]
-fn memorize_with_type_and_name() {
+fn remember_with_type_and_name() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -73,7 +75,7 @@ fn memorize_with_type_and_name() {
     let (json, code) = run(
         &home,
         &[
-            "memorize",
+            "remember",
             "user prefers vim",
             "-t",
             "user",
@@ -88,7 +90,7 @@ fn memorize_with_type_and_name() {
 }
 
 #[test]
-fn note_adds_to_inbox() {
+fn remember_defer_adds_to_inbox() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -97,15 +99,44 @@ fn note_adds_to_inbox() {
 
     let (json, code) = run(
         &home,
-        &["note", "check logging", "--root", project.to_str().unwrap()],
+        &[
+            "remember",
+            "--defer",
+            "check logging",
+            "--root",
+            project.to_str().unwrap(),
+        ],
     );
     assert_eq!(code, 0);
     assert_eq!(json["data"]["inbox_size"], 1);
-    assert_eq!(json["data"]["capacity"], 7);
+    assert_eq!(json["data"]["capacity"], 10);
 }
 
 #[test]
-fn remember_finds_memorized_content() {
+fn remember_defer_rejects_stdin() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let project = tmp.path().join("proj");
+    std::fs::create_dir_all(&project).unwrap();
+
+    let (json, code) = run(
+        &home,
+        &[
+            "remember",
+            "--defer",
+            "--stdin",
+            "point",
+            "--root",
+            project.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 1);
+    assert_eq!(json["ok"], false);
+}
+
+#[test]
+fn recall_finds_remembered_content() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -115,7 +146,7 @@ fn remember_finds_memorized_content() {
     run(
         &home,
         &[
-            "memorize",
+            "remember",
             "prefer rust for cli tools",
             "--root",
             project.to_str().unwrap(),
@@ -125,7 +156,7 @@ fn remember_finds_memorized_content() {
     let (json, code) = run(
         &home,
         &[
-            "remember",
+            "recall",
             "rust",
             "--level",
             "project",
@@ -140,7 +171,7 @@ fn remember_finds_memorized_content() {
 }
 
 #[test]
-fn remember_returns_empty_for_no_match() {
+fn recall_returns_empty_for_no_match() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -150,7 +181,7 @@ fn remember_returns_empty_for_no_match() {
     let (json, code) = run(
         &home,
         &[
-            "remember",
+            "recall",
             "nonexistent",
             "--level",
             "project",
@@ -173,7 +204,7 @@ fn reflect_shows_memories_and_inbox() {
     run(
         &home,
         &[
-            "memorize",
+            "remember",
             "prefer rust",
             "--root",
             project.to_str().unwrap(),
@@ -181,7 +212,13 @@ fn reflect_shows_memories_and_inbox() {
     );
     run(
         &home,
-        &["note", "todo item", "--root", project.to_str().unwrap()],
+        &[
+            "remember",
+            "--defer",
+            "todo item",
+            "--root",
+            project.to_str().unwrap(),
+        ],
     );
 
     let (json, code) = run(&home, &["reflect", "--root", project.to_str().unwrap()]);
@@ -201,7 +238,8 @@ fn consolidate_promotes_inbox_items() {
     run(
         &home,
         &[
-            "note",
+            "remember",
+            "--defer",
             "important finding",
             "--root",
             project.to_str().unwrap(),
@@ -234,6 +272,40 @@ fn consolidate_promotes_inbox_items() {
 }
 
 #[test]
+fn consolidate_skips_when_locked() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let project = tmp.path().join("proj");
+    std::fs::create_dir_all(&project).unwrap();
+
+    run(
+        &home,
+        &[
+            "remember",
+            "--defer",
+            "held finding",
+            "--root",
+            project.to_str().unwrap(),
+        ],
+    );
+
+    // Simulate a live worker holding the lock
+    let mem_dir = home.join(".mnemonist/proj");
+    std::fs::create_dir_all(&mem_dir).unwrap();
+    std::fs::write(mem_dir.join(".consolidate.lock"), "12345").unwrap();
+
+    let (json, code) = run(&home, &["consolidate", "--root", project.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    assert_eq!(json["data"]["skipped"], "locked");
+    assert_eq!(json["data"]["promoted"], 0);
+
+    // Inbox untouched
+    let (json, _) = run(&home, &["reflect", "--root", project.to_str().unwrap()]);
+    assert_eq!(json["data"]["inbox"]["size"], 1);
+}
+
+#[test]
 fn forget_removes_memory() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -241,16 +313,16 @@ fn forget_removes_memory() {
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    let (memorize_json, _) = run(
+    let (remember_json, _) = run(
         &home,
         &[
-            "memorize",
+            "remember",
             "temp memory",
             "--root",
             project.to_str().unwrap(),
         ],
     );
-    let filename = memorize_json["data"]["file"].as_str().unwrap();
+    let filename = remember_json["data"]["file"].as_str().unwrap();
 
     // Forget it
     let (json, code) = run(
@@ -325,7 +397,7 @@ fn config_set_updates_value() {
 }
 
 #[test]
-fn memorize_stdin_json() {
+fn remember_stdin_json() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -342,7 +414,7 @@ fn memorize_stdin_json() {
 
     let output = Command::new(mnemonist_bin())
         .args([
-            "memorize",
+            "remember",
             "ignored",
             "--stdin",
             "--root",
@@ -350,6 +422,7 @@ fn memorize_stdin_json() {
         ])
         .env("HOME", &home)
         .env("MNEMONIST_OFFLINE", "1")
+        .env("MNEMONIST_NO_AUTO_CONSOLIDATE", "1")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -372,7 +445,7 @@ fn memorize_stdin_json() {
 }
 
 #[test]
-fn memorize_stdin_rejects_path_traversal() {
+fn remember_stdin_rejects_path_traversal() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -389,7 +462,7 @@ fn memorize_stdin_rejects_path_traversal() {
 
     let output = Command::new(mnemonist_bin())
         .args([
-            "memorize",
+            "remember",
             "ignored",
             "--stdin",
             "--root",
@@ -397,6 +470,7 @@ fn memorize_stdin_rejects_path_traversal() {
         ])
         .env("HOME", &home)
         .env("MNEMONIST_OFFLINE", "1")
+        .env("MNEMONIST_NO_AUTO_CONSOLIDATE", "1")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -433,20 +507,21 @@ fn memorize_stdin_rejects_path_traversal() {
 }
 
 #[test]
-fn multiple_notes_respect_capacity() {
+fn deferred_items_respect_capacity() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
     let project = tmp.path().join("proj");
     std::fs::create_dir_all(&project).unwrap();
 
-    // Add more notes than the default capacity (7)
-    for i in 0..10 {
+    // Add more deferred items than the default capacity (10)
+    for i in 0..13 {
         run(
             &home,
             &[
-                "note",
-                &format!("note number {i}"),
+                "remember",
+                "--defer",
+                &format!("deferred item {i}"),
                 "--root",
                 project.to_str().unwrap(),
             ],
@@ -454,8 +529,8 @@ fn multiple_notes_respect_capacity() {
     }
 
     let (json, _) = run(&home, &["reflect", "--root", project.to_str().unwrap()]);
-    // Inbox should be capped at capacity (7)
-    assert!(json["data"]["inbox"]["size"].as_u64().unwrap() <= 7);
+    // Inbox should be capped at capacity (10)
+    assert!(json["data"]["inbox"]["size"].as_u64().unwrap() <= 10);
 }
 
 /// Redact dynamic fields from CLI JSON output for deterministic snapshots.
@@ -512,7 +587,7 @@ fn redact_cli_json(mut json: Value) -> Value {
 }
 
 #[test]
-fn snapshot_memorize_output() {
+fn snapshot_remember_output() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -522,7 +597,7 @@ fn snapshot_memorize_output() {
     let (json, _) = run(
         &home,
         &[
-            "memorize",
+            "remember",
             "always write tests",
             "-t",
             "feedback",
@@ -537,7 +612,7 @@ fn snapshot_memorize_output() {
 }
 
 #[test]
-fn snapshot_note_output() {
+fn snapshot_remember_defer_output() {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
@@ -547,7 +622,8 @@ fn snapshot_note_output() {
     let (json, _) = run(
         &home,
         &[
-            "note",
+            "remember",
+            "--defer",
             "investigate logging",
             "--root",
             project.to_str().unwrap(),
@@ -567,7 +643,7 @@ fn snapshot_reflect_output() {
     run(
         &home,
         &[
-            "memorize",
+            "remember",
             "prefer rust",
             "-t",
             "feedback",
@@ -579,7 +655,13 @@ fn snapshot_reflect_output() {
     );
     run(
         &home,
-        &["note", "check logging", "--root", project.to_str().unwrap()],
+        &[
+            "remember",
+            "--defer",
+            "check logging",
+            "--root",
+            project.to_str().unwrap(),
+        ],
     );
 
     let (json, _) = run(&home, &["reflect", "--root", project.to_str().unwrap()]);
@@ -597,7 +679,8 @@ fn snapshot_consolidate_dry_run_output() {
     run(
         &home,
         &[
-            "note",
+            "remember",
+            "--defer",
             "important observation",
             "--root",
             project.to_str().unwrap(),
