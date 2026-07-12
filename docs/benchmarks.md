@@ -46,7 +46,7 @@ just longmemeval-select 2,4     # specific experiments
 | 1 | Vector retrieval | per-question session retrieval recall@k (NOT QA) |
 | 2 | Latency scaling | index build + p50/p95/p99 query latency, 100–10k docs |
 | 3 | Storage footprint | raw vs TurboQuant size + recall, 1–4 bits |
-| 4 | Temporal retrieval | recall lift from Hebbian reinforcement over time |
+| 4 | Staleness disambiguation | does freshness decay rank fresh content over stale versions |
 | 5 | LongMemEval QA | real end-to-end QA accuracy (retrieve → LLM → judge) |
 
 #### Vector retrieval recall (Exp 1) — with a BM25 reality check
@@ -144,29 +144,42 @@ same documents.
 
 Query latency stays **sub-millisecond even at 10k documents** and scales sub-linearly.
 
-#### Temporal reinforcement (Exp 4) — performance over time
+#### Temporal staleness disambiguation (Exp 4)
 
-Does recall improve as memories are *used*? Over 10 consolidation cycles with Hebbian
-reinforcement (access strengthens frequently-retrieved memories), global-retrieval
-setting. Both arms are scored on the same held-out eval slice (n=250), and a
-no-reinforcement control runs the identical retrieve-20/rerank/take-5 path with zero
-access counts, so the reported delta isolates the reinforcement signal itself.
+The scenario freshness decay exists for: the same content lives in the index in
+several versions over time (a codebase that changes often, superseded notes), the
+embedder cannot reliably separate them, and the *fresh* version should win. Per
+topic (a session with a single gold query, n=150), three versions are indexed —
+the original ("fresh", age 1 day) and two deterministically drifted variants
+(words dropped; ages 90/180 days). Both arms run the identical retrieve-20 →
+rerank path; the control assigns every version equal age, so the delta isolates
+the freshness signal itself. Success = the fresh version outranks both stale
+versions. (Version drift and ages are synthetic — a controlled demonstration of
+the mechanism on real content. Run 2026-07-11 on the `feat/remember-recall`
+branch, same hardware/embedder as above.)
 
-| arm | recall_any@5 |
+| arm | fresh-first |
 |---|---|
-| baseline (static) | 37.2% |
-| control (rerank, no reinforcement) | 37.2% |
-| reinforced (10 cycles) | 37.2% |
-| **delta vs control** | **+0.0 pp** |
+| control (equal ages) | 31.3% |
+| with freshness decay | 49.3% |
+| **delta** | **+18.0 pp** |
 
-All three arms sit at 37.2% (95% Wilson [31.4, 43.3], n=250); the exact McNemar test on
-the paired reinforced-vs-control hits gives p = 1.0000 with 0/0 discordant pairs — the
-two arms retrieve identical top-5 sets for every eval query. The previously published
-+9.4 pp compared arms over different query populations (all 500 queries vs the held-out
-250) and subtracted the pure-cosine baseline, which credited the reranker's own
-contribution to reinforcement; under the corrected design the reinforcement signal
-contributes nothing on this dataset. (Access patterns are synthetic repeated queries,
-not real logs — a controlled demonstration of the mechanism.)
+Without the freshness term, which version ranks first is cosine noise (31.3% ≈
+chance for 3 versions). With it, the fresh version wins half the time — and the
+signal is strictly one-directional: 27/0 discordant pairs (27 queries corrected,
+none broken), exact McNemar p = 1.5e-8. The bonus (`0.2 · exp(-0.01 · age_days)`)
+loses only when drift happens to give a stale version a cosine edge larger than
+the normalised margin — by design, since freshness must break near-ties, not
+override semantics.
+
+This experiment replaced a Hebbian access-count reinforcement test after that
+mechanism measured **+0.0 pp** (0/0 discordant pairs, p = 1.0000, n=250): the
+reinforced and control arms retrieved identical top-5 sets for every query. (A
+previously published +9.4 pp was an artifact of comparing different query
+populations.) The old formula — `recency * ln(1 + access/age) * type_weight` —
+was also multiplicative in access frequency, so a never-accessed memory scored
+zero regardless of freshness. Access counts were removed from ranking entirely;
+they still protect memories from decay during consolidation.
 
 #### Storage & quantization (Exp 3)
 

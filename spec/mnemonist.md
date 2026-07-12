@@ -6,7 +6,7 @@
 
 ## Abstract
 
-mnemonist is a biologically-inspired memory system for AI agents. It stores memories as plain markdown files across two levels (project and global), indexes them with embeddings and approximate nearest neighbor search, and retrieves them through a multi-layer pipeline that blends semantic similarity with temporal relevance. The architecture mirrors human memory: a capacity-limited working memory (inbox), consolidation cycles that promote, associate, and decay memories, and Hebbian reinforcement that strengthens frequently-accessed memories.
+mnemonist is a biologically-inspired memory system for AI agents. It stores memories as plain markdown files across two levels (project and global), indexes them with embeddings and approximate nearest neighbor search, and retrieves them through a multi-layer pipeline that blends semantic similarity with temporal relevance. The architecture mirrors human memory: a capacity-limited working memory (inbox), consolidation cycles that promote, associate, and decay memories, and Hebbian access tracking that protects frequently-used memories from decay.
 
 ## Status
 
@@ -377,7 +377,8 @@ The `recall` command implements a multi-stage retrieval pipeline:
   └────────┬─────────┘
            │
   ┌────────▼─────────┐
-  │ Temporal Rerank   │  Blend cosine with temporal score
+  │ Multi-signal      │  Cosine blended with freshness,
+  │ Rerank            │  strength, source, connectivity
   └────────┬─────────┘
            │
   ┌────────▼─────────┐
@@ -407,37 +408,43 @@ After the initial search, the top memory hit's embedding is used as a secondary 
 
 Memory and code hits are round-robin interleaved so that both layers contribute to the output, preventing one layer from dominating.
 
-### 9.4 Temporal Re-ranking
+### 9.4 Multi-signal Re-ranking
 
-Results are re-ranked using a blended score:
-
-```
-final_score = (1 - lambda) * cosine_similarity + lambda * temporal_score
-```
-
-Where `lambda` is the blend weight (0.2) and:
+Candidates below the calibrated similarity floor are dropped (when the floor
+would eliminate everything, the top few above an absolute junk floor of 0.25
+survive instead — recall that returns nothing while plausible matches exist
+defeats the tool). Cosine scores are min-max normalised within the batch, then
+blended with metadata:
 
 ```
-temporal_score = recency * frequency_boost * type_weight
+final_score = sc * norm_cosine + (1 - sc) * metadata_score
 
-recency         = exp(-0.01 * days_since_last_access)
-frequency_boost = min(ln(1 + access_count / age_days) / 3, 1.0)
+metadata_score = freshness_bonus + strength_bonus + source_bonus + ref_bonus
+
+freshness_bonus = 0.2 * exp(-0.01 * age_days)     # content age; ~half at 70d
+strength_bonus  = min(strength / 2, 0.3)
+source_bonus    = 0.15 (remember) | 0.10 (legacy note) | 0.05 (consolidation)
+ref_bonus       = min(0.05 * ref_count, 0.15)
 ```
 
-**Type durability weights:**
+`sc` is the calibrated `semantic_confidence` from the recall profile. Code
+chunks carry no metadata and receive a neutral `metadata_score` of 0.3.
 
-| Type | Weight |
-|------|--------|
-| feedback | 1.0 |
-| project | 0.8 |
-| user | 0.6 |
-| reference | 0.4 |
+**Freshness** decays on *content age* (`created_at`, rewritten on upsert), not
+on access time. Its job is staleness disambiguation: when the same content
+exists in several versions over time (a codebase that changes often), the
+fresh version wins the near-tie. Access counts deliberately do not feed
+ranking — a controlled experiment (Exp 4, pre-0.3) showed access-count
+reinforcement changed zero retrieval outcomes (0/0 discordant pairs, p = 1.0);
+the earlier multiplicative formula also zeroed the recency signal for any
+never-accessed memory.
 
-Code chunks receive no temporal scoring (cosine only).
+### 9.5 Hebbian Access Tracking
 
-### 9.5 Hebbian Reinforcement
-
-Each time a memory is retrieved, its `access_count` is incremented and `last_accessed` is updated. This mirrors long-term potentiation: frequently accessed memories rank higher in temporal scoring and are protected from decay.
+Each time a memory is retrieved, its `access_count` is incremented and
+`last_accessed` is updated. These feed **decay protection only** (Section 8.3):
+frequently accessed memories survive consolidation. They do not influence
+ranking.
 
 ## 10. Working Memory (Inbox)
 
@@ -622,7 +629,7 @@ The core library provides four distance functions used across the system:
 
 | Function | Description | Used By |
 |----------|-------------|---------|
-| `cosine_similarity` | Cosine similarity in [-1, 1] | HNSW, brute-force search, temporal blending |
+| `cosine_similarity` | Cosine similarity in [-1, 1] | HNSW, brute-force search, rerank blending |
 | `dot_product` | Raw dot product | Quantization (Prod algorithm) |
 | `l2_distance_squared` | Squared Euclidean distance | IVF-Flat k-means |
 | `normalize` | Unit-length normalization | Quantization pre-processing |

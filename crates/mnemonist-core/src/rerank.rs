@@ -8,8 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::MemoryType;
-
 // ---------------------------------------------------------------------------
 // Recall profile — per-project calibration stored during `learn`
 // ---------------------------------------------------------------------------
@@ -110,12 +108,15 @@ pub struct Candidate {
 }
 
 /// Signals available from memory file frontmatter.
+///
+/// Access counts and last-accessed timestamps deliberately do not appear:
+/// they protect memories from decay during consolidation but measurably never
+/// changed a ranking outcome (Exp 4), so ranking ignores them.
 #[derive(Debug, Clone)]
 pub struct MemorySignals {
-    pub memory_type: MemoryType,
-    pub access_count: u32,
     pub strength: f32,
-    pub recency_days: f64,
+    /// Days since `created_at` — content age. `created_at` is rewritten on
+    /// upsert, so this tracks how fresh the content is, not access history.
     pub age_days: f64,
     pub source: Option<String>,
     pub ref_count: usize,
@@ -204,12 +205,9 @@ pub fn rerank(candidates: &[Candidate], profile: &RecallProfile) -> Vec<RankedRe
 
             let metadata_score = match &c.memory_signals {
                 Some(ms) => {
-                    let temporal = crate::temporal::temporal_score(
-                        ms.recency_days,
-                        ms.age_days,
-                        ms.access_count,
-                        ms.memory_type,
-                    ) as f32;
+                    // Freshness: between candidates the embedder cannot separate
+                    // (same content evolved over time), newer content wins.
+                    let freshness_bonus = 0.2 * crate::temporal::freshness(ms.age_days) as f32;
 
                     // Strength bonus: memories that survived consolidation matter more
                     let strength_bonus = (ms.strength / 2.0).min(0.3);
@@ -226,7 +224,7 @@ pub fn rerank(candidates: &[Candidate], profile: &RecallProfile) -> Vec<RankedRe
                     // Connectivity: memories with refs are better anchored
                     let ref_bonus = (ms.ref_count as f32 * 0.05).min(0.15);
 
-                    temporal + strength_bonus + source_bonus + ref_bonus
+                    freshness_bonus + strength_bonus + source_bonus + ref_bonus
                 }
                 // Code chunks: no metadata, neutral score
                 None => 0.3,
@@ -285,16 +283,13 @@ mod tests {
         }
     }
 
-    fn memory_candidate(id: &str, cosine: f32, mt: MemoryType) -> Candidate {
+    fn memory_candidate(id: &str, cosine: f32, age_days: f64) -> Candidate {
         Candidate {
             id: id.to_string(),
             cosine_score: cosine,
             memory_signals: Some(MemorySignals {
-                memory_type: mt,
-                access_count: 3,
                 strength: 1.0,
-                recency_days: 5.0,
-                age_days: 30.0,
+                age_days,
                 source: Some("remember".to_string()),
                 ref_count: 2,
             }),
@@ -356,12 +351,52 @@ mod tests {
         let p = profile();
         let candidates = vec![
             code_candidate("code", 0.50, "src/lib.rs"),
-            memory_candidate("mem", 0.50, MemoryType::Feedback),
+            memory_candidate("mem", 0.50, 30.0),
         ];
         let results = rerank(&candidates, &p);
         assert_eq!(results.len(), 2);
-        // Memory should rank higher due to temporal + strength + source bonuses
+        // Memory should rank higher due to freshness + strength + source bonuses
         assert_eq!(results[0].id, "mem");
+    }
+
+    /// The staleness scenario: the same content exists in several versions
+    /// over time (a codebase that changes often, superseded notes). Cosine
+    /// cannot separate them — the fresh version must rank first, and access
+    /// history must not be able to rescue the stale one (it no longer feeds
+    /// ranking at all).
+    #[test]
+    fn fresh_version_wins_cosine_tie_against_stale() {
+        let p = profile();
+        let candidates = vec![
+            // Unrelated context so cosine normalisation has a realistic range
+            code_candidate("noise-low", 0.30, "a.rs"),
+            code_candidate("noise-mid", 0.55, "b.rs"),
+            // Same evolved content: identical cosine, different content age
+            memory_candidate("v-stale", 0.80, 180.0),
+            memory_candidate("v-fresh", 0.80, 1.0),
+        ];
+        let results = rerank(&candidates, &p);
+        let stale_rank = results.iter().position(|r| r.id == "v-stale").unwrap();
+        let fresh_rank = results.iter().position(|r| r.id == "v-fresh").unwrap();
+        assert!(
+            fresh_rank < stale_rank,
+            "fresh version must outrank stale near-tie (fresh={fresh_rank}, stale={stale_rank})"
+        );
+        assert_eq!(results[0].id, "v-fresh");
+    }
+
+    /// Freshness breaks ties; it must not override semantics. Old content
+    /// that is clearly the better semantic match still wins.
+    #[test]
+    fn freshness_does_not_override_clear_semantic_gap() {
+        let p = profile();
+        let candidates = vec![
+            code_candidate("noise", 0.30, "a.rs"),
+            memory_candidate("old-relevant", 0.85, 300.0),
+            memory_candidate("new-irrelevant", 0.45, 1.0),
+        ];
+        let results = rerank(&candidates, &p);
+        assert_eq!(results[0].id, "old-relevant");
     }
 
     #[test]

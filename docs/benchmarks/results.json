@@ -21,7 +21,13 @@
     "qa_reader_model": "gpt-4o-mini",
     "qa_judge_model": "gpt-4o",
     "qa_top_k": 5,
-    "qa_judged_run": "2026-05 at f68c13a; the gpt-4o-judged QA pipeline was not rerun for this report"
+    "qa_judged_run": "2026-05 at f68c13a; the gpt-4o-judged QA pipeline was not rerun for this report",
+    "temporal_rerun": {
+      "date": "2026-07-11",
+      "branch": "feat/remember-recall",
+      "reason": "Exp 4 redesigned: Hebbian reinforcement (measured +0.0pp, p=1.0) removed from ranking; replaced by staleness disambiguation via freshness decay on content age",
+      "command": "mnemonist-bench --dataset data/longmemeval_s_cleaned.json --experiments 4 --format json"
+    }
   },
   "retrieval": {
     "recall_any_at_5": 0.964,
@@ -166,19 +172,21 @@
     ]
   },
   "temporal": {
-    "baseline_recall_any_at_5": 0.372,
-    "control_recall_any_at_5": 0.372,
-    "reinforced_recall_any_at_5": 0.372,
-    "recall_delta": 0.0,
-    "n_eval_queries": 250,
-    "n_discordant_reinforced_vs_control": [
-      0,
+    "fresh_first_with_freshness": 0.49333333333333335,
+    "fresh_first_without_freshness": 0.31333333333333335,
+    "delta": 0.18,
+    "n_eval_queries": 150,
+    "n_versions_per_topic": 3,
+    "stale_ages_days": [
+      90.0,
+      180.0
+    ],
+    "n_discordant": [
+      27,
       0
     ],
-    "mcnemar_p_reinforced_vs_control": 1.0,
-    "n_consolidation_cycles": 10,
-    "n_queries_per_cycle": 250,
-    "n_documents": 19195
+    "mcnemar_p": 1.4901161193847656e-08,
+    "n_documents": 450
   },
   "qa": {
     "overall_accuracy": 0.372,

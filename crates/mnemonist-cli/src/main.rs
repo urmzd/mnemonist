@@ -823,27 +823,19 @@ fn run(cli: Cli) -> Result<()> {
                             let path = dir.join(&entry.file);
                             let signals = MemoryFile::read(&path).ok().map(|mem| {
                                 let fm = &mem.frontmatter;
-                                let parse_dt =
-                                    |s: &Option<String>| -> Option<chrono::DateTime<chrono::Utc>> {
-                                        s.as_ref()?
-                                            .parse::<chrono::DateTime<chrono::FixedOffset>>()
-                                            .ok()
-                                            .map(|dt| dt.to_utc())
-                                    };
-                                let created = parse_dt(&fm.created_at);
-                                let accessed = parse_dt(&fm.last_accessed).or(created);
-                                let age_days = created
-                                    .map(|c| (now_utc - c).num_seconds() as f64 / 86400.0)
+                                // Content age from created_at (rewritten on upsert).
+                                // Access history deliberately does not feed ranking.
+                                let age_days = fm
+                                    .created_at
+                                    .as_ref()
+                                    .and_then(|s| {
+                                        s.parse::<chrono::DateTime<chrono::FixedOffset>>().ok()
+                                    })
+                                    .map(|c| (now_utc - c.to_utc()).num_seconds() as f64 / 86400.0)
                                     .unwrap_or(1.0);
-                                let recency_days = accessed
-                                    .map(|a| (now_utc - a).num_seconds() as f64 / 86400.0)
-                                    .unwrap_or(age_days);
 
                                 mnemonist_core::MemorySignals {
-                                    memory_type: fm.memory_type,
-                                    access_count: fm.access_count,
                                     strength: fm.strength,
-                                    recency_days,
                                     age_days,
                                     source: fm.source.clone(),
                                     ref_count: fm.refs.len(),

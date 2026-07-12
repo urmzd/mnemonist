@@ -5,7 +5,7 @@
 //! 1. [`vector_retrieval`] — session retrieval recall@k (NOT QA)
 //! 2. [`latency_scaling`] — index build + p50/p95/p99 query latency at 100–10k docs
 //! 3. [`storage_footprint`] — raw vs TurboQuant compressed at 1–4 bits, with recall impact
-//! 4. [`temporal_retrieval`] — dynamic recall improvement via Hebbian access patterns
+//! 4. [`temporal_retrieval`] — staleness disambiguation via freshness decay
 //! 5. [`longmemeval_qa`] — real end-to-end QA (retrieval + LLM scoring)
 
 pub mod latency_scaling;
@@ -159,37 +159,29 @@ impl BenchReport {
 
         if let Some(ref t) = self.temporal {
             lines.push(String::new());
-            lines.push("═══ Experiment 4: Temporal Retrieval ═══".to_string());
+            lines.push("═══ Experiment 4: Staleness Disambiguation ═══".to_string());
             lines.push(format!(
-                "  documents: {}  cycles: {}  queries/cycle: {}",
-                t.n_documents, t.n_consolidation_cycles, t.n_queries_per_cycle
+                "  documents: {}  topics: {}  versions/topic: {}  stale ages: {:?}d",
+                t.n_documents, t.n_eval_queries, t.n_versions_per_topic, t.stale_ages_days
             ));
             lines.push(format!(
-                "  baseline recall_any@5:    {:.4} ({:.1}%)",
-                t.baseline_recall_any_at_5,
-                t.baseline_recall_any_at_5 * 100.0
+                "  fresh-first with freshness:    {:.4} ({:.1}%)",
+                t.fresh_first_with_freshness,
+                t.fresh_first_with_freshness * 100.0
             ));
             lines.push(format!(
-                "  control recall_any@5:     {:.4} ({:.1}%)  [rerank path, no reinforcement]",
-                t.control_recall_any_at_5,
-                t.control_recall_any_at_5 * 100.0
+                "  fresh-first without freshness: {:.4} ({:.1}%)  [same rerank path, equal ages]",
+                t.fresh_first_without_freshness,
+                t.fresh_first_without_freshness * 100.0
             ));
             lines.push(format!(
-                "  reinforced recall_any@5:  {:.4} ({:.1}%)",
-                t.reinforced_recall_any_at_5,
-                t.reinforced_recall_any_at_5 * 100.0
+                "  delta: {:+.4} ({:+.1} pp)",
+                t.delta,
+                t.delta * 100.0
             ));
             lines.push(format!(
-                "  delta (reinforced vs control): {:+.4} ({:+.1}%)",
-                t.recall_delta,
-                t.recall_delta * 100.0
-            ));
-            lines.push(format!(
-                "  McNemar reinforced vs control: p={:.4} (discordant {}+{}, n={})",
-                t.mcnemar_p_reinforced_vs_control,
-                t.n_discordant_reinforced_vs_control[0],
-                t.n_discordant_reinforced_vs_control[1],
-                t.n_eval_queries
+                "  McNemar: p={:.4} (discordant {}+{}, n={})",
+                t.mcnemar_p, t.n_discordant[0], t.n_discordant[1], t.n_eval_queries
             ));
         }
 

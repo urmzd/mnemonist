@@ -1,69 +1,131 @@
-//! Experiment 4: Temporal Retrieval
+//! Experiment 4: Temporal Staleness Disambiguation
 //!
-//! Demonstrates retrieval quality that improves over time through Hebbian
-//! access-pattern reinforcement — something static vector stores cannot do.
+//! The scenario freshness decay exists for: the same content lives in the
+//! index in several versions over time (a codebase that changes often,
+//! superseded notes), and the embedder cannot reliably separate them. Between
+//! near-tie versions, the *fresh* one should rank first.
+//!
+//! Construct: for each sampled topic (a LongMemEval session with a single
+//! gold query), index three versions — the original ("fresh", age 1 day) and
+//! two deterministically drifted variants (words dropped, ages 90 and 180
+//! days). Query with the topic's question and score whether the fresh version
+//! outranks both stale ones among retrieved gold versions.
+//!
+//! Both arms run the identical retrieve-20 → `rerank()` → score path; the
+//! control assigns every version the same age, so the only difference is the
+//! freshness signal itself. Paired exact McNemar on per-query outcomes.
+//!
+//! This replaces the earlier Hebbian-reinforcement experiment, which measured
+//! +0.0 pp (0/0 discordant pairs, p = 1.0): access-count reinforcement never
+//! changed a retrieval outcome and was removed from ranking.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::MemoryType;
 use crate::ann::AnnIndex;
 use crate::ann::hnsw::{HnswConfig, HnswIndex};
 use crate::embed::Embedder;
-use crate::temporal::{blend, temporal_score};
+use crate::rerank::{Candidate, MemorySignals, RecallProfile, rerank};
 
 use crate::evals::EvalError;
 use crate::evals::longmemeval::LongMemEvalDataset;
 use crate::evals::search::{discordant_pairs, mcnemar_exact_p};
 
-/// Results from the temporal retrieval experiment.
+/// Ages (days) assigned to the three versions of each topic.
+const FRESH_AGE: f64 = 1.0;
+const STALE_AGES: [f64; 2] = [90.0, 180.0];
+
+/// Max topics sampled from the dataset (keeps the experiment fast on CPU).
+const MAX_TOPICS: usize = 150;
+
+/// Results from the staleness disambiguation experiment.
 #[derive(Debug, Clone, Serialize)]
 pub struct TemporalResult {
-    pub baseline_recall_any_at_5: f64,
-    /// Same retrieve-20/rerank/take-5 path as `reinforced`, but with zero
-    /// access counts — isolates the rerank pipeline from the reinforcement signal.
-    pub control_recall_any_at_5: f64,
-    pub reinforced_recall_any_at_5: f64,
-    /// `reinforced - control`. Both arms share the retrieve-20/rerank/take-5
-    /// path, so this isolates the reinforcement signal from the reranker's own
-    /// contribution (which `reinforced - baseline` would confound).
-    pub recall_delta: f64,
-    /// Held-out queries every arm is scored on (the shared denominator).
+    /// Fraction of queries where the fresh version outranks both stale
+    /// versions, with real version ages (freshness signal active).
+    pub fresh_first_with_freshness: f64,
+    /// Same path, all versions assigned equal age — cosine order decides.
+    pub fresh_first_without_freshness: f64,
+    /// `with - without`.
+    pub delta: f64,
     pub n_eval_queries: usize,
-    /// Discordant pairs between the reinforced and control arms:
-    /// (reinforced hit ∧ control miss, reinforced miss ∧ control hit).
-    pub n_discordant_reinforced_vs_control: [usize; 2],
-    /// Exact two-sided McNemar p-value, reinforced vs control on paired
-    /// per-query hits. The control shares the rerank path, so this tests the
-    /// reinforcement signal itself.
-    pub mcnemar_p_reinforced_vs_control: f64,
-    pub n_consolidation_cycles: usize,
-    pub n_queries_per_cycle: usize,
+    pub n_versions_per_topic: usize,
+    pub stale_ages_days: [f64; 2],
+    /// (with hit ∧ without miss, with miss ∧ without hit).
+    pub n_discordant: [usize; 2],
+    /// Exact two-sided McNemar p-value on the paired per-query outcomes.
+    pub mcnemar_p: f64,
     pub n_documents: usize,
 }
 
-/// Run Experiment 4: temporal retrieval with Hebbian reinforcement.
-///
-/// Embeds all sessions and queries, then:
-/// 1. Builds HNSW index from all embeddings
-/// 2. Splits queries: first half for "training" access patterns, second half for eval
-/// 3. Simulates repeated query cycles on the training set, tracking access counts
-/// 4. Eval: reranks with temporal signals (access frequency -> strength boost)
-/// 5. Compares reinforced recall vs a no-reinforcement control (identical rerank
-///    path, zero access counts) and vs the pure-cosine baseline — all three on
-///    the same held-out eval slice
+/// Deterministic content drift: drop every `drop_every`-th word. Simulates an
+/// older draft of the same content — semantically near-identical, not
+/// embedding-identical.
+fn drift(text: &str, drop_every: usize) -> String {
+    text.split_whitespace()
+        .enumerate()
+        .filter(|(i, _)| (i + 1) % drop_every != 0)
+        .map(|(_, w)| w)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Run Experiment 4: staleness disambiguation via freshness decay.
 pub fn run(
     dataset: &LongMemEvalDataset,
     embedder: &dyn Embedder,
-    n_cycles: usize,
 ) -> Result<TemporalResult, EvalError> {
-    let (embeddings, query_embeddings, query_gold) = embed_dataset(dataset, embedder)?;
+    // Topics: queries with exactly one gold session, deterministic order.
+    let topics: Vec<(&str, &str)> = dataset
+        .queries
+        .iter()
+        .filter(|q| q.gold_session_ids.len() == 1)
+        .filter_map(|q| {
+            let sid = q.gold_session_ids[0].as_str();
+            dataset
+                .sessions
+                .get(sid)
+                .map(|text| (q.question.as_str(), text.as_str()))
+        })
+        .take(MAX_TOPICS)
+        .collect();
 
-    let dim = embeddings
+    if topics.len() < 5 {
+        return Err(EvalError::InsufficientData {
+            min: 5,
+            got: topics.len(),
+        });
+    }
+
+    // Build the versioned corpus: topic i → fresh + two drifted stale versions.
+    let mut ids: Vec<String> = Vec::with_capacity(topics.len() * 3);
+    let mut texts: Vec<String> = Vec::with_capacity(topics.len() * 3);
+    let mut ages: HashMap<String, f64> = HashMap::new();
+    for (i, (_, text)) in topics.iter().enumerate() {
+        for (suffix, age, body) in [
+            ("fresh", FRESH_AGE, text.to_string()),
+            ("mid", STALE_AGES[0], drift(text, 20)),
+            ("old", STALE_AGES[1], drift(text, 10)),
+        ] {
+            let id = format!("t{i}#{suffix}");
+            ages.insert(id.clone(), age);
+            ids.push(id);
+            texts.push(body);
+        }
+    }
+
+    eprintln!(
+        "  Embedding {} versioned documents ({} topics x 3)...",
+        ids.len(),
+        topics.len()
+    );
+    let doc_refs: Vec<&str> = texts.iter().map(|t| t.as_str()).collect();
+    let doc_embeddings = embed_batched(embedder, &doc_refs)?;
+
+    let dim = doc_embeddings
         .first()
         .ok_or(EvalError::InsufficientData { min: 1, got: 0 })?
-        .1
         .len();
 
     let mut index = HnswIndex::new(
@@ -73,246 +135,115 @@ pub fn run(
             ..HnswConfig::default()
         },
     );
-    for (id, emb) in &embeddings {
+    for (id, emb) in ids.iter().zip(&doc_embeddings) {
         index
             .insert(id, emb)
             .map_err(|e| EvalError::Other(e.to_string()))?;
     }
 
-    // Split queries: first half trains access patterns, second half evaluates
-    let train_end = query_embeddings.len() / 2;
-    let eval_queries = &query_embeddings[train_end..];
-    let eval_gold = &query_gold[train_end..];
+    eprintln!("  Embedding {} queries...", topics.len());
+    let query_refs: Vec<&str> = topics.iter().map(|(q, _)| *q).collect();
+    let query_embeddings = embed_batched(embedder, &query_refs)?;
 
-    // Baseline: pure cosine retrieval on the same held-out eval queries
-    let baseline_recall = compute_recall_any(&index, eval_queries, eval_gold, 5);
+    let profile = RecallProfile::uncalibrated();
 
-    // Simulate access patterns over multiple consolidation cycles
-    let mut access_counts: HashMap<String, u32> = HashMap::new();
-    let lambda = 0.15;
+    let mut with_hits = Vec::with_capacity(topics.len());
+    let mut without_hits = Vec::with_capacity(topics.len());
 
-    for cycle in 0..n_cycles {
-        let _recency_base = ((n_cycles - cycle) * 5) as f64;
+    for (i, q_emb) in query_embeddings.iter().enumerate() {
+        let hits = index.search(q_emb, 20).unwrap_or_default();
 
-        for (q_emb, gold_ids) in query_embeddings[..train_end]
-            .iter()
-            .zip(&query_gold[..train_end])
-        {
-            let hits = index.search(q_emb, 10).unwrap_or_default();
+        let to_candidates = |real_ages: bool| -> Vec<Candidate> {
+            hits.iter()
+                .map(|h| Candidate {
+                    id: h.id.clone(),
+                    cosine_score: h.score,
+                    memory_signals: Some(MemorySignals {
+                        strength: 1.0,
+                        age_days: if real_ages {
+                            *ages.get(&h.id).unwrap_or(&FRESH_AGE)
+                        } else {
+                            FRESH_AGE
+                        },
+                        source: None,
+                        ref_count: 0,
+                    }),
+                    // Distinct per version so rerank's per-file diversity
+                    // cap never drops a version.
+                    source_file: h.id.clone(),
+                })
+                .collect()
+        };
 
-            let gold_set: HashSet<&str> = gold_ids.iter().map(|s| s.as_str()).collect();
-            for hit in &hits {
-                if gold_set.contains(hit.id.as_str()) {
-                    *access_counts.entry(hit.id.clone()).or_insert(0) += 1;
-                }
-            }
-        }
+        let fresh_id = format!("t{i}#fresh");
+        let gold_prefix = format!("t{i}#");
+
+        let fresh_first = |candidates: Vec<Candidate>| -> bool {
+            let ranked = rerank(&candidates, &profile);
+            ranked
+                .iter()
+                .find(|r| r.id.starts_with(&gold_prefix))
+                .is_some_and(|first_gold| first_gold.id == fresh_id)
+        };
+
+        with_hits.push(fresh_first(to_candidates(true)));
+        without_hits.push(fresh_first(to_candidates(false)));
     }
 
-    // Control: identical retrieve-20/rerank/take-5 path with zero access counts
-    let control_hits =
-        compute_reranked_hits(&index, eval_queries, eval_gold, &HashMap::new(), lambda);
-    let control_recall = recall_from_hits(&control_hits);
+    let rate = |hits: &[bool]| -> f64 {
+        if hits.is_empty() {
+            return 0.0;
+        }
+        hits.iter().filter(|h| **h).count() as f64 / hits.len() as f64
+    };
 
-    // Evaluate: temporal-reranked retrieval on held-out queries
-    let reinforced_hits =
-        compute_reranked_hits(&index, eval_queries, eval_gold, &access_counts, lambda);
-    let reinforced_recall = recall_from_hits(&reinforced_hits);
-
-    // Paired test on per-query hits: does reinforcement change outcomes beyond
-    // what the shared rerank path produces on its own?
-    let (b, c) = discordant_pairs(&reinforced_hits, &control_hits);
-    let mcnemar_p = mcnemar_exact_p(b, c);
+    let with_rate = rate(&with_hits);
+    let without_rate = rate(&without_hits);
+    let (b, c) = discordant_pairs(&with_hits, &without_hits);
 
     Ok(TemporalResult {
-        baseline_recall_any_at_5: baseline_recall,
-        control_recall_any_at_5: control_recall,
-        reinforced_recall_any_at_5: reinforced_recall,
-        recall_delta: reinforced_recall - control_recall,
-        n_eval_queries: eval_queries.len(),
-        n_discordant_reinforced_vs_control: [b, c],
-        mcnemar_p_reinforced_vs_control: mcnemar_p,
-        n_consolidation_cycles: n_cycles,
-        n_queries_per_cycle: train_end,
-        n_documents: embeddings.len(),
+        fresh_first_with_freshness: with_rate,
+        fresh_first_without_freshness: without_rate,
+        delta: with_rate - without_rate,
+        n_eval_queries: topics.len(),
+        n_versions_per_topic: 3,
+        stale_ages_days: STALE_AGES,
+        n_discordant: [b, c],
+        mcnemar_p: mcnemar_exact_p(b, c),
+        n_documents: ids.len(),
     })
 }
 
-/// Fraction of hits in a per-query hit vector (0.0 for an empty vector).
-fn recall_from_hits(hits: &[bool]) -> f64 {
-    if hits.is_empty() {
-        return 0.0;
-    }
-    hits.iter().filter(|h| **h).count() as f64 / hits.len() as f64
-}
-
-/// Per-query hits through the retrieve-20 / temporal-rerank / take-5 path.
-fn compute_reranked_hits(
-    index: &HnswIndex,
-    query_embeddings: &[Vec<f32>],
-    query_gold: &[Vec<String>],
-    access_counts: &HashMap<String, u32>,
-    lambda: f64,
-) -> Vec<bool> {
-    let mut per_query = Vec::with_capacity(query_embeddings.len());
-    for (q_emb, gold_ids) in query_embeddings.iter().zip(query_gold) {
-        let gold: HashSet<&str> = gold_ids.iter().map(|s| s.as_str()).collect();
-
-        let hits = index.search(q_emb, 20).unwrap_or_default();
-
-        let mut reranked: Vec<(String, f64)> = hits
-            .iter()
-            .map(|hit| {
-                let ac = *access_counts.get(&hit.id).unwrap_or(&0);
-                let ts = temporal_score(1.0, 30.0, ac, MemoryType::Reference);
-                let final_score = blend(hit.score as f64, ts, lambda);
-                (hit.id.clone(), final_score)
-            })
-            .collect();
-
-        reranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        let top_5: HashSet<&str> = reranked.iter().take(5).map(|(id, _)| id.as_str()).collect();
-        per_query.push(gold.iter().any(|g| top_5.contains(g)));
-    }
-    per_query
-}
-
-/// recall_any@5 through the retrieve-20 / temporal-rerank / take-5 path.
-#[cfg(test)]
-fn compute_reranked_recall_any(
-    index: &HnswIndex,
-    query_embeddings: &[Vec<f32>],
-    query_gold: &[Vec<String>],
-    access_counts: &HashMap<String, u32>,
-    lambda: f64,
-) -> f64 {
-    recall_from_hits(&compute_reranked_hits(
-        index,
-        query_embeddings,
-        query_gold,
-        access_counts,
-        lambda,
-    ))
-}
-
-/// Pure-cosine recall_any@k on pre-built HNSW index.
-fn compute_recall_any(
-    index: &HnswIndex,
-    query_embeddings: &[Vec<f32>],
-    query_gold: &[Vec<String>],
-    k: usize,
-) -> f64 {
-    let mut per_query = Vec::with_capacity(query_embeddings.len());
-    for (q_emb, gold_ids) in query_embeddings.iter().zip(query_gold) {
-        let gold: HashSet<&str> = gold_ids.iter().map(|s| s.as_str()).collect();
-        let results = index.search(q_emb, k).unwrap_or_default();
-        let top_k: HashSet<&str> = results.iter().map(|h| h.id.as_str()).collect();
-        per_query.push(gold.iter().any(|g| top_k.contains(g)));
-    }
-    recall_from_hits(&per_query)
-}
-
-type SessionEmbeddings = Vec<(String, Vec<f32>)>;
-type QueryEmbeddings = Vec<Vec<f32>>;
-type QueryGold = Vec<Vec<String>>;
-
-/// Embed all sessions and queries from the dataset.
-fn embed_dataset(
-    dataset: &LongMemEvalDataset,
-    embedder: &dyn Embedder,
-) -> Result<(SessionEmbeddings, QueryEmbeddings, QueryGold), EvalError> {
+fn embed_batched(embedder: &dyn Embedder, texts: &[&str]) -> Result<Vec<Vec<f32>>, EvalError> {
     const BATCH_SIZE: usize = 256;
-
-    let total_sessions = dataset.sessions.len();
-    eprintln!("  Embedding {total_sessions} sessions...");
-    let session_ids: Vec<String> = dataset.sessions.keys().cloned().collect();
-    let session_texts: Vec<&str> = session_ids
-        .iter()
-        .map(|id| dataset.sessions[id].as_str())
-        .collect();
-
-    let mut session_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_sessions);
-    for chunk in session_texts.chunks(BATCH_SIZE) {
+    let mut out = Vec::with_capacity(texts.len());
+    for chunk in texts.chunks(BATCH_SIZE) {
         let batch = embedder
             .embed_batch(chunk)
             .map_err(|e| EvalError::Other(e.to_string()))?;
-        session_embeddings.extend(batch);
+        out.extend(batch);
     }
-
-    let embeddings: Vec<(String, Vec<f32>)> =
-        session_ids.into_iter().zip(session_embeddings).collect();
-
-    let total_queries = dataset.queries.len();
-    eprintln!("  Embedding {total_queries} queries...");
-    let query_texts: Vec<&str> = dataset
-        .queries
-        .iter()
-        .map(|q| q.question.as_str())
-        .collect();
-
-    let mut query_embeddings: Vec<Vec<f32>> = Vec::with_capacity(total_queries);
-    for chunk in query_texts.chunks(BATCH_SIZE) {
-        let batch = embedder
-            .embed_batch(chunk)
-            .map_err(|e| EvalError::Other(e.to_string()))?;
-        query_embeddings.extend(batch);
-    }
-
-    let query_gold: Vec<Vec<String>> = dataset
-        .queries
-        .iter()
-        .map(|q| q.gold_session_ids.clone())
-        .collect();
-
-    Ok((embeddings, query_embeddings, query_gold))
+    Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// With zero access counts the temporal blend is order-preserving, so the
-    /// no-reinforcement control must equal the pure-cosine baseline on the
-    /// same query population. Guards against the arms diverging for any
-    /// reason other than the reinforcement signal.
     #[test]
-    fn control_with_no_access_counts_matches_baseline() {
-        let n_docs = 8;
-        let mut index = HnswIndex::new(
-            4,
-            HnswConfig {
-                ef_search: 100,
-                ..HnswConfig::default()
-            },
-        );
-        let mut doc_vecs = Vec::new();
-        for j in 0..n_docs {
-            let theta = j as f32 * 0.15;
-            let v = vec![theta.cos(), theta.sin(), 0.0, 0.0];
-            index.insert(&format!("doc{j}"), &v).unwrap();
-            doc_vecs.push(v);
-        }
+    fn drift_drops_words_deterministically() {
+        let text = "a b c d e f g h i j";
+        let d = drift(text, 5);
+        // Every 5th word (e, j) dropped
+        assert_eq!(d, "a b c d f g h i");
+        assert_eq!(drift(text, 5), d, "must be deterministic");
+    }
 
-        let mut queries = Vec::new();
-        let mut gold = Vec::new();
-        for (i, v) in doc_vecs.iter().enumerate() {
-            queries.push(v.clone());
-            // Even queries are answerable (gold = nearest doc); odd queries
-            // are not (gold = farthest doc, always outside the top 5 of 8).
-            let g = if i % 2 == 0 {
-                format!("doc{i}")
-            } else if i < n_docs / 2 {
-                format!("doc{}", n_docs - 1)
-            } else {
-                "doc0".to_string()
-            };
-            gold.push(vec![g]);
-        }
-
-        let baseline = compute_recall_any(&index, &queries, &gold, 5);
-        let control = compute_reranked_recall_any(&index, &queries, &gold, &HashMap::new(), 0.15);
-        assert_eq!(baseline, control);
-        assert!(baseline > 0.0 && baseline < 1.0);
+    #[test]
+    fn drift_preserves_most_content() {
+        let text = "word ".repeat(100);
+        let d = drift(&text, 10);
+        let kept = d.split_whitespace().count();
+        assert_eq!(kept, 90);
     }
 }
