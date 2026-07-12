@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0 (2026-07-12)
+
+### Features
+
+- **core**: replace Hebbian ranking reinforcement with freshness decay (#14) ([7de5399](https://github.com/urmzd/mnemonist/commit/7de5399cd004c7e09a3cd75b3b01a623e9c7891e))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.11.0...v0.12.0)
+
+
 ## 0.11.0 (2026-07-12)
 
 ### Breaking
