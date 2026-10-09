@@ -19,7 +19,7 @@ sys.path.insert(0, str(__file__ and os.path.dirname(os.path.dirname(os.path.absp
 from src.datagen.generate import DATASETS, generate_batch
 
 
-def make_anthropic_fn(model: str = "claude-sonnet-4-20250514"):
+def make_anthropic_fn(model: str = "claude-haiku-5-5"):
     """Create an LLM function using Anthropic API."""
     import anthropic
 
@@ -71,7 +71,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.provider == "anthropic":
-        model = args.model or "claude-sonnet-4-20250514"
+        model = args.model or "claude-haiku-5-5"
         llm_fn = make_anthropic_fn(model)
     elif args.provider == "ollama":
         model = args.model or "llama3"

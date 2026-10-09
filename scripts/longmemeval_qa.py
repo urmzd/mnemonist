@@ -14,7 +14,8 @@ benchmark does:
                        compatible with `mnemonist-bench --qa-answers` for the
                        substring baseline).
   Phase C  `judge`   — score each answer against the gold answer with a strong
-                       LLM judge (GPT-4o class), faithful to the LongMemEval
+                       LLM judge (gpt-6.1-sol, a tier above the reader),
+                       faithful to the LongMemEval
                        methodology (general correctness + temporal / knowledge-
                        update / abstention handling). Emits overall and
                        per-question-type accuracy.
@@ -26,7 +27,7 @@ Usage:
   uv run scripts/longmemeval_qa.py answer  --context context.jsonl --out answers.jsonl
   uv run scripts/longmemeval_qa.py judge   --answers answers.jsonl --out judged.jsonl --report report.json
   uv run scripts/longmemeval_qa.py all     --context context.jsonl --report report.json \
-        --reader-model gpt-4o-mini --judge-model gpt-4o
+        --reader-model gpt-6-luna --judge-model gpt-6.1-sol
 """
 
 from __future__ import annotations
@@ -41,6 +42,25 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
+
+
+# Extra completion budget for models that must reason (reasoning tokens count
+# toward `max_completion_tokens`).
+REASONING_HEADROOM = 2048
+
+
+def sampling_kwargs(model: str, max_tokens: int) -> dict:
+    """Per-model generation params. `max_completion_tokens` replaces the
+    deprecated `max_tokens`. GPT-6 models reject `temperature`/`top_p` unless
+    reasoning effort is `none`, and their default effort (`medium`) would spend
+    the small output budget on reasoning tokens. Models that support `none`
+    (e.g. gpt-6-luna) run at `none`; those that do not (gpt-6.1-sol, gpt-6-astra)
+    run at `low` with headroom for reasoning tokens."""
+    if model.startswith(("gpt-6.1-sol", "gpt-6-astra")):
+        return {"reasoning_effort": "low", "max_completion_tokens": max_tokens + REASONING_HEADROOM}
+    if model.startswith("gpt-6"):
+        return {"reasoning_effort": "none", "max_completion_tokens": max_tokens}
+    return {"temperature": 0.0, "max_completion_tokens": max_tokens}
 
 
 def chat_with_retry(client: OpenAI, *, max_attempts: int = 8, **kwargs):
@@ -160,8 +180,7 @@ def answer_one(client: OpenAI, rec: dict, model: str, max_chars: int) -> dict:
                 {"role": "system", "content": READER_SYSTEM},
                 {"role": "user", "content": user},
             ],
-            temperature=0.0,
-            max_tokens=256,
+            **sampling_kwargs(model, 256),
         )
         model_answer = (resp.choices[0].message.content or "").strip()
     except Exception as e:  # noqa: BLE001 — record failures, don't crash the batch
@@ -211,9 +230,8 @@ def judge_one(client: OpenAI, rec: dict, model: str) -> dict:
                 {"role": "system", "content": JUDGE_SYSTEM},
                 {"role": "user", "content": user},
             ],
-            temperature=0.0,
             response_format={"type": "json_object"},
-            max_tokens=16,
+            **sampling_kwargs(model, 16),
         )
         verdict = json.loads(resp.choices[0].message.content or "{}")
         out["correct"] = bool(verdict.get("correct", False))
@@ -342,7 +360,7 @@ def main():
     pa = sub.add_parser("answer", help="Phase B: generate answers from retrieved context")
     pa.add_argument("--context", required=True)
     pa.add_argument("--out", required=True)
-    pa.add_argument("--reader-model", default="gpt-4o-mini")
+    pa.add_argument("--reader-model", default="gpt-6-luna")
     pa.add_argument("--concurrency", type=int, default=4)
     pa.add_argument("--max-context-chars", type=int, default=24000)
     pa.add_argument("--limit", type=int, default=0, help="cap #questions (0 = all)")
@@ -351,7 +369,7 @@ def main():
     pj.add_argument("--answers", required=True)
     pj.add_argument("--out", required=True)
     pj.add_argument("--report", default="")
-    pj.add_argument("--judge-model", default="gpt-4o")
+    pj.add_argument("--judge-model", default="gpt-6.1-sol")
     pj.add_argument("--concurrency", type=int, default=4)
 
     pall = sub.add_parser("all", help="Phase B + C")
@@ -359,8 +377,8 @@ def main():
     pall.add_argument("--answers-out", default="answers.jsonl")
     pall.add_argument("--judged-out", default="judged.jsonl")
     pall.add_argument("--report", default="report.json")
-    pall.add_argument("--reader-model", default="gpt-4o-mini")
-    pall.add_argument("--judge-model", default="gpt-4o")
+    pall.add_argument("--reader-model", default="gpt-6-luna")
+    pall.add_argument("--judge-model", default="gpt-6.1-sol")
     pall.add_argument("--concurrency", type=int, default=4)
     pall.add_argument("--max-context-chars", type=int, default=24000)
     pall.add_argument("--limit", type=int, default=0)
