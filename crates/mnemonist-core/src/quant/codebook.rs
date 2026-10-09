@@ -82,6 +82,10 @@ static CENTROIDS_3BIT: [f32; 8] = [
 ];
 static BOUNDARIES_3BIT: [f32; 7] = [-1.7480, -1.0500, -0.5005, 0.0, 0.5005, 1.0500, 1.7480];
 
+#[allow(
+    clippy::approx_constant,
+    reason = "1.6180 is a Lloyd-Max centroid for N(0,1), not the golden ratio"
+)]
 static CENTROIDS_4BIT: [f32; 16] = [
     -2.7326, -2.0690, -1.6180, -1.2562, -0.9424, -0.6568, -0.3880, -0.1284, 0.1284, 0.3880, 0.6568,
     0.9424, 1.2562, 1.6180, 2.0690, 2.7326,
