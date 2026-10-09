@@ -61,7 +61,7 @@ jobs:
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
 
-      - uses: urmzd/sr@v8
+      - uses: urmzd/sr@v9
         id: sr
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
