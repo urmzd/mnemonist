@@ -10,12 +10,29 @@ output_type = "gif"
 [font]
 family = "Iosevka Nerd Font Mono"
 
+# Both scenes run ./showcase/demo.sh, which points HOME at a throwaway
+# /tmp/mnemonist-demo and puts the binary built from this checkout first on
+# PATH. The demo types real commands (learn, remember, consolidate, forget)
+# into a live shell, so it must never run against a real ~/.mnemonist or an
+# installed binary from another version.
+#
+# Re-record:
+#   cargo build --release -p mnemonist
+#   teasr run --timeout 120000       # the demo scene alone takes about 65s
+#   teasr run --scenes cli-help      # or a single scene
+
+# The fixed prompt in demo.sh already keeps the username and hostname out of
+# the recording; this masks them if a command ever prints one.
+[redact]
+username = true
+
 # ── Full cognitive workflow ──
 # wait.duration = command runtime + reading room (teasr 0.18.1 `wait` sleeps
 # full duration then emits one frame; no idle-timer).
 [[scenes]]
 type = "terminal"
 name = "mnemonist-demo"
+command = "./showcase/demo.sh"
 theme = "dracula"
 cols = 100
 rows = 35
@@ -118,4 +135,4 @@ theme = "dracula"
 cols = 100
 rows = 30
 frame_duration = 80
-command = "mnemonist --help"
+command = "./showcase/demo.sh --help"
