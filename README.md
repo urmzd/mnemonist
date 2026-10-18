@@ -36,21 +36,21 @@
 
 ## Features
 
-- **Cognitive CLI** — commands named after memory processes: `remember`, `recall`, `learn`, `consolidate`, `reflect`, `forget`
-- **Two-level memory** — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`)
-- **Working memory inbox** — capacity-limited staging area (default 10 items) with attention scoring; items promoted to long-term memory via `consolidate`
-- **Memory metadata** — strength, access count, last accessed, source tracking; access history protects memories from decay, content freshness breaks ranking near-ties
-- **Plain markdown** with YAML frontmatter — human-readable, git-friendly
-- **Typed memories** — user, feedback, project, reference
-- **Local embedding** — `candle` crate with `all-MiniLM-L6-v2` (384-dim, CPU/CUDA); no external server needed; model downloads from HuggingFace Hub on first use
-- **Layered graph** — three HNSW layers: code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
-- **Pluggable code chunking** — `ChunkingStrategy` trait with built-in `ParagraphChunking` (blank-line boundaries) and `FixedLineChunking` (sliding window with overlap); no tree-sitter dependency
-- **Cross-layer recall** — `recall` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
-- **Consolidation** — `consolidate` promotes inbox items, decays stale memories, and re-embeds; auto-runs as a detached background job (`git gc --auto` style) on inbox pressure or staleness
-- **Fuzzy forget** — `forget` resolves partial and suffix matches so you don't need the full filename
-- **Embedding quality metrics** — `learn` reports anisotropy and similarity_range after indexing
-- **TurboQuant** — vector quantization (1-4 bit) available as a research/eval module (see the storage-footprint benchmark); not yet wired into `learn`/`recall`, which store full f32 embeddings
-- **JSON-first** — stdout for structured JSON, stderr for UX; pipe-friendly
+- **Cognitive CLI**: commands named after memory processes (`remember`, `recall`, `learn`, `consolidate`, `reflect`, `forget`)
+- **Two-level memory**: project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`)
+- **Working memory inbox**: capacity-limited staging area (default 10 items) with attention scoring; items promoted to long-term memory via `consolidate`
+- **Memory metadata**: strength, access count, last accessed, source tracking; access history protects memories from decay, content freshness breaks ranking near-ties
+- **Plain markdown** with YAML frontmatter: human-readable, git-friendly
+- **Typed memories**: user, feedback, project, reference
+- **Local embedding**: `candle` crate with `all-MiniLM-L6-v2` (384-dim, CPU/CUDA); no external server needed; model downloads from HuggingFace Hub on first use
+- **Layered graph**: three HNSW layers for code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
+- **Pluggable code chunking**: `ChunkingStrategy` trait with built-in `ParagraphChunking` (blank-line boundaries) and `FixedLineChunking` (sliding window with overlap); no tree-sitter dependency
+- **Cross-layer recall**: `recall` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
+- **Consolidation**: `consolidate` promotes inbox items, decays stale memories, and re-embeds; auto-runs as a detached background job (`git gc --auto` style) on inbox pressure or staleness
+- **Fuzzy forget**: `forget` resolves partial and suffix matches so you don't need the full filename
+- **Embedding quality metrics**: `learn` reports anisotropy and similarity_range after indexing
+- **TurboQuant**: vector quantization (1-4 bit) available as a research/eval module (see the storage-footprint benchmark); not yet wired into `learn`/`recall`, which store full f32 embeddings
+- **JSON-first**: stdout for structured JSON, stderr for UX; pipe-friendly
 - Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool
 
 ## Install
@@ -63,10 +63,10 @@ curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | s
 
 ### Hardware acceleration
 
-Pre-built binaries run on CPU with pure Rust matmuls — functional, but large batch operations like `learn` are slower than accelerated builds. If you have a Rust toolchain, you can build from source with hardware acceleration:
+Pre-built binaries run on CPU with pure Rust matmuls. They work, but large batch operations like `learn` are slower than accelerated builds. If you have a Rust toolchain, you can build from source with hardware acceleration:
 
 ```bash
-# macOS — Apple's Accelerate BLAS (~2x faster embedding throughput)
+# macOS: Apple's Accelerate BLAS (~2x faster embedding throughput)
 cargo install mnemonist --features accelerate
 
 # Linux/Windows with an NVIDIA GPU
@@ -80,7 +80,7 @@ cargo install mnemonist --features cuda
 curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | sh
 # Or, if you have a Rust toolchain: cargo install mnemonist
 
-# 2. Ingest the codebase — auto-creates ~/.mnemonist/{project}/ and embeds source files
+# 2. Ingest the codebase (auto-creates ~/.mnemonist/{project}/ and embeds source files)
 mnemonist learn .
 
 # 3. Remember long-term knowledge
@@ -91,11 +91,11 @@ mnemonist remember "deep Go expertise, new to React" -t user
 mnemonist remember --defer "look into async runtime choices"
 mnemonist remember --defer "check Linear project INGEST for pipeline bugs"
 
-# 5. Consolidate — promote inbox to long-term memory, decay stale items, re-embed
+# 5. Consolidate: promote inbox to long-term memory, decay stale items, re-embed
 # (also runs automatically in the background when the inbox fills up)
 mnemonist consolidate
 
-# 6. Recall — semantic + text search across memories and code
+# 6. Recall: semantic + text search across memories and code
 mnemonist recall "rust async patterns"
 
 # 7. Review everything
@@ -137,10 +137,10 @@ Project memory takes precedence over global when they conflict.
 |---------|-------------|
 | `mnemonist remember "<point>" [-t type] [-n name]` | Commit a point to long-term memory (auto-embeds) |
 | `mnemonist remember --defer "<point>"` | Stage a quick thought in the working memory inbox; promoted by `consolidate` |
-| `mnemonist recall "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel with blended relevance scoring, follows refs |
+| `mnemonist recall "<ask>" [--budget N] [--level both]` | Recall memories by cue. Searches memory and code indices in parallel with blended relevance scoring, follows refs |
 | `mnemonist learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; chunks files with `ParagraphChunking`, embeds into `.code-index.hnsw`, reports quality metrics. `--attend` only indexes files matching this glob |
 | `mnemonist consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw`. Auto-triggered in the background on inbox pressure/staleness |
-| `mnemonist reflect [--all] [--global]` | Introspect — review memories and inbox contents |
+| `mnemonist reflect [--all] [--global]` | Introspect: review memories and inbox contents |
 | `mnemonist forget <file>` | Deliberately forget a memory (supports fuzzy/suffix name matching) |
 | `mnemonist config init` | Create default config file |
 | `mnemonist config show` | Show current configuration |
@@ -162,9 +162,9 @@ The inbox is a capacity-limited staging area for working memory (default capacit
 
 `mnemonist consolidate` runs a sleep-like consolidation cycle:
 
-1. **Promote** — inbox items become long-term memories with type and strength
-2. **Decay** — memories not accessed within `consolidation.decay_days` (default 90) and below `protected_access_count` (default 5) are pruned
-3. **Re-embed** — all surviving memories are re-embedded for fresh semantic search
+1. **Promote**: inbox items become long-term memories with type and strength
+2. **Decay**: memories not accessed within `consolidation.decay_days` (default 90) and below `protected_access_count` (default 5) are pruned
+3. **Re-embed**: all surviving memories are re-embedded for fresh semantic search
 
 Use `--dry-run` to preview what would change.
 
@@ -182,7 +182,7 @@ Each memory file tracks cognitive metadata in its frontmatter:
 | `created_at` | When the memory was first created |
 | `source` | How it was created: `remember`, `learn`, `consolidation` |
 | `consolidated_from` | Original files if created via merge |
-| `refs` | Inter-layer edges — code chunk IDs or memory filenames this memory links to |
+| `refs` | Inter-layer edges: code chunk IDs or memory filenames this memory links to |
 
 ### Configuration
 
@@ -233,10 +233,10 @@ See the full [Specification](spec/mnemonist.md) for details on file format, dyna
 <!-- fsrc src="docs/benchmarks.md" -->
 Two kinds of benchmark live here:
 
-1. **System-level evaluation** — does the memory/RAG pipeline retrieve the right thing
+1. **System-level evaluation**: does the memory/RAG pipeline retrieve the right thing
    and answer correctly? Measured on the LongMemEval conversational-memory dataset,
    an established public benchmark.
-2. **Microbenchmarks** — how fast are the individual primitives (distance kernels,
+2. **Microbenchmarks**: how fast are the individual primitives (distance kernels,
    HNSW, quantization)? Measured with `cargo bench` (criterion).
 
 > **Provenance.** LongMemEval retrieval-side experiments: commit `b25e88e` (clean
@@ -252,21 +252,21 @@ Two kinds of benchmark live here:
 > b=0.75, lowercase `\w+` tokens), 2026-07-08, same dataset and construct as Exp 1.
 > Reproduce with the commands in each section.
 
-### Code retrieval — no in-house benchmark
+### Code retrieval: no in-house benchmark
 
 There is deliberately no code-retrieval benchmark here. An earlier version measured
 recall over this project's own repositories with self-authored queries and gold
-labels — a construct with no external validity, so it was removed. Any future
+labels, a construct with no external validity, so it was removed. Any future
 code-retrieval claim should come from an established public suite (e.g.
 [CoIR](https://github.com/CoIR-team/coir) or CodeSearchNet) run against the full
 `learn`/`recall` pipeline, with committed provenance like the LongMemEval runs below.
 
-### LongMemEval — conversational memory
+### LongMemEval: conversational memory
 
 Five experiments in `crates/mnemonist-core/src/evals/bench/` run against a LongMemEval
 dataset. The number to care about is the **end-to-end QA accuracy (37.2%)** in Exp 5:
-retrieval recall on this dataset is nearly saturated — a plain BM25 baseline with no
-embeddings reaches 95% recall_any@5 — so the interesting signal is the gap between
+retrieval recall on this dataset is nearly saturated (a plain BM25 baseline with no
+embeddings reaches 95% recall_any@5), so the interesting signal is the gap between
 finding the right session and actually answering from it.
 
 ```bash
@@ -282,10 +282,10 @@ just longmemeval-select 2,4     # specific experiments
 | 4 | Staleness disambiguation | does freshness decay rank fresh content over stale versions |
 | 5 | LongMemEval QA | real end-to-end QA accuracy (retrieve → LLM → judge) |
 
-#### Vector retrieval recall (Exp 1) — with a BM25 reality check
+#### Vector retrieval recall (Exp 1), with a BM25 reality check
 
 Per question, an HNSW index is built from that question's ~48-session haystack and
-queried. **This is retrieval recall, not QA accuracy** — and with ~48 candidates per
+queried. **This is retrieval recall, not QA accuracy**, and with ~48 candidates per
 question it is a nearly saturated task, so the table includes a plain BM25 (Okapi,
 lexical, no embeddings) baseline run on the identical construct
 (`scripts/bm25_baseline.py`). Intervals are 95% Wilson (n=500); vector results are
@@ -299,13 +299,13 @@ committed in `docs/benchmarks/results.json`, BM25 in
 | recall_any@5 | 96.4% [94.4, 97.7] | 95.0% [92.7, 96.6] |
 | recall_any@10 | 98.2% [96.6, 99.1] | 96.8% [94.9, 98.0] |
 | MRR | 0.873 | 0.879 |
-| avg query | 9.7 ms (incl. embedding) | — |
+| avg query | 9.7 ms (incl. embedding) | n/a |
 
 The lenient recall_any@k barely separates the two systems (96.4% vs 95.0% @5,
 overlapping CIs, and BM25's MRR is nominally *higher*): almost any reasonable
 retriever finds *one* gold session in a 48-session haystack. Treat recall_any@5 as a
 sanity check, not a headline. The vector index earns its keep on the strict
-recall_all@k — every gold session in top-k — where it leads BM25 by +4.0 pp @5 and
+recall_all@k (every gold session in top-k), where it leads BM25 by +4.0 pp @5 and
 +5.0 pp @10. And retrieval at 96% does not mean answers at 96%: the end-to-end QA
 number below is the one that matters.
 
@@ -319,7 +319,7 @@ uv run scripts/bm25_baseline.py --dataset data/longmemeval_s_cleaned.json \
 > as `total_time_ms` (1,590,953 ms); the previously committed value timed the whole
 > loop. The recall numbers were reproduced exactly under the fix (96.4% / 84.8%).
 
-#### End-to-end QA accuracy (Exp 5) — "LongMemEval for real"
+#### End-to-end QA accuracy (Exp 5): "LongMemEval for real"
 
 Full pipeline: retrieve top-5 sessions → a reader LLM answers from the retrieved
 **transcripts** → an LLM judge scores against the gold answer.
@@ -338,7 +338,7 @@ was not rerun for the 2026-06-09 update and is unaffected by the retrieval-side 
 The retrieval-recall column was reproduced exactly by the 2026-06-09 rerun.
 Accuracy intervals are 95% Wilson, computed from the committed per-type counts in
 `docs/benchmarks/results.json`; both the judge script and the substring scorer now emit
-them on every run. The small-n rows are wide — single-session-preference at n=30 is
+them on every run. The small-n rows are wide: single-session-preference at n=30 is
 consistent with anything from 3.5% to 25.6%.
 
 | question type | accuracy | 95% CI | retrieval recall | n |
@@ -351,14 +351,14 @@ consistent with anything from 3.5% to 25.6%.
 | single-session-preference | 10.0% | [3.5, 25.6] | 96.7% | 30 |
 | **overall** | **37.2%** | **[33.1, 41.5]** | **96.4%** | **500** |
 
-Retrieval is strong everywhere (91–100%) — the gap to QA accuracy is the *reader's*
+Retrieval is strong everywhere (91–100%). The gap to QA accuracy is the *reader's*
 reasoning, not the *memory's* recall. Factual single-session recall is high (74–88%);
 single-session-assistant 87.5% is only possible because the QA pipeline now emits **full
-transcripts** (user + assistant turns) — it previously fed user-turns only, making
+transcripts** (user + assistant turns). It previously fed user-turns only, making
 assistant-sourced answers impossible. The hard categories are genuinely hard for a small
 reader: temporal date-arithmetic, multi-session synthesis, and preference (the last is
 largely an artifact of a factual-recall reader prompt that abstains rather than applying
-the remembered preference — recall there is 96.7%).
+the remembered preference; recall there is 96.7%).
 
 #### Latency scaling (Exp 2)
 
@@ -382,12 +382,12 @@ Query latency stays **sub-millisecond even at 10k documents** and scales sub-lin
 The scenario freshness decay exists for: the same content lives in the index in
 several versions over time (a codebase that changes often, superseded notes), the
 embedder cannot reliably separate them, and the *fresh* version should win. Per
-topic (a session with a single gold query, n=150), three versions are indexed —
+topic (a session with a single gold query, n=150), three versions are indexed:
 the original ("fresh", age 1 day) and two deterministically drifted variants
 (words dropped; ages 90/180 days). Both arms run the identical retrieve-20 →
 rerank path; the control assigns every version equal age, so the delta isolates
 the freshness signal itself. Success = the fresh version outranks both stale
-versions. (Version drift and ages are synthetic — a controlled demonstration of
+versions. (Version drift and ages are synthetic: a controlled demonstration of
 the mechanism on real content. Run 2026-07-11 on the `feat/remember-recall`
 branch, same hardware/embedder as above.)
 
@@ -398,18 +398,18 @@ branch, same hardware/embedder as above.)
 | **delta** | **+18.0 pp** |
 
 Without the freshness term, which version ranks first is cosine noise (31.3% ≈
-chance for 3 versions). With it, the fresh version wins half the time — and the
+chance for 3 versions). With it, the fresh version wins half the time, and the
 signal is strictly one-directional: 27/0 discordant pairs (27 queries corrected,
 none broken), exact McNemar p = 1.5e-8. The bonus (`0.2 · exp(-0.01 · age_days)`)
 loses only when drift happens to give a stale version a cosine edge larger than
-the normalised margin — by design, since freshness must break near-ties, not
+the normalised margin, by design, since freshness must break near-ties, not
 override semantics.
 
 This experiment replaced a Hebbian access-count reinforcement test after that
 mechanism measured **+0.0 pp** (0/0 discordant pairs, p = 1.0000, n=250): the
 reinforced and control arms retrieved identical top-5 sets for every query. (A
 previously published +9.4 pp was an artifact of comparing different query
-populations.) The old formula — `recency * ln(1 + access/age) * type_weight` —
+populations.) The old formula (`recency * ln(1 + access/age) * type_weight`)
 was also multiplicative in access frequency, so a never-accessed memory scored
 zero regardless of freshness. Access counts were removed from ranking entirely;
 they still protect memories from decay during consolidation.
@@ -417,20 +417,20 @@ they still protect memories from decay during consolidation.
 #### Storage & quantization (Exp 3)
 
 Raw vs TurboQuant (MSE) at 1–4 bits over 19,195 × 384-dim embeddings. Recall is the
-**global** retrieval setting (every query vs all sessions — far harder than the
+**global** retrieval setting (every query vs all sessions, far harder than the
 per-question haystack above, hence lower absolute numbers; the point is *degradation vs
 raw*).
 
 | storage | bytes/vector | total | compression | recall@5 | recall@10 | McNemar p vs raw (@5 / @10) | cosine distortion |
 |---|---|---|---|---|---|---|---|
-| raw f32 | 1536 B | 29.5 MB | 1.0× | 26.8% | 37.0% | — | 0 |
+| raw f32 | 1536 B | 29.5 MB | 1.0× | 26.8% | 37.0% | n/a | 0 |
 | 4-bit | 196 B | 3.76 MB | 7.8× | 27.0% | 36.8% | 1.000 / 1.000 | 0.0047 |
 | 3-bit | 148 B | 2.84 MB | 10.4× | 26.2% | 35.6% | 0.581 / 0.092 | 0.0173 |
 | 2-bit | 100 B | 1.92 MB | 15.4× | 26.0% | 34.6% | 0.523 / 0.017 | 0.0603 |
 | 1-bit | 52 B | 1.00 MB | 29.5× | 28.8% | 35.2% | 0.121 / 0.262 | 0.2017 |
 
 At 3–4 bits, cosine distortion is <0.02 and recall **matches the raw baseline within
-noise** (4-bit recall@10 36.8% vs raw 37.0%, exact McNemar p = 1.0 at both cutoffs) —
+noise** (4-bit recall@10 36.8% vs raw 37.0%, exact McNemar p = 1.0 at both cutoffs):
 **quantization is effectively lossless for retrieval at 8–10× compression**. The 1-bit
 recall@5 cell *exceeding* raw (28.8% vs 26.8%) is sampling noise, not signal: the paired
 exact McNemar test gives p = 0.121, and at n=500 the 95% Wilson intervals are raw
@@ -474,7 +474,7 @@ Run `just bench` (all) or `cargo bench -p mnemonist-core --features evals,ann,qu
 
 | Bit-width | MSE quantize | MSE dequantize | Prod quantize | Prod dequantize |
 |---|---|---|---|---|
-| 1-bit | 3.9 µs | 991 ns | — | — |
+| 1-bit | 3.9 µs | 991 ns | n/a | n/a |
 | 2-bit | 3.9 µs | 988 ns | 116 µs | 141 µs |
 | 3-bit | 3.9 µs | 997 ns | 115 µs | 111 µs |
 | 4-bit | 4.1 µs | 998 ns | 115 µs | 111 µs |
@@ -510,8 +510,8 @@ Run `just bench` (all) or `cargo bench -p mnemonist-core --features evals,ann,qu
 
 | Operation | 10 entries | 100 entries |
 |---|---|---|
-| `parse_line` | 73 ns | — |
-| `to_line` | 91 ns | — |
+| `parse_line` | 73 ns | n/a |
+| `to_line` | 91 ns | n/a |
 | `search` | 612 ns | 6.0 µs |
 | `upsert_new` | 549 ns | 4.7 µs |
 | `upsert_existing` | 508 ns | 4.5 µs |
@@ -523,7 +523,7 @@ Run `just bench` (all) or `cargo bench -p mnemonist-core --features evals,ann,qu
 | `anisotropy` | 15.8 µs | 73.0 µs | 40.9 µs |
 | `similarity_range` | 15.8 µs | 73.0 µs | 40.9 µs |
 | `mean_center` | 1.3 µs | 3.8 µs | 5.6 µs |
-| `discrimination_gap` | 16.0 µs | — | — |
+| `discrimination_gap` | 16.0 µs | n/a | n/a |
 
 > Measured on Apple Silicon (M4 Pro) with `cargo bench`. Run `just bench` to reproduce.
 > Raw results in [`docs/benchmarks/`](/docs/benchmarks/).
