@@ -36,21 +36,21 @@
 
 ## Features
 
-- **Cognitive CLI** — commands named after memory processes: `remember`, `recall`, `learn`, `consolidate`, `reflect`, `forget`
-- **Two-level memory** — project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`)
-- **Working memory inbox** — capacity-limited staging area (default 10 items) with attention scoring; items promoted to long-term memory via `consolidate`
-- **Memory metadata** — strength, access count, last accessed, source tracking; access history protects memories from decay, content freshness breaks ranking near-ties
-- **Plain markdown** with YAML frontmatter — human-readable, git-friendly
-- **Typed memories** — user, feedback, project, reference
-- **Local embedding** — `candle` crate with `all-MiniLM-L6-v2` (384-dim, CPU/CUDA); no external server needed; model downloads from HuggingFace Hub on first use
-- **Layered graph** — three HNSW layers: code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
-- **Pluggable code chunking** — `ChunkingStrategy` trait with built-in `ParagraphChunking` (blank-line boundaries) and `FixedLineChunking` (sliding window with overlap); no tree-sitter dependency
-- **Cross-layer recall** — `recall` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
-- **Consolidation** — `consolidate` promotes inbox items, decays stale memories, and re-embeds; auto-runs as a detached background job (`git gc --auto` style) on inbox pressure or staleness
-- **Fuzzy forget** — `forget` resolves partial and suffix matches so you don't need the full filename
-- **Embedding quality metrics** — `learn` reports anisotropy and similarity_range after indexing
-- **TurboQuant** — vector quantization (1-4 bit) available as a research/eval module (see the storage-footprint benchmark); not yet wired into `learn`/`recall`, which store full f32 embeddings
-- **JSON-first** — stdout for structured JSON, stderr for UX; pipe-friendly
+- **Cognitive CLI**: commands named after memory processes (`remember`, `recall`, `learn`, `consolidate`, `reflect`, `forget`)
+- **Two-level memory**: project (`~/.mnemonist/{project}/`) and global (`~/.mnemonist/global/`)
+- **Working memory inbox**: capacity-limited staging area (default 10 items) with attention scoring; items promoted to long-term memory via `consolidate`
+- **Memory metadata**: strength, access count, last accessed, source tracking; access history protects memories from decay, content freshness breaks ranking near-ties
+- **Plain markdown** with YAML frontmatter: human-readable, git-friendly
+- **Typed memories**: user, feedback, project, reference
+- **Local embedding**: `candle` crate with `all-MiniLM-L6-v2` (384-dim, CPU/CUDA); no external server needed; model downloads from HuggingFace Hub on first use
+- **Layered graph**: three HNSW layers for code (`.code-index.hnsw`), project memory (`.memory-index.hnsw`), and global memory; inter-layer edges via `refs` frontmatter field
+- **Pluggable code chunking**: `ChunkingStrategy` trait with built-in `ParagraphChunking` (blank-line boundaries) and `FixedLineChunking` (sliding window with overlap); no tree-sitter dependency
+- **Cross-layer recall**: `recall` searches memory and code indices in parallel with blended relevance scoring (semantic + temporal); follows `refs` edges to surface referenced code chunks
+- **Consolidation**: `consolidate` promotes inbox items, decays stale memories, and re-embeds; auto-runs as a detached background job (`git gc --auto` style) on inbox pressure or staleness
+- **Fuzzy forget**: `forget` resolves partial and suffix matches so you don't need the full filename
+- **Embedding quality metrics**: `learn` reports anisotropy and similarity_range after indexing
+- **TurboQuant**: vector quantization (1-4 bit) available as a research/eval module (see the storage-footprint benchmark); not yet wired into `learn`/`recall`, which store full f32 embeddings
+- **JSON-first**: stdout for structured JSON, stderr for UX; pipe-friendly
 - Works with Claude Code, Codex, Gemini, Copilot, Cursor, or any AI tool
 
 ## Install
@@ -63,10 +63,10 @@ curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | s
 
 ### Hardware acceleration
 
-Pre-built binaries run on CPU with pure Rust matmuls — functional, but large batch operations like `learn` are slower than accelerated builds. If you have a Rust toolchain, you can build from source with hardware acceleration:
+Pre-built binaries run on CPU with pure Rust matmuls. They work, but large batch operations like `learn` are slower than accelerated builds. If you have a Rust toolchain, you can build from source with hardware acceleration:
 
 ```bash
-# macOS — Apple's Accelerate BLAS (~2x faster embedding throughput)
+# macOS: Apple's Accelerate BLAS (~2x faster embedding throughput)
 cargo install mnemonist --features accelerate
 
 # Linux/Windows with an NVIDIA GPU
@@ -80,7 +80,7 @@ cargo install mnemonist --features cuda
 curl -fsSL https://raw.githubusercontent.com/urmzd/mnemonist/main/install.sh | sh
 # Or, if you have a Rust toolchain: cargo install mnemonist
 
-# 2. Ingest the codebase — auto-creates ~/.mnemonist/{project}/ and embeds source files
+# 2. Ingest the codebase (auto-creates ~/.mnemonist/{project}/ and embeds source files)
 mnemonist learn .
 
 # 3. Remember long-term knowledge
@@ -91,11 +91,11 @@ mnemonist remember "deep Go expertise, new to React" -t user
 mnemonist remember --defer "look into async runtime choices"
 mnemonist remember --defer "check Linear project INGEST for pipeline bugs"
 
-# 5. Consolidate — promote inbox to long-term memory, decay stale items, re-embed
+# 5. Consolidate: promote inbox to long-term memory, decay stale items, re-embed
 # (also runs automatically in the background when the inbox fills up)
 mnemonist consolidate
 
-# 6. Recall — semantic + text search across memories and code
+# 6. Recall: semantic + text search across memories and code
 mnemonist recall "rust async patterns"
 
 # 7. Review everything
@@ -137,10 +137,10 @@ Project memory takes precedence over global when they conflict.
 |---------|-------------|
 | `mnemonist remember "<point>" [-t type] [-n name]` | Commit a point to long-term memory (auto-embeds) |
 | `mnemonist remember --defer "<point>"` | Stage a quick thought in the working memory inbox; promoted by `consolidate` |
-| `mnemonist recall "<ask>" [--budget N] [--level both]` | Recall memories by cue — searches memory and code indices in parallel with blended relevance scoring, follows refs |
+| `mnemonist recall "<ask>" [--budget N] [--level both]` | Recall memories by cue. Searches memory and code indices in parallel with blended relevance scoring, follows refs |
 | `mnemonist learn [path] [--attend glob] [--capacity N]` | Ingest a codebase; chunks files with `ParagraphChunking`, embeds into `.code-index.hnsw`, reports quality metrics. `--attend` only indexes files matching this glob |
 | `mnemonist consolidate [--dry-run]` | Promote inbox items, decay stale memories, re-embed into `.memory-index.hnsw`. Auto-triggered in the background on inbox pressure/staleness |
-| `mnemonist reflect [--all] [--global]` | Introspect — review memories and inbox contents |
+| `mnemonist reflect [--all] [--global]` | Introspect: review memories and inbox contents |
 | `mnemonist forget <file>` | Deliberately forget a memory (supports fuzzy/suffix name matching) |
 | `mnemonist config init` | Create default config file |
 | `mnemonist config show` | Show current configuration |
@@ -162,9 +162,9 @@ The inbox is a capacity-limited staging area for working memory (default capacit
 
 `mnemonist consolidate` runs a sleep-like consolidation cycle:
 
-1. **Promote** — inbox items become long-term memories with type and strength
-2. **Decay** — memories not accessed within `consolidation.decay_days` (default 90) and below `protected_access_count` (default 5) are pruned
-3. **Re-embed** — all surviving memories are re-embedded for fresh semantic search
+1. **Promote**: inbox items become long-term memories with type and strength
+2. **Decay**: memories not accessed within `consolidation.decay_days` (default 90) and below `protected_access_count` (default 5) are pruned
+3. **Re-embed**: all surviving memories are re-embedded for fresh semantic search
 
 Use `--dry-run` to preview what would change.
 
@@ -182,7 +182,7 @@ Each memory file tracks cognitive metadata in its frontmatter:
 | `created_at` | When the memory was first created |
 | `source` | How it was created: `remember`, `learn`, `consolidation` |
 | `consolidated_from` | Original files if created via merge |
-| `refs` | Inter-layer edges — code chunk IDs or memory filenames this memory links to |
+| `refs` | Inter-layer edges: code chunk IDs or memory filenames this memory links to |
 
 ### Configuration
 
