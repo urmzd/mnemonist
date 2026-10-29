@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.1 (2026-10-29)
+
+### Bug Fixes
+
+- **deps**: patch vulnerable dependencies (#22) ([ae16396](https://github.com/urmzd/mnemonist/commit/ae16396035070cd3b10d4c37a00a27803fd546d9))
+
+### Misc
+
+- move benchmark results to benchmarks/results and the report to docs/reference (#21) ([9a9030f](https://github.com/urmzd/mnemonist/commit/9a9030f12681e3e79341949bc100865535df16b7))
+- **release**: read the sr-releaser key from the release environment (#18) ([bb01747](https://github.com/urmzd/mnemonist/commit/bb0174775e51c30895059495817a80b908a9fcc0))
+- **showcase**: sandbox the demo capture and re-record (#19) ([e567577](https://github.com/urmzd/mnemonist/commit/e5675776dceffb05ca6f17e4df9b34fdadb2f53a))
+- **scripts**: move QA and data generation to current models (#16) ([5cd29a9](https://github.com/urmzd/mnemonist/commit/5cd29a92f86d2414c085cd7f867b294f9f41a25d))
+- upgrade urmzd/sr action to v9 (#17) ([b4f74c1](https://github.com/urmzd/mnemonist/commit/b4f74c1dee04342c38eeab98abb17f3664ecb78b))
+
+[Full Changelog](https://github.com/urmzd/mnemonist/compare/v0.12.0...v0.12.1)
+
+
 ## 0.12.0 (2026-07-12)
 
 ### Features
