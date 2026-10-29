@@ -23,7 +23,7 @@ Intervals are 95% Wilson, matching the harness.
 Usage:
   uv run scripts/bm25_baseline.py \
       --dataset data/longmemeval_s_cleaned.json \
-      --out docs/benchmarks/bm25_baseline.json
+      --out benchmarks/results/bm25_baseline.json
 """
 
 from __future__ import annotations

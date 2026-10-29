@@ -56,8 +56,8 @@ queried. **This is retrieval recall, not QA accuracy**, and with ~48 candidates 
 question it is a nearly saturated task, so the table includes a plain BM25 (Okapi,
 lexical, no embeddings) baseline run on the identical construct
 (`scripts/bm25_baseline.py`). Intervals are 95% Wilson (n=500); vector results are
-committed in `docs/benchmarks/results.json`, BM25 in
-`docs/benchmarks/bm25_baseline.json`.
+committed in `benchmarks/results/results.json`, BM25 in
+`benchmarks/results/bm25_baseline.json`.
 
 | metric | vector (HNSW + MiniLM) | BM25 baseline |
 |---|---|---|
@@ -78,7 +78,7 @@ number below is the one that matters.
 
 ```bash
 uv run scripts/bm25_baseline.py --dataset data/longmemeval_s_cleaned.json \
-  --out docs/benchmarks/bm25_baseline.json
+  --out benchmarks/results/bm25_baseline.json
 ```
 
 > Timing scope (corrected 2026-06-09): `embed_time_ms` (1,583,789 ms) now measures
@@ -104,7 +104,7 @@ them.) Accuracy comes from the 2026-05 judged run at `f68c13a`; the LLM-judge pi
 was not rerun for the 2026-06-09 update and is unaffected by the retrieval-side fixes.
 The retrieval-recall column was reproduced exactly by the 2026-06-09 rerun.
 Accuracy intervals are 95% Wilson, computed from the committed per-type counts in
-`docs/benchmarks/results.json`; both the judge script and the substring scorer now emit
+`benchmarks/results/results.json`; both the judge script and the substring scorer now emit
 them on every run. The small-n rows are wide: single-session-preference at n=30 is
 consistent with anything from 3.5% to 25.6%.
 
@@ -293,4 +293,4 @@ Run `just bench` (all) or `cargo bench -p mnemonist-core --features evals,ann,qu
 | `discrimination_gap` | 16.0 µs | n/a | n/a |
 
 > Measured on Apple Silicon (M4 Pro) with `cargo bench`. Run `just bench` to reproduce.
-> Raw results in [`docs/benchmarks/`](/docs/benchmarks/).
+> Raw results in [`benchmarks/results/`](/benchmarks/results/).
