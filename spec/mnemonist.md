@@ -528,7 +528,7 @@ Binary format `LMCQ` with header (magic + version + dimension + count + bit-widt
 
 ### 12.3 Status
 
-TurboQuant is a research/eval module: it is benchmarked (see `docs/benchmarks.md`)
+TurboQuant is a research/eval module: it is benchmarked (see `docs/reference/benchmarks.md`)
 but not wired into `learn`/`recall`, which store full f32 vectors. It therefore
 exposes no configuration keys.
 
