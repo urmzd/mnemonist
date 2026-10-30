@@ -23,6 +23,11 @@
   <img src="showcase/mnemonist-demo.gif" alt="mnemonist demo" width="760">
 </p>
 
+> [!WARNING]
+> **This project is archived and no longer maintained.** Its retrieval, knowledge-graph and agent-memory work continues in [**saige**](https://github.com/urmzd/saige), which offers hybrid vector and keyword search, reranking, a knowledge graph and durable agent memory.
+>
+> For lighter needs there are simpler ways to get the same result: most coding agents already read memory from plain markdown files (`AGENTS.md`, `CLAUDE.md`), and lexical search (grep or BM25) plus the agent itself covers most recall without an embedding index. Existing releases stay available but will receive no fixes.
+
 ## Contents
 
 - [Features](#features)
